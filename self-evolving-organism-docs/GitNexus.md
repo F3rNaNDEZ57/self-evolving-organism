@@ -26,11 +26,11 @@ updated: 2026-07-11
 |--------|------:|
 | Indexed | 2026-07-11 (refreshed after origin history) |
 | Commit | `92b869b` then re-analyze post-evolve work |
-| Symbols / nodes | **1,247** |
-| Edges | **2,066** |
-| Clusters | 18 |
-| Flows / processes | **102** |
-| Status | ✅ up-to-date (`npx gitnexus analyze` after evolve) |
+| Symbols / nodes | **1,338** |
+| Edges | **2,266** |
+| Clusters | 16 |
+| Flows / processes | **117** |
+| Status | ✅ up-to-date (`npx gitnexus analyze` after Docker isolation) |
 
 ---
 
