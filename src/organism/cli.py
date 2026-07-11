@@ -527,6 +527,11 @@ def weights_train(
     genome_id: str = typer.Option("g_seed", help="Genome id label"),
     label: str = typer.Option("", help="Optional checkpoint label"),
     ablation: str = typer.Option("Bw", help="Bw or Bcw"),
+    keep_if_beats_b0: bool = typer.Option(
+        False,
+        "--keep-if-beats-b0/--always-keep",
+        help="Only update latest/best if holdout Bw beats B0",
+    ),
 ) -> None:
     """Train phenotype weights and save checkpoint under artifacts/weights/."""
     from organism.checkpoints import train_and_checkpoint
@@ -536,6 +541,7 @@ def weights_train(
     artifacts = resolve_path(exp.get("paths", {}).get("artifacts_dir", "artifacts"))
     db = resolve_path(exp.get("paths", {}).get("db_path", "artifacts/seo.sqlite"))
     seeds = list(exp.get("eval", {}).get("train_seeds", list(range(8))))
+    holdout = list(exp.get("eval", {}).get("holdout_seeds", list(range(8, 16))))
     genome_dir, gid = resolve_parent_genome(exp)
     if genome_id != "g_seed":
         gid = genome_id
@@ -553,6 +559,8 @@ def weights_train(
         label=label or f"{gid}-p{passes}",
         fit_cfg=fit,
         eval_seeds=seeds,
+        holdout_seeds=holdout if keep_if_beats_b0 else None,
+        keep_if_beats_b0=keep_if_beats_b0,
     )
     store = Store(db)
     store.insert_weight_checkpoint(
@@ -584,6 +592,69 @@ def weights_train(
     )
     table.add_row("label", meta.label)
     console.print(table)
+    # surface discard diagnostics if present
+    side = Path(meta.path).with_suffix(".json")
+    if side.exists():
+        try:
+            side_d = json.loads(side.read_text(encoding="utf-8"))
+            if side_d.get("discarded_for_eval"):
+                console.print(
+                    f"[yellow]Not promoted to latest/best:[/yellow] "
+                    f"{side_d.get('discard_reason')}"
+                )
+            elif "holdout_delta_bw_minus_b0" in side_d:
+                console.print(
+                    f"[dim]holdout Bw-B0={side_d['holdout_delta_bw_minus_b0']:+.4f}[/dim]"
+                )
+        except Exception:
+            pass
+
+
+@weights_app.command("diagnose")
+def weights_diagnose_cmd(
+    weights: str = typer.Option("latest", help="Checkpoint id/path/latest/best"),
+    margin: float = typer.Option(0.05, help="Min holdout gain to recommend USE weights"),
+) -> None:
+    """Diagnose whether a checkpoint beats B0 on train + holdout; write recommendation."""
+    from organism.checkpoints import resolve_checkpoint_path
+    from organism.mutation import resolve_parent_genome
+    from organism.weights_diagnose import diagnose_weights
+
+    exp, world, fit, wcfg = _load_cfgs()
+    artifacts = resolve_path(exp.get("paths", {}).get("artifacts_dir", "artifacts"))
+    train_seeds = list(exp.get("eval", {}).get("train_seeds", list(range(8))))
+    holdout = list(exp.get("eval", {}).get("holdout_seeds", list(range(8, 16))))
+    genome_dir, gid = resolve_parent_genome(exp)
+    wpath = resolve_checkpoint_path(artifacts, weights)
+    report = diagnose_weights(
+        genome_dir=genome_dir,
+        genome_id=gid,
+        world=world,
+        fit=fit,
+        wcfg=wcfg,
+        train_seeds=train_seeds,
+        holdout_seeds=holdout,
+        weight_path=wpath,
+        artifacts_dir=artifacts,
+        margin=margin,
+    )
+    table = Table(title=f"Weights diagnose {report.run_id}")
+    table.add_column("field")
+    table.add_column("value")
+    table.add_row("genome", report.genome_id)
+    table.add_row("checkpoint", report.checkpoint_path)
+    table.add_row("B0 train / Bw train", f"{report.b0_train:.4f} / {report.bw_train:.4f}")
+    table.add_row(
+        "B0 holdout / Bw holdout",
+        f"{report.b0_holdout:.4f} / {report.bw_holdout:.4f}",
+    )
+    table.add_row("delta train", f"{report.delta_train:+.4f}")
+    table.add_row("delta holdout", f"{report.delta_holdout:+.4f}")
+    table.add_row("recommend_use_weights", str(report.recommend_use_weights))
+    table.add_row("recommend_retrain", str(report.recommend_retrain))
+    console.print(table)
+    console.print(f"[cyan]{report.recommendation}[/cyan]")
+    console.print("[dim]Report: artifacts/last_weights_diagnose.json[/dim]")
 
 
 @weights_app.command("holdout")

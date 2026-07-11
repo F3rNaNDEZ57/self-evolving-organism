@@ -90,13 +90,15 @@ def save_checkpoint(
     episodes_trained: int = 0,
     weight_cfg: WeightConfig | None = None,
     checkpoint_id: str | None = None,
+    update_latest_best: bool = True,
 ) -> CheckpointMeta:
     """
     Write:
       artifacts/weights/{id}.npz
       artifacts/weights/{id}.json   (sidecar metadata)
-    Update:
+    Update (if update_latest_best):
       artifacts/weights/latest.json
+      artifacts/weights/best.json
       artifacts/weights/index.jsonl
     """
     cid = checkpoint_id or f"w_{_uid()}"
@@ -144,26 +146,27 @@ def save_checkpoint(
         "genome_id": genome_id,
         "updated_at": meta.created_at,
     }
-    (root / "latest.json").write_text(json.dumps(latest, indent=2), encoding="utf-8")
+    if update_latest_best:
+        (root / "latest.json").write_text(json.dumps(latest, indent=2), encoding="utf-8")
 
-    # best by train_fitness if present
-    best_path = root / "best.json"
-    should_write_best = True
-    if best_path.exists() and train_fitness is not None:
-        try:
-            prev = json.loads(best_path.read_text(encoding="utf-8"))
-            prev_f = prev.get("train_fitness")
-            if prev_f is not None and float(prev_f) >= float(train_fitness):
-                should_write_best = False
-        except Exception:
-            pass
-    if should_write_best and train_fitness is not None:
-        best_path.write_text(
-            json.dumps({**latest, "train_fitness": train_fitness}, indent=2),
-            encoding="utf-8",
-        )
-    elif not best_path.exists():
-        best_path.write_text(json.dumps(latest, indent=2), encoding="utf-8")
+        # best by train_fitness if present
+        best_path = root / "best.json"
+        should_write_best = True
+        if best_path.exists() and train_fitness is not None:
+            try:
+                prev = json.loads(best_path.read_text(encoding="utf-8"))
+                prev_f = prev.get("train_fitness")
+                if prev_f is not None and float(prev_f) >= float(train_fitness):
+                    should_write_best = False
+            except Exception:
+                pass
+        if should_write_best and train_fitness is not None:
+            best_path.write_text(
+                json.dumps({**latest, "train_fitness": train_fitness}, indent=2),
+                encoding="utf-8",
+            )
+        elif not best_path.exists():
+            best_path.write_text(json.dumps(latest, indent=2), encoding="utf-8")
 
     index_path = root / "index.jsonl"
     with index_path.open("a", encoding="utf-8") as f:
@@ -316,10 +319,17 @@ def train_and_checkpoint(
     label: str = "",
     fit_cfg=None,
     eval_seeds: list[int] | None = None,
+    holdout_seeds: list[int] | None = None,
+    keep_if_beats_b0: bool = False,
+    b0_margin: float = 0.0,
 ) -> CheckpointMeta:
     """
     Train scorer: optional heuristic BC bootstrap → REINFORCE passes → checkpoint.
     Bootstrap prevents random-init weights from erasing competent seed behavior.
+
+    If keep_if_beats_b0 and holdout_seeds+fit_cfg provided: after training, compare
+    holdout Bw vs B0; if Bw does not beat B0+margin, still save checkpoint but set
+    meta["discarded_for_eval"]=True and do not update latest/best pointers.
     """
     from organism.evaluator import evaluate, run_episode
     from organism.genome_loader import make_policy_factory
@@ -396,7 +406,56 @@ def train_and_checkpoint(
     scorer.baseline = best_baseline
     train_fitness = best_fit if best_fit is not None else _train_fit_snapshot()
 
-    return save_checkpoint(
+    update_pointers = True
+    extra_meta: dict[str, Any] = {}
+    if keep_if_beats_b0 and fit_cfg is not None and holdout_seeds:
+        from organism.sandbox import evaluate_genome
+        from organism.sandbox import SandboxConfig
+
+        tmp = weights_root(artifacts_dir) / "_tmp_holdout.npz"
+        scorer.save(tmp)
+        sb = SandboxConfig(mode="host", episode_isolation=False, require_docker=False)
+        b0 = evaluate_genome(
+            genome_dir,
+            world=world,
+            fit=fit_cfg,
+            wcfg=wcfg,
+            seeds=list(holdout_seeds),
+            ablation="B0",
+            sandbox=sb,
+            train_weights=False,
+            force_host=True,
+            best_of_phenotype=False,
+        )
+        bw = evaluate_genome(
+            genome_dir,
+            world=world,
+            fit=fit_cfg,
+            wcfg=wcfg,
+            seeds=list(holdout_seeds),
+            ablation="Bw",
+            sandbox=sb,
+            train_weights=False,
+            weight_path=tmp,
+            force_host=True,
+            best_of_phenotype=False,
+        )
+        try:
+            tmp.unlink(missing_ok=True)
+        except Exception:
+            pass
+        delta = float(bw.fitness) - float(b0.fitness)
+        extra_meta["holdout_b0"] = float(b0.fitness)
+        extra_meta["holdout_bw"] = float(bw.fitness)
+        extra_meta["holdout_delta_bw_minus_b0"] = delta
+        if delta <= float(b0_margin):
+            update_pointers = False
+            extra_meta["discarded_for_eval"] = True
+            extra_meta["discard_reason"] = (
+                f"holdout Bw-B0={delta:+.4f} <= margin {b0_margin}"
+            )
+
+    meta = save_checkpoint(
         scorer,
         artifacts_dir=artifacts_dir,
         genome_id=genome_id,
@@ -405,4 +464,19 @@ def train_and_checkpoint(
         train_fitness=train_fitness,
         episodes_trained=episodes,
         weight_cfg=wcfg,
+        update_latest_best=update_pointers,
     )
+    if extra_meta:
+        # merge diagnostics into sidecar
+        import json
+
+        side = Path(meta.path).with_suffix(".json")
+        try:
+            data = json.loads(side.read_text(encoding="utf-8")) if side.exists() else {}
+            data.update(extra_meta)
+            data["update_latest_best"] = update_pointers
+            side.write_text(json.dumps(data, indent=2), encoding="utf-8")
+            meta.holdout_fitness = extra_meta.get("holdout_bw")
+        except Exception:
+            pass
+    return meta
