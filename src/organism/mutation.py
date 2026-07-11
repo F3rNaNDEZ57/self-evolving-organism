@@ -1,0 +1,550 @@
+"""Genomic mutation: propose (NIM) → apply → validate → eval → accept/reject."""
+
+from __future__ import annotations
+
+import json
+import re
+import shutil
+import time
+import uuid
+from dataclasses import asdict, dataclass, field
+from pathlib import Path
+from typing import Any
+
+from organism.config import resolve_path
+from organism.evaluator import EvalResult, FitnessConfig, episode_score, evaluate, run_episode
+from organism.genome_loader import WHITELIST, copy_genome, make_policy_factory
+from organism.nim_client import NimClient
+from organism.persistence import Store
+from organism.validate import GenomeValidationError, assert_valid_genome, validate_genome_dir
+from organism.weights import WeightConfig
+from organism.world import WorldConfig
+
+MUTATION_SYSTEM = """You are the mutation coder for a self-evolving digital organism on a 24x24 grid.
+You may ONLY change whitelist modules: policy.py, heuristics.py, memory_hooks.py.
+
+Rules:
+- Improve food collection and survival.
+- Do NOT import os, sys, subprocess, socket, pathlib, shutil, or use eval/exec/open.
+- Allowed: random, math, typing, numpy, organism.schemas, organism.weights, and sibling modules.
+- policy.py MUST define class Policy with methods: reset(seed), act(observation), on_step_result(result).
+- Keep total changes small (prefer under 80 new/changed lines of logic).
+
+Respond with ONLY a JSON object (no markdown fences) of this shape:
+{
+  "rationale": "one short paragraph",
+  "files": {
+    "heuristics.py": "full file source if changed, else omit key",
+    "policy.py": "full file source if changed, else omit key",
+    "memory_hooks.py": "full file source if changed, else omit key"
+  }
+}
+Include at least one file. Provide COMPLETE file contents for each included key (not a diff).
+"""
+
+
+@dataclass
+class MutationResult:
+    mutation_id: str
+    parent_genome_id: str
+    candidate_genome_id: str
+    decision: str  # accepted | rejected | failed
+    reason: str
+    parent_fitness: float
+    candidate_fitness: float | None
+    epsilon: float
+    parent_path: str
+    candidate_path: str
+    model: str
+    rationale: str = ""
+    proposal_raw: str = ""
+    files_changed: list[str] = field(default_factory=list)
+    meta: dict[str, Any] = field(default_factory=dict)
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+def _uid(prefix: str = "m") -> str:
+    return f"{prefix}_{uuid.uuid4().hex[:10]}"
+
+
+def extract_files_from_proposal(text: str) -> dict[str, str]:
+    """Parse LLM proposal into {filename: source}."""
+    text = text.strip()
+    # Strip markdown fences wrapping whole JSON
+    fence = re.match(r"^```(?:json)?\s*([\s\S]*?)```\s*$", text)
+    if fence:
+        text = fence.group(1).strip()
+
+    # Prefer JSON
+    try:
+        data = json.loads(text)
+        files = data.get("files") or {}
+        out = {}
+        for k, v in files.items():
+            name = Path(str(k)).name
+            if name in WHITELIST and isinstance(v, str) and v.strip():
+                out[name] = v
+        if out:
+            return out
+    except json.JSONDecodeError:
+        pass
+
+    # Find JSON object substring
+    start, end = text.find("{"), text.rfind("}")
+    if start != -1 and end > start:
+        try:
+            data = json.loads(text[start : end + 1])
+            files = data.get("files") or {}
+            out = {}
+            for k, v in files.items():
+                name = Path(str(k)).name
+                if name in WHITELIST and isinstance(v, str) and v.strip():
+                    out[name] = v
+            if out:
+                return out
+        except json.JSONDecodeError:
+            pass
+
+    # Markdown: ### file.py or **file.py** then ```python
+    out = {}
+    pattern = re.compile(
+        r"(?:^|\n)(?:#{1,3}\s*|[*]{0,2})(policy|heuristics|memory_hooks)\.py(?:[*]{0,2})?\s*\n```(?:python)?\n([\s\S]*?)```",
+        re.IGNORECASE,
+    )
+    for m in pattern.finditer(text):
+        name = f"{m.group(1).lower()}.py"
+        if name in WHITELIST:
+            out[name] = m.group(2).strip() + "\n"
+    return out
+
+
+def extract_rationale(text: str) -> str:
+    try:
+        data = json.loads(text.strip().removeprefix("```json").removeprefix("```").removesuffix("```").strip())
+        if isinstance(data, dict) and data.get("rationale"):
+            return str(data["rationale"])
+    except Exception:
+        pass
+    start, end = text.find("{"), text.rfind("}")
+    if start != -1 and end > start:
+        try:
+            data = json.loads(text[start : end + 1])
+            if isinstance(data, dict) and data.get("rationale"):
+                return str(data["rationale"])
+        except Exception:
+            pass
+    return ""
+
+
+def apply_files(parent_dir: Path, candidate_dir: Path, files: dict[str, str]) -> list[str]:
+    """Copy parent genome then overwrite whitelist files from proposal."""
+    if candidate_dir.exists():
+        shutil.rmtree(candidate_dir)
+    copy_genome(parent_dir, candidate_dir)
+    changed: list[str] = []
+    for name, source in files.items():
+        if name not in WHITELIST:
+            continue
+        # normalize newlines
+        src = source.replace("\r\n", "\n")
+        if not src.endswith("\n"):
+            src += "\n"
+        (candidate_dir / name).write_text(src, encoding="utf-8")
+        changed.append(name)
+    if not changed:
+        raise ValueError("proposal contained no whitelist file changes")
+    return changed
+
+
+def propose_policy_patch(
+    genome_dir: Path,
+    episode_summaries: list[dict[str, Any]],
+    *,
+    client: NimClient | None = None,
+    parent_fitness: float | None = None,
+) -> dict[str, Any]:
+    client = client or NimClient()
+    sources = []
+    for name in WHITELIST:
+        p = genome_dir / name
+        if p.exists():
+            sources.append(f"### {name}\n```python\n{p.read_text(encoding='utf-8')[:5000]}\n```")
+    fit_line = f"Parent fitness (train seeds): {parent_fitness:.4f}\n" if parent_fitness is not None else ""
+    user = (
+        f"{fit_line}"
+        "Improve survival and food collection. Return JSON with full file sources for changed modules only.\n"
+        f"Recent episode summaries: {json.dumps(episode_summaries[:8])}\n\n"
+        + "\n\n".join(sources)
+    )
+    model = client.cfg["models"]["coder_primary"]
+    try:
+        text = client.chat(
+            [
+                {"role": "system", "content": MUTATION_SYSTEM},
+                {"role": "user", "content": user},
+            ],
+            model=model,
+            max_tokens=4096,
+            temperature=0.2,
+        )
+    except Exception:
+        # fallback model
+        model = client.cfg["models"].get("coder_fallback", model)
+        text = client.chat(
+            [
+                {"role": "system", "content": MUTATION_SYSTEM},
+                {"role": "user", "content": user},
+            ],
+            model=model,
+            max_tokens=4096,
+            temperature=0.2,
+        )
+    files = extract_files_from_proposal(text)
+    return {
+        "model": model,
+        "proposal": text,
+        "rationale": extract_rationale(text),
+        "files": files,
+        "applied": False,
+    }
+
+
+def _episode_context(
+    genome_dir: Path,
+    world: WorldConfig,
+    fit: FitnessConfig,
+    wcfg: WeightConfig,
+    ablation: str,
+    seeds: list[int],
+) -> list[dict[str, Any]]:
+    factory = make_policy_factory(genome_dir, ablation=ablation, weight_cfg=wcfg)
+    train = ablation in ("Bw", "Bcw")
+    out = []
+    for s in seeds[:4]:
+        ep = run_episode(factory(), world, s, train_weights=train)
+        ep.score = episode_score(ep, fit)
+        out.append(
+            {
+                "seed": ep.seed,
+                "score": round(ep.score, 4),
+                "food": ep.food_collected,
+                "ticks": ep.ticks_survived,
+                "death": ep.death_reason,
+            }
+        )
+    return out
+
+
+def _eval_genome(
+    genome_dir: Path,
+    world: WorldConfig,
+    fit: FitnessConfig,
+    wcfg: WeightConfig,
+    seeds: list[int],
+    ablation: str,
+) -> EvalResult:
+    factory = make_policy_factory(genome_dir, ablation=ablation, weight_cfg=wcfg)
+    train = ablation in ("Bw", "Bcw")
+    return evaluate(factory, world, fit, seeds, train_weights=train)
+
+
+def run_mutation_cycle(
+    *,
+    parent_dir: Path,
+    artifacts_dir: Path,
+    store: Store,
+    world: WorldConfig,
+    fit: FitnessConfig,
+    wcfg: WeightConfig,
+    train_seeds: list[int],
+    ablation: str = "Bc",
+    parent_genome_id: str = "g_seed",
+    client: NimClient | None = None,
+    dry_run: bool = False,
+    proposal_override: dict[str, Any] | None = None,
+) -> MutationResult:
+    """
+    Full loop: eval parent → NIM propose → apply → validate → eval candidate → accept/reject.
+    """
+    parent_dir = Path(parent_dir)
+    artifacts_dir = Path(artifacts_dir)
+    artifacts_dir.mkdir(parents=True, exist_ok=True)
+    mut_id = _uid("m")
+    cand_id = _uid("g")
+    epsilon = float(fit.epsilon_accept)
+
+    # 1) Parent fitness
+    parent_eval = _eval_genome(parent_dir, world, fit, wcfg, train_seeds, ablation)
+    store.insert_evaluation(
+        parent_genome_id,
+        parent_eval.fitness,
+        parent_eval.mean_score,
+        parent_eval.std_score,
+        parent_eval.seeds,
+        parent_eval.episodes,
+    )
+    store.log_event(
+        "mutation_parent_eval",
+        {"mutation_id": mut_id, "genome_id": parent_genome_id, "fitness": parent_eval.fitness},
+    )
+
+    summaries = _episode_context(parent_dir, world, fit, wcfg, ablation, train_seeds)
+
+    # 2) Propose
+    if proposal_override is not None:
+        proposal = proposal_override
+        model = str(proposal.get("model", "override"))
+    else:
+        if dry_run:
+            # deterministic tiny improvement proposal for offline tests
+            heur = (parent_dir / "heuristics.py").read_text(encoding="utf-8")
+            # bump forage aggressiveness comment-only if needed — use full file with slight logic tweak
+            if "return float(grid[v, v]) > 0" in heur:
+                heur2 = heur.replace(
+                    "return float(grid[v, v]) > 0",
+                    "return float(grid[v, v]) > 0  # forage when standing on food",
+                )
+            else:
+                heur2 = heur
+            # Improve policy: more deterministic food chase
+            pol = (parent_dir / "policy.py").read_text(encoding="utf-8")
+            pol2 = pol.replace("self.rng.random() < 0.7", "self.rng.random() < 0.95")
+            pol2 = pol2.replace("self.rng.random() < 0.85", "self.rng.random() < 0.98")
+            proposal = {
+                "model": "dry_run",
+                "proposal": json.dumps(
+                    {
+                        "rationale": "dry-run: greedier food chase",
+                        "files": {"policy.py": pol2, "heuristics.py": heur2},
+                    }
+                ),
+                "rationale": "dry-run: greedier food chase",
+                "files": {"policy.py": pol2, "heuristics.py": heur2},
+            }
+            model = "dry_run"
+        else:
+            client = client or NimClient()
+            proposal = propose_policy_patch(
+                parent_dir, summaries, client=client, parent_fitness=parent_eval.fitness
+            )
+            model = str(proposal.get("model", ""))
+
+    files = proposal.get("files") or extract_files_from_proposal(str(proposal.get("proposal", "")))
+    rationale = str(proposal.get("rationale") or extract_rationale(str(proposal.get("proposal", ""))))
+
+    cand_path = artifacts_dir / "genomes" / cand_id
+    try:
+        if not files:
+            raise ValueError("could not parse any whitelist files from model proposal")
+        changed = apply_files(parent_dir, cand_path, files)
+        assert_valid_genome(cand_path)
+    except Exception as e:
+        reason = f"apply/validate failed: {e}"
+        store.insert_mutation(
+            mut_id,
+            parent_genome_id,
+            cand_id,
+            "failed",
+            reason,
+            {
+                "model": model,
+                "rationale": rationale,
+                "proposal": str(proposal.get("proposal", ""))[:8000],
+            },
+        )
+        store.log_event("mutation_failed", {"mutation_id": mut_id, "reason": reason})
+        # keep failed candidate for inspection if partial
+        return MutationResult(
+            mutation_id=mut_id,
+            parent_genome_id=parent_genome_id,
+            candidate_genome_id=cand_id,
+            decision="failed",
+            reason=reason,
+            parent_fitness=parent_eval.fitness,
+            candidate_fitness=None,
+            epsilon=epsilon,
+            parent_path=str(parent_dir),
+            candidate_path=str(cand_path),
+            model=model,
+            rationale=rationale,
+            proposal_raw=str(proposal.get("proposal", ""))[:8000],
+            files_changed=list(files.keys()) if isinstance(files, dict) else [],
+        )
+
+    # 3) Evaluate candidate
+    try:
+        cand_eval = _eval_genome(cand_path, world, fit, wcfg, train_seeds, ablation)
+    except Exception as e:
+        reason = f"candidate crashed during eval: {e}"
+        store.insert_genome(
+            genome_id=cand_id,
+            parent_id=parent_genome_id,
+            status="crashed",
+            ablation=ablation,
+            artifact_path=str(cand_path),
+        )
+        store.insert_mutation(
+            mut_id,
+            parent_genome_id,
+            cand_id,
+            "failed",
+            reason,
+            {"model": model, "rationale": rationale},
+        )
+        store.log_event("mutation_failed", {"mutation_id": mut_id, "reason": reason})
+        return MutationResult(
+            mutation_id=mut_id,
+            parent_genome_id=parent_genome_id,
+            candidate_genome_id=cand_id,
+            decision="failed",
+            reason=reason,
+            parent_fitness=parent_eval.fitness,
+            candidate_fitness=None,
+            epsilon=epsilon,
+            parent_path=str(parent_dir),
+            candidate_path=str(cand_path),
+            model=model,
+            rationale=rationale,
+            proposal_raw=str(proposal.get("proposal", ""))[:8000],
+            files_changed=changed,
+        )
+
+    store.insert_genome(
+        genome_id=cand_id,
+        parent_id=parent_genome_id,
+        status="candidate",
+        ablation=ablation,
+        artifact_path=str(cand_path),
+    )
+    store.insert_evaluation(
+        cand_id,
+        cand_eval.fitness,
+        cand_eval.mean_score,
+        cand_eval.std_score,
+        cand_eval.seeds,
+        cand_eval.episodes,
+    )
+
+    # 4) Accept / reject
+    threshold = parent_eval.fitness + epsilon
+    if cand_eval.fitness >= threshold:
+        decision = "accepted"
+        reason = (
+            f"fitness {cand_eval.fitness:.4f} >= parent {parent_eval.fitness:.4f} + ε {epsilon}"
+        )
+        store.set_genome_status(parent_genome_id, "archived")
+        store.set_genome_status(cand_id, "active")
+        # promote: write active pointer
+        active = artifacts_dir / "active_genome.json"
+        active.write_text(
+            json.dumps(
+                {
+                    "genome_id": cand_id,
+                    "path": str(cand_path),
+                    "parent_id": parent_genome_id,
+                    "fitness": cand_eval.fitness,
+                    "updated_at": time.time(),
+                },
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
+        # also mirror to artifacts/genomes/active
+        active_dir = artifacts_dir / "genomes" / "active"
+        if active_dir.exists():
+            shutil.rmtree(active_dir)
+        copy_genome(cand_path, active_dir)
+    else:
+        decision = "rejected"
+        reason = (
+            f"fitness {cand_eval.fitness:.4f} < parent {parent_eval.fitness:.4f} + ε {epsilon}"
+        )
+        store.set_genome_status(cand_id, "rejected")
+
+    store.insert_mutation(
+        mut_id,
+        parent_genome_id,
+        cand_id,
+        decision,
+        reason,
+        {
+            "model": model,
+            "rationale": rationale,
+            "files_changed": changed,
+            "parent_fitness": parent_eval.fitness,
+            "candidate_fitness": cand_eval.fitness,
+            "epsilon": epsilon,
+            "proposal": str(proposal.get("proposal", ""))[:8000],
+        },
+    )
+    store.log_event(
+        f"mutation_{decision}",
+        {
+            "mutation_id": mut_id,
+            "parent": parent_genome_id,
+            "candidate": cand_id,
+            "parent_fitness": parent_eval.fitness,
+            "candidate_fitness": cand_eval.fitness,
+            "reason": reason,
+        },
+    )
+
+    # save proposal artifact
+    prop_path = artifacts_dir / "mutations" / f"{mut_id}.json"
+    prop_path.parent.mkdir(parents=True, exist_ok=True)
+    prop_path.write_text(
+        json.dumps(
+            {
+                "mutation_id": mut_id,
+                "decision": decision,
+                "reason": reason,
+                "model": model,
+                "rationale": rationale,
+                "files_changed": changed,
+                "parent_fitness": parent_eval.fitness,
+                "candidate_fitness": cand_eval.fitness,
+                "proposal": proposal.get("proposal"),
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+
+    return MutationResult(
+        mutation_id=mut_id,
+        parent_genome_id=parent_genome_id,
+        candidate_genome_id=cand_id,
+        decision=decision,
+        reason=reason,
+        parent_fitness=parent_eval.fitness,
+        candidate_fitness=cand_eval.fitness,
+        epsilon=epsilon,
+        parent_path=str(parent_dir),
+        candidate_path=str(cand_path),
+        model=model,
+        rationale=rationale,
+        proposal_raw=str(proposal.get("proposal", ""))[:8000],
+        files_changed=changed,
+        meta={"proposal_path": str(prop_path)},
+    )
+
+
+def resolve_parent_genome(exp: dict[str, Any]) -> tuple[Path, str]:
+    """Return (path, genome_id) for current active or seed genome."""
+    artifacts = resolve_path(exp.get("paths", {}).get("artifacts_dir", "artifacts"))
+    active_json = artifacts / "active_genome.json"
+    if active_json.exists():
+        data = json.loads(active_json.read_text(encoding="utf-8"))
+        path = Path(data["path"])
+        if path.exists():
+            return path, str(data.get("genome_id", "g_active"))
+    active_dir = artifacts / "genomes" / "active"
+    if active_dir.exists() and (active_dir / "policy.py").exists():
+        return active_dir, "g_active"
+    seed_art = artifacts / "genomes" / "seed"
+    if seed_art.exists() and (seed_art / "policy.py").exists():
+        return seed_art, "g_seed"
+    seed = resolve_path(exp.get("paths", {}).get("seed_genome", "genomes/seed"))
+    return seed, "g_seed"
