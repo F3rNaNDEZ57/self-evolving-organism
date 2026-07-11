@@ -219,6 +219,7 @@ def _episode_context(
     ablation: str,
     seeds: list[int],
 ) -> list[dict[str, Any]]:
+    # Context for prompts stays host-side (trusted parent summaries; cheap).
     factory = make_policy_factory(genome_dir, ablation=ablation, weight_cfg=wcfg)
     train = ablation in ("Bw", "Bcw")
     out = []
@@ -244,10 +245,30 @@ def _eval_genome(
     wcfg: WeightConfig,
     seeds: list[int],
     ablation: str,
+    *,
+    sandbox_cfg: Any | None = None,
+    force_host: bool = False,
+    force_docker: bool = False,
+    weight_path: Path | None = None,
 ) -> EvalResult:
-    factory = make_policy_factory(genome_dir, ablation=ablation, weight_cfg=wcfg)
-    train = ablation in ("Bw", "Bcw")
-    return evaluate(factory, world, fit, seeds, train_weights=train)
+    from organism.sandbox import SandboxConfig, evaluate_genome
+
+    train = ablation in ("Bw", "Bcw") and weight_path is None
+    # When isolating candidates we still allow host for unit tests via force_host.
+    sb = sandbox_cfg if sandbox_cfg is not None else SandboxConfig()
+    return evaluate_genome(
+        genome_dir,
+        world=world,
+        fit=fit,
+        wcfg=wcfg,
+        seeds=seeds,
+        ablation=ablation,
+        sandbox=sb,
+        train_weights=train,
+        weight_path=weight_path,
+        force_host=force_host,
+        force_docker=force_docker,
+    )
 
 
 def run_mutation_cycle(
@@ -264,19 +285,39 @@ def run_mutation_cycle(
     client: NimClient | None = None,
     dry_run: bool = False,
     proposal_override: dict[str, Any] | None = None,
+    sandbox_cfg: Any | None = None,
+    force_host_eval: bool = False,
 ) -> MutationResult:
     """
     Full loop: eval parent → NIM propose → apply → validate → eval candidate → accept/reject.
+    Candidate eval uses Docker episode isolation when sandbox.episode_isolation is true.
     """
+    from organism.sandbox import SandboxConfig
+
     parent_dir = Path(parent_dir)
     artifacts_dir = Path(artifacts_dir)
     artifacts_dir.mkdir(parents=True, exist_ok=True)
     mut_id = _uid("m")
     cand_id = _uid("g")
     epsilon = float(fit.epsilon_accept)
+    sb = sandbox_cfg if sandbox_cfg is not None else SandboxConfig()
+    # Dry-run unit paths stay on host; live mutations isolate candidates in Docker.
+    if dry_run and not force_host_eval:
+        force_host_eval = True
 
-    # 1) Parent fitness
-    parent_eval = _eval_genome(parent_dir, world, fit, wcfg, train_seeds, ablation)
+    # 1) Parent fitness (host unless parent_isolation)
+    parent_force_host = force_host_eval or not sb.parent_isolation
+    parent_eval = _eval_genome(
+        parent_dir,
+        world,
+        fit,
+        wcfg,
+        train_seeds,
+        ablation,
+        sandbox_cfg=sb,
+        force_host=parent_force_host,
+        force_docker=sb.parent_isolation and not force_host_eval,
+    )
     store.insert_evaluation(
         parent_genome_id,
         parent_eval.fitness,
@@ -373,9 +414,19 @@ def run_mutation_cycle(
             files_changed=list(files.keys()) if isinstance(files, dict) else [],
         )
 
-    # 3) Evaluate candidate
+    # 3) Evaluate candidate (Docker-isolated by default)
     try:
-        cand_eval = _eval_genome(cand_path, world, fit, wcfg, train_seeds, ablation)
+        cand_eval = _eval_genome(
+            cand_path,
+            world,
+            fit,
+            wcfg,
+            train_seeds,
+            ablation,
+            sandbox_cfg=sb,
+            force_host=force_host_eval,
+            force_docker=sb.episode_isolation and not force_host_eval,
+        )
     except Exception as e:
         reason = f"candidate crashed during eval: {e}"
         store.insert_genome(
