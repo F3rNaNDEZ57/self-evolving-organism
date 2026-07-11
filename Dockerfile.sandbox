@@ -2,9 +2,13 @@
 # Build: docker build -f Dockerfile.sandbox -t seo-sandbox:py312 .
 FROM python:3.12-slim
 
-RUN pip install --no-cache-dir "numpy>=1.26,<3"
+RUN pip install --no-cache-dir "numpy>=1.26,<3" \
+    && useradd --create-home --uid 1000 --shell /usr/sbin/nologin seo
 
 # Worker + kernel code are bind-mounted at runtime (read-only).
-WORKDIR /job
+# Results go to stdout / tmpfs; no root, no host rw bind for genome writes.
+WORKDIR /tmp
+USER seo
 ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1
+    PYTHONUNBUFFERED=1 \
+    HOME=/home/seo

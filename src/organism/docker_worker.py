@@ -3,10 +3,10 @@ In-container evaluation worker.
 
 Invoked only inside the sandbox image with:
   PYTHONPATH=/app/src
-  request at /job/request.json
+  request at /job/request.json (read-only mount)
   genome at /genome
   optional weights at /weights/checkpoint.npz
-  result written to /job/result.json
+  result printed as SEO_RESULT:<json> on stdout (no host rw mount)
 """
 
 from __future__ import annotations
@@ -21,7 +21,6 @@ from pathlib import Path
 def main() -> int:
     job = Path("/job")
     req_path = job / "request.json"
-    out_path = job / "result.json"
     try:
         req = json.loads(req_path.read_text(encoding="utf-8"))
         from organism.evaluator import FitnessConfig, evaluate
@@ -45,6 +44,7 @@ def main() -> int:
         train_weights = bool(req.get("train_weights", False))
         weight_path = req.get("weight_path")
         wpath = Path(weight_path) if weight_path else None
+        episode_timeout_s = float(req.get("episode_timeout_s", 5.0))
 
         factory = make_policy_factory(
             genome_dir,
@@ -53,7 +53,14 @@ def main() -> int:
             weight_path=wpath,
             force_train=train_weights,
         )
-        result = evaluate(factory, world, fit, seeds, train_weights=train_weights)
+        result = evaluate(
+            factory,
+            world,
+            fit,
+            seeds,
+            train_weights=train_weights,
+            episode_timeout_s=episode_timeout_s,
+        )
         payload = {
             "ok": True,
             "fitness": result.fitness,
@@ -62,20 +69,20 @@ def main() -> int:
             "seeds": result.seeds,
             "episodes": [asdict(ep) for ep in result.episodes],
             "isolated": True,
+            "episode_timeout_s": episode_timeout_s,
         }
-        out_path.write_text(json.dumps(payload), encoding="utf-8")
+        # Size-bounded: single line JSON (host parses stdout; /tmp is 64m tmpfs if needed)
+        print("SEO_RESULT:" + json.dumps(payload), flush=True)
         return 0
     except Exception as e:
         payload = {
             "ok": False,
             "error": f"{type(e).__name__}: {e}",
-            "traceback": traceback.format_exc(),
+            "traceback": traceback.format_exc()[:4000],
             "isolated": True,
         }
-        try:
-            out_path.write_text(json.dumps(payload), encoding="utf-8")
-        except Exception:
-            print(json.dumps(payload), file=sys.stderr)
+        print("SEO_RESULT:" + json.dumps(payload), flush=True)
+        print(json.dumps(payload), file=sys.stderr)
         return 1
 
 

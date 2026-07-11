@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 import shutil
 import subprocess
 import tempfile
@@ -18,6 +19,17 @@ from organism.world import WorldConfig
 
 SANDBOX_IMAGE_DEFAULT = "seo-sandbox:py312"
 
+# Hardened docker run flags shared by smoke + genome eval
+DOCKER_HARDENING_FLAGS = [
+    "--cap-drop=ALL",
+    "--security-opt",
+    "no-new-privileges:true",
+    "--pids-limit",
+    "64",
+    "--user",
+    "1000:1000",
+]
+
 
 @dataclass
 class SandboxConfig:
@@ -31,6 +43,8 @@ class SandboxConfig:
     # If true, also isolate trusted parent evals (stricter, slower)
     parent_isolation: bool = False
     build_context: str = ""  # default: project ROOT
+    pids_limit: int = 64
+    episode_timeout_s: float = 5.0
 
     @classmethod
     def from_exp(cls, exp: dict[str, Any]) -> SandboxConfig:
@@ -46,6 +60,8 @@ class SandboxConfig:
             episode_isolation=bool(sb.get("episode_isolation", True)),
             parent_isolation=bool(sb.get("parent_isolation", False)),
             build_context=str(sb.get("build_context", "")),
+            pids_limit=int(sb.get("pids_limit", 64)),
+            episode_timeout_s=float(ev.get("episode_timeout_s", sb.get("episode_timeout_s", 5.0))),
         )
 
 
@@ -121,12 +137,25 @@ def ensure_sandbox_image(cfg: SandboxConfig, *, auto_build: bool = True) -> None
         )
 
 
+def _hardening(cfg: SandboxConfig | None = None) -> list[str]:
+    pids = str(cfg.pids_limit if cfg else 64)
+    flags = list(DOCKER_HARDENING_FLAGS)
+    # replace pids-limit value if custom
+    if cfg and cfg.pids_limit != 64:
+        for i, f in enumerate(flags):
+            if f == "64" and i > 0 and flags[i - 1] == "--pids-limit":
+                flags[i] = pids
+                break
+    return flags
+
+
 def run_python_in_docker(
     code: str,
     *,
     cfg: SandboxConfig,
     work_mount: Path | None = None,
     timeout_s: int = 30,
+    extra_mounts: list[str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
     if cfg.mode != "docker":
         raise RuntimeError("docker mode required")
@@ -142,17 +171,20 @@ def run_python_in_docker(
         f"--cpus={cfg.cpus}",
         "--read-only",
         "--tmpfs",
-        "/tmp:rw,size=64m",
+        "/tmp:rw,size=64m,mode=1777",
+        *_hardening(cfg),
     ]
     if work_mount is not None:
         cmd += ["-v", f"{work_mount.resolve()}:/work:ro", "-w", "/work"]
+    if extra_mounts:
+        cmd += extra_mounts
     cmd += [cfg.image if image_exists(cfg.image) else "python:3.12-slim", "python", "-c", code]
     return subprocess.run(cmd, capture_output=True, text=True, timeout=timeout_s, check=False)
 
 
 def smoke_network_block(cfg: SandboxConfig | None = None) -> dict[str, Any]:
     cfg = cfg or SandboxConfig(image="python:3.12-slim")
-    # Use slim image for smoke (no need for numpy image)
+    # Use slim image for smoke (no need for numpy image); still apply hardening
     smoke_cfg = SandboxConfig(
         mode="docker",
         image="python:3.12-slim",
@@ -183,6 +215,35 @@ def _vol(host: Path, container: str, mode: str = "ro") -> list[str]:
     return ["-v", f"{host.resolve()}:{container}:{mode}"]
 
 
+def _parse_worker_stdout(stdout: str) -> dict[str, Any] | None:
+    """Extract SEO_RESULT JSON line from worker stdout."""
+    if not stdout:
+        return None
+    for line in reversed(stdout.splitlines()):
+        line = line.strip()
+        if line.startswith("SEO_RESULT:"):
+            try:
+                return json.loads(line[len("SEO_RESULT:") :].strip())
+            except json.JSONDecodeError:
+                continue
+    # fallback: last JSON object in stream
+    matches = list(re.finditer(r"\{[\s\S]*\}", stdout))
+    for m in reversed(matches):
+        try:
+            data = json.loads(m.group(0))
+            if "ok" in data or "fitness" in data:
+                return data
+        except json.JSONDecodeError:
+            continue
+    return None
+
+
+def outer_eval_timeout_s(n_seeds: int, episode_timeout_s: float, margin: float = 1.5) -> int:
+    """Whole-container budget derived from per-episode timeout × seeds × margin."""
+    base = float(n_seeds) * float(episode_timeout_s) * float(margin) + 15.0
+    return max(30, int(base))
+
+
 def evaluate_genome_in_docker(
     genome_dir: Path,
     *,
@@ -194,13 +255,15 @@ def evaluate_genome_in_docker(
     cfg: SandboxConfig,
     train_weights: bool = False,
     weight_path: Path | None = None,
-    timeout_s: int = 180,
+    timeout_s: int | None = None,
     project_root: Path | None = None,
+    episode_timeout_s: float | None = None,
 ) -> EvalResult:
     """
-    Run multi-seed evaluation inside Docker:
-      --network none, memory/cpu caps, read-only root + tmpfs,
-      bind-mount kernel src (ro) + genome (ro) + job dir (rw).
+    Run multi-seed evaluation inside Docker with hardened flags:
+      --network none, memory/cpu, --cap-drop=ALL, no-new-privileges,
+      --pids-limit, non-root USER, read-only root + size-capped tmpfs.
+    Request is bind-mounted RO; result is returned via stdout (no host rw job mount).
     """
     if not docker_available():
         raise RuntimeError("Docker not available for episode isolation")
@@ -212,6 +275,13 @@ def evaluate_genome_in_docker(
     if not (genome_dir / "policy.py").exists():
         raise FileNotFoundError(f"genome missing policy.py: {genome_dir}")
 
+    ep_timeout = float(
+        episode_timeout_s if episode_timeout_s is not None else cfg.episode_timeout_s
+    )
+    if timeout_s is None:
+        timeout_s = outer_eval_timeout_s(len(seeds), ep_timeout)
+
+    # Request only on host temp dir, mounted read-only into container
     job_dir = Path(tempfile.mkdtemp(prefix="seo_job_"))
     try:
         request = {
@@ -248,6 +318,7 @@ def evaluate_genome_in_docker(
             "ablation": ablation,
             "train_weights": train_weights,
             "weight_path": "/weights/checkpoint.npz" if weight_path else None,
+            "episode_timeout_s": ep_timeout,
         }
         (job_dir / "request.json").write_text(json.dumps(request), encoding="utf-8")
 
@@ -260,20 +331,19 @@ def evaluate_genome_in_docker(
             f"--cpus={cfg.cpus}",
             "--read-only",
             "--tmpfs",
-            "/tmp:rw,size=64m",
+            "/tmp:rw,size=64m,mode=1777",
+            *_hardening(cfg),
             "-e",
             "PYTHONPATH=/app/src",
             "-e",
             "PYTHONUNBUFFERED=1",
             *_vol(src_dir, "/app/src", "ro"),
             *_vol(genome_dir, "/genome", "ro"),
-            *_vol(job_dir, "/job", "rw"),
+            *_vol(job_dir, "/job", "ro"),  # request only — no host disk fill path
         ]
         if weight_path is not None:
             wp = Path(weight_path).resolve()
-            # mount parent dir so path is stable
             cmd += ["-v", f"{wp.parent}:/weights:ro"]
-            # rewrite request if filename differs
             request["weight_path"] = f"/weights/{wp.name}"
             (job_dir / "request.json").write_text(json.dumps(request), encoding="utf-8")
 
@@ -287,13 +357,13 @@ def evaluate_genome_in_docker(
         proc = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout_s, check=False)
         elapsed = time.time() - t0
 
-        result_path = job_dir / "result.json"
-        if not result_path.exists():
+        payload = _parse_worker_stdout(proc.stdout or "")
+        if payload is None:
             raise RuntimeError(
-                "docker eval produced no result.json: "
-                f"rc={proc.returncode} stderr={(proc.stderr or '')[-1500:]}"
+                "docker eval produced no SEO_RESULT: "
+                f"rc={proc.returncode} stderr={(proc.stderr or '')[-1500:]} "
+                f"stdout={(proc.stdout or '')[-800:]}"
             )
-        payload = json.loads(result_path.read_text(encoding="utf-8"))
         if not payload.get("ok"):
             raise RuntimeError(
                 f"docker eval failed: {payload.get('error')} "
@@ -338,6 +408,7 @@ def evaluate_genome(
     weight_path: Path | None = None,
     force_host: bool = False,
     force_docker: bool = False,
+    episode_timeout_s: float | None = None,
 ) -> EvalResult:
     """
     Dispatch evaluation to Docker (isolated) or host.
@@ -347,6 +418,9 @@ def evaluate_genome(
     from organism.genome_loader import make_policy_factory
 
     sb = sandbox or SandboxConfig()
+    ep_timeout = float(
+        episode_timeout_s if episode_timeout_s is not None else sb.episode_timeout_s
+    )
     use_docker = False
     if force_docker:
         use_docker = True
@@ -372,6 +446,7 @@ def evaluate_genome(
             cfg=sb,
             train_weights=train_weights,
             weight_path=weight_path,
+            episode_timeout_s=ep_timeout,
         )
 
     factory = make_policy_factory(
@@ -381,4 +456,11 @@ def evaluate_genome(
         weight_path=weight_path,
         force_train=train_weights,
     )
-    return evaluate(factory, world, fit, seeds, train_weights=train_weights)
+    return evaluate(
+        factory,
+        world,
+        fit,
+        seeds,
+        train_weights=train_weights,
+        episode_timeout_s=ep_timeout,
+    )
