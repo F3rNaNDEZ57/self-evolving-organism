@@ -1,0 +1,76 @@
+# self-evolving-organism
+
+Phase 2 **paper organism**: simulated grid body, lifetime weight learning, sandboxed genome mutation via **free NVIDIA NIM**, lineage in SQLite + artifacts.
+
+Research vault / dashboard: `self-evolving-organism-docs/` (open **System Map** canvas).
+
+## Status
+
+| Phase | Status |
+|-------|--------|
+| 0 Concept freeze | Done |
+| 1 Research + NIM pin + Docker | Done |
+| **2 Paper organism** | **Scaffolding** |
+| 3–6 | Later |
+
+## Setup
+
+```powershell
+cd C:\Projects\self-evolving-organism
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -e ".[dev]"
+# Ensure .env has NVIDIA_API_KEY (see .env.example)
+# Docker Desktop required for sandboxed genome runs
+```
+
+## CLI
+
+```powershell
+# Run one evaluation (B0 by default)
+seo eval --ablation B0
+
+# Bw = weights on
+seo eval --ablation Bw
+
+# Episode demo (print summary)
+seo demo --seed 0
+
+# Init DB + copy seed genome to artifacts
+seo init
+
+# Show pinned NIM models
+seo pins
+
+# Mutation loop (dry-run offline, or live free NIM)
+seo mutate --dry-run --ablation Bc
+seo mutate --ablation Bc
+
+# Full ablation suite + holdout δ (Bcw − B0)
+seo ablate --quick
+seo ablate --live --max-mutations 3
+
+# Weight checkpoints (phenotype)
+seo weights train --passes 2
+seo weights list
+seo weights show latest
+seo eval --ablation Bw --weights latest
+```
+
+## Layout
+
+```text
+src/organism/     # kernel + runtime (frozen harness)
+genomes/seed/     # initial whitelist genome modules
+config/           # pre-reg + NIM pins
+artifacts/        # runtime DB, genomes, weights (gitignored)
+self-evolving-organism-docs/  # Obsidian vault + System Map dashboard
+```
+
+## Rules
+
+After every task: update vault + `System Map.canvas` (see `AGENTS.md`).
+
+## Safety
+
+Organism code is intended to run under Docker `--network none`. Do not point the sandbox at host Python for untrusted LLM patches.
