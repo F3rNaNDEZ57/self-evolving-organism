@@ -1487,6 +1487,69 @@ def watch_cmd(
         console.print(f"[green]GIF[/green] {out}")
 
 
+@app.command("soak")
+def soak_cmd(
+    rounds: int = typer.Option(3, help="Number of evolve rounds"),
+    cycles: int = typer.Option(2, help="Eval cycles per evolve round"),
+    dry_run: bool = typer.Option(True, "--dry-run/--live", help="Dry mutations (default)"),
+    skip_doctor: bool = typer.Option(False, "--skip-doctor"),
+) -> None:
+    """Phase 6: short soak — doctor gate + repeated dry evolve rounds."""
+    from organism.soak import run_soak
+
+    exp, world, fit, wcfg = _load_cfgs()
+    artifacts = resolve_path(exp.get("paths", {}).get("artifacts_dir", "artifacts"))
+    db = resolve_path(exp.get("paths", {}).get("db_path", "artifacts/seo.sqlite"))
+    store = Store(db)
+    console.print(
+        f"[cyan]Soak[/cyan] rounds={rounds} cycles/round={cycles} dry_run={dry_run}"
+    )
+    report = run_soak(
+        exp=exp,
+        world=world,
+        fit=fit,
+        wcfg=wcfg,
+        store=store,
+        artifacts_dir=artifacts,
+        rounds=rounds,
+        evolve_cycles=cycles,
+        dry_run=dry_run,
+        skip_doctor=skip_doctor,
+    )
+    store.close()
+    table = Table(title=f"Soak {report.run_id}")
+    table.add_column("field")
+    table.add_column("value")
+    table.add_row("ok", str(report.ok))
+    table.add_row("doctor_ok", str(report.doctor_ok))
+    table.add_row("rounds", str(report.rounds))
+    table.add_row("mutations", f"acc={report.total_mutations_accepted}/att={report.total_mutations_attempted}")
+    table.add_row("errors", str(len(report.errors)))
+    console.print(table)
+    for e in report.errors[:5]:
+        console.print(f"[yellow]{e}[/yellow]")
+    console.print("[dim]Report: artifacts/last_soak_report.json[/dim]")
+    if not report.ok:
+        raise typer.Exit(1)
+
+
+@app.command("package")
+def package_cmd(
+    no_zip: bool = typer.Option(False, "--no-zip", help="Skip zip archive"),
+) -> None:
+    """Phase 6: package reproduce bundle (configs + last reports, no secrets)."""
+    from organism.reproduce import package_reproduce
+
+    exp, _, _, _ = _load_cfgs()
+    artifacts = resolve_path(exp.get("paths", {}).get("artifacts_dir", "artifacts"))
+    res = package_reproduce(artifacts, include_zip=not no_zip)
+    console.print(f"[green]Package[/green] {res.package_id}")
+    console.print(f"dir: {res.dir_path}")
+    if res.zip_path:
+        console.print(f"zip: {res.zip_path}")
+    console.print(f"files: {len(res.files)}")
+
+
 @app.command("doctor")
 def doctor_cmd(
     strict_docker: bool = typer.Option(
