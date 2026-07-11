@@ -142,11 +142,36 @@ Also registered in SQLite `weight_checkpoints`. Ablation suite Bw/Bcw uses the s
 | `seo weights list` | 1 row + DB |
 | `seo eval --weights latest` | loads checkpoint and runs |
 
+## Evolve loop — schedule + plateau (implemented)
+
+```powershell
+seo evolve --cycles 5 --dry-run --every 8 --plateau 20 --max-mutations 5
+seo evolve --cycles 10 --live --ablation Bc
+```
+
+| Trigger | Meaning |
+|---------|---------|
+| **schedule** | After `mutate_every_episodes` seed-episodes since last mutation |
+| **plateau** | Last `plateau_episodes` fitness samples flat (span ≤ `plateau_epsilon`) or no beat of prior best |
+
+Config: `config/experiment_v0.prereg.yaml` → `evolve:` and `genomic:`.  
+Report: `artifacts/last_evolve_report.json` · `artifacts/evolve/{run_id}.json`
+
+### Smoke (2026-07-11)
+
+| Field | Value |
+|-------|--------|
+| command | `seo evolve --cycles 3 --dry-run --every 8 --max-mutations 2` |
+| episodes | 24 |
+| triggers | `mutate_schedule` ×2 |
+| mutations | 0 accepted / 2 rejected (already-strong active genome) |
+| pytest | **11 passed** |
+
 ## Not yet implemented (next slices)
 
 - [x] Full ablation runner B0/Bw/Bc/Bcw + holdout δ  
 - [x] Weight checkpoints under `artifacts/weights/`  
-- [ ] Schedule/plateau auto mutation triggers  
+- [x] Schedule/plateau auto mutation triggers (`seo evolve`)  
 - [ ] Docker-isolated episode eval (today: host eval after AST jail)  
 - [ ] Runs/ vault note auto-export (optional)
 
