@@ -1090,19 +1090,112 @@ def watch_cmd(
     ablation: str = typer.Option("Bc", help="B0 / Bw / Bc / Bcw"),
     genome: str = typer.Option("", help="Genome dir (default: active or seed)"),
     weights: str = typer.Option("", help="Checkpoint id/path/latest/best for Bw/Bcw"),
+    multi: int = typer.Option(
+        0,
+        "--multi",
+        help="Multi-agent same-map: N agents (2–6). Uses active+elites+seed. Viz only.",
+    ),
+    agents: str = typer.Option(
+        "",
+        help="Comma-separated genome dirs or ids for multi mode (overrides --multi count)",
+    ),
     gif: str = typer.Option(
         "artifacts/replays/last_watch.gif",
         help="Output GIF path (empty to skip)",
     ),
 ) -> None:
-    """Record one host episode and write an animated GIF (grid watch)."""
+    """Record host episode GIF — single agent or multi-agent same-map (viz only)."""
     from organism.checkpoints import resolve_checkpoint_path
+    from organism.elites import list_elites, resolve_genome_dir
     from organism.genome_loader import make_policy_factory
     from organism.mutation import resolve_parent_genome
+    from organism.multiagent import multi_replay_to_gif, record_multi_episode
     from organism.replay import record_episode, replay_to_gif
 
     exp, world, fit, wcfg = _load_cfgs()
     artifacts = resolve_path(exp.get("paths", {}).get("artifacts_dir", "artifacts"))
+    db = resolve_path(exp.get("paths", {}).get("db_path", "artifacts/seo.sqlite"))
+
+    # --- multi-agent path ---
+    agent_specs: list[tuple[str, Path]] = []
+    if agents.strip():
+        store = Store(db)
+        for part in agents.split(","):
+            part = part.strip()
+            if not part:
+                continue
+            p = Path(part)
+            if p.exists() and (p / "policy.py").exists():
+                agent_specs.append((p.name, p))
+            else:
+                try:
+                    path, gid = resolve_genome_dir(artifacts, part, store=store)
+                    agent_specs.append((gid, path))
+                except Exception as e:
+                    store.close()
+                    console.print(f"[red]agent {part}: {e}[/red]")
+                    raise typer.Exit(2)
+        store.close()
+    elif multi and int(multi) >= 2:
+        store = Store(db)
+        # collect distinct paths: active, elites, seed
+        seen: set[str] = set()
+        try:
+            gdir, gid = resolve_parent_genome(exp, store=store)
+            agent_specs.append((gid, gdir))
+            seen.add(str(gdir))
+        except Exception:
+            pass
+        for e in list_elites(artifacts):
+            p = Path(str(e.get("path") or ""))
+            gid = str(e.get("genome_id") or p.name)
+            if p.exists() and str(p) not in seen:
+                agent_specs.append((gid, p))
+                seen.add(str(p))
+            if len(agent_specs) >= int(multi):
+                break
+        seed_p = resolve_path(exp.get("paths", {}).get("seed_genome", "genomes/seed"))
+        if len(agent_specs) < int(multi) and seed_p.exists():
+            # duplicate seed with different ids for pad
+            while len(agent_specs) < int(multi):
+                agent_specs.append((f"g_seed_{len(agent_specs)}", seed_p))
+        store.close()
+        agent_specs = agent_specs[: int(multi)]
+
+    if agent_specs and len(agent_specs) >= 2:
+        policies = []
+        for gid, gdir in agent_specs:
+            factory = make_policy_factory(
+                gdir,
+                ablation=ablation,
+                weight_cfg=wcfg,
+                force_train=False,
+            )
+            policies.append((gid, factory()))
+        console.print(
+            f"[cyan]Watch multi[/cyan] agents={len(policies)} "
+            f"ids={[g for g, _ in policies]} seed={seed}"
+        )
+        mrep = record_multi_episode(
+            policies,
+            world,
+            seed=seed,
+            ablation=ablation,
+            episode_timeout_s=float(fit.episode_timeout_s or 30),
+        )
+        if mrep.error:
+            console.print(f"[red]{mrep.error}[/red]")
+            raise typer.Exit(1)
+        console.print(f"frames={len(mrep.frames)} final={mrep.final}")
+        if gif:
+            out = resolve_path(gif)
+            if "last_watch" in str(out):
+                out = resolve_path("artifacts/replays/last_watch_multi.gif")
+            multi_replay_to_gif(mrep, out, cell=14, duration_ms=80, show_trail=True)
+            console.print(f"[green]GIF[/green] {out}")
+        return
+
+    # --- single agent ---
     if genome:
         gdir = Path(genome)
         gid = gdir.name

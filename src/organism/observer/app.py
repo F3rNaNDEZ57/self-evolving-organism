@@ -1159,8 +1159,9 @@ def page_watch(artifacts: Path, db: Path) -> None:
 
     st.subheader("Watch")
     st.caption(
-        "Live video-style stream of the organism on the 24x24 food grid. "
-        "Visualization only — same policy as eval, not the mutation brain."
+        "Live video-style stream on the food grid. "
+        "Single agent = science policy path. Multi-agent = viz-only same-map arena "
+        "(not used for fitness claims)."
     )
 
     exp = experiment_config()
@@ -1199,18 +1200,40 @@ def page_watch(artifacts: Path, db: Path) -> None:
         st.warning("No genomes found.")
         return
 
+    watch_mode = st.radio(
+        "Mode",
+        ["single", "multi"],
+        horizontal=True,
+        key="watch_mode",
+        help="multi = several genomes compete on one shared food map (viz only)",
+    )
+
     c1, c2, c3 = st.columns(3)
     with c1:
-        pick = st.selectbox(
-            "Genome",
-            range(len(options)),
-            format_func=lambda i: options[i][0],
-            key="watch_genome",
-        )
-        genome_path = Path(options[pick][1])
-        genome_id = options[pick][0].split("·")[0].strip().replace("active ", "").strip()
-        if genome_id == "seed genome":
-            genome_id = "g_seed"
+        if watch_mode == "single":
+            pick = st.selectbox(
+                "Genome",
+                range(len(options)),
+                format_func=lambda i: options[i][0],
+                key="watch_genome",
+            )
+            genome_path = Path(options[pick][1])
+            genome_id = (
+                options[pick][0].split("·")[0].strip().replace("active ", "").strip()
+            )
+            if genome_id == "seed genome":
+                genome_id = "g_seed"
+            multi_picks: list[int] = [pick]
+        else:
+            multi_picks = st.multiselect(
+                "Agents (2–6 genomes)",
+                options=list(range(len(options))),
+                default=list(range(min(2, len(options)))),
+                format_func=lambda i: options[i][0],
+                key="watch_multi_genomes",
+            )
+            genome_path = Path(options[0][1])
+            genome_id = "multi"
     with c2:
         ablation = st.selectbox(
             "Ablation (policy mode)",
@@ -1238,9 +1261,15 @@ def page_watch(artifacts: Path, db: Path) -> None:
                 key="watch_w",
             )
 
-    st.markdown(
-        "**Legend:** dark=empty · green=food · yellow=agent · red=dead · blue-gray=trail"
-    )
+    if watch_mode == "multi":
+        st.markdown(
+            "**Legend (multi):** dark=empty · green=food · "
+            "yellow/cyan/pink/orange/… = agents · dark red=dead · blue-gray=trail"
+        )
+    else:
+        st.markdown(
+            "**Legend:** dark=empty · green=food · yellow=agent · red=dead · blue-gray=trail"
+        )
 
     def _resolve_weights():
         if ablation not in ("Bw", "Bcw") or not weight_ref or weight_ref == "(none)":
@@ -1251,14 +1280,29 @@ def page_watch(artifacts: Path, db: Path) -> None:
             st.error(f"weights: {e}")
             return None
 
-    def _make_policy():
+    def _make_policy(gpath: Path | None = None):
         return make_policy_factory(
-            genome_path,
+            gpath or genome_path,
             ablation=ablation,
             weight_cfg=wcfg,
             weight_path=_resolve_weights(),
             force_train=False,
         )()
+
+    def _make_multi_policies():
+        picks = multi_picks or []
+        if len(picks) < 2:
+            # auto-fill from available options
+            picks = list(range(min(3, len(options))))
+        picks = picks[:6]
+        out = []
+        for i in picks:
+            label, pth = options[int(i)]
+            gid = label.split("·")[0].strip().replace("active ", "").strip()
+            if gid == "seed genome":
+                gid = "g_seed"
+            out.append((gid, _make_policy(Path(pth))))
+        return out
 
     b_live, b_rec = st.columns(2)
     live_clicked = b_live.button(
@@ -1266,6 +1310,7 @@ def page_watch(artifacts: Path, db: Path) -> None:
         type="primary",
         key="watch_live",
         help="Run the episode now and paint each step like a video",
+        disabled=(watch_mode == "multi" and len(multi_picks or []) < 2 and len(options) < 2),
     )
     rec_clicked = b_rec.button(
         "Record only (then scrub)",
@@ -1273,8 +1318,175 @@ def page_watch(artifacts: Path, db: Path) -> None:
         help="Run fully first, then scrub frames / autoplay / GIF",
     )
 
+    # --- Multi-agent same-map (viz only) ---
+    if watch_mode == "multi" and (live_clicked or rec_clicked):
+        from organism.multiagent import (
+            iter_multi_episode,
+            multi_frame_to_rgb,
+            multi_replay_to_gif,
+            record_multi_episode,
+            trails_up_to,
+        )
+
+        try:
+            policies = _make_multi_policies()
+            if len(policies) < 2:
+                st.error("Pick at least 2 agents for multi mode.")
+            elif live_clicked:
+                st.session_state["watch_playing"] = False
+                stage = st.empty()
+                status = st.empty()
+                frames_m = []
+                status.info(f"Live multi-agent stream · {len(policies)} agents…")
+                delay = max(0.0, float(speed) / 1000.0)
+                for fr, done, err_s in iter_multi_episode(
+                    policies,
+                    world,
+                    seed=int(seed),
+                    episode_timeout_s=float(fit.episode_timeout_s or 30),
+                ):
+                    frames_m.append(fr)
+                    trails = trails_up_to(frames_m, len(frames_m) - 1) if show_trail else None
+                    rgb = multi_frame_to_rgb(fr, cell=int(cell), trails=trails)
+                    with stage.container():
+                        left, right = st.columns([1.4, 1])
+                        with left:
+                            st.image(
+                                rgb,
+                                caption=f"MULTI tick={fr.tick} agents={len(fr.agents)}",
+                                use_container_width=False,
+                            )
+                        with right:
+                            for i, a in enumerate(fr.agents):
+                                st.metric(
+                                    f"[{i}] {a.genome_id[:14]}",
+                                    f"food={a.food_collected} E={a.energy:.0f}",
+                                )
+                                st.caption(
+                                    f"({a.x},{a.y}) {a.action_name()} "
+                                    f"{'alive' if a.alive else 'dead'}"
+                                )
+                    if done:
+                        if err_s:
+                            status.error(err_s)
+                        break
+                    time_mod.sleep(delay)
+                from organism.multiagent import MultiReplay
+
+                mrep = MultiReplay(
+                    frames=frames_m,
+                    seed=int(seed),
+                    genome_ids=[g for g, _ in policies],
+                    ablation=ablation,
+                    final=[
+                        {
+                            "genome_id": a.genome_id,
+                            "food_collected": a.food_collected,
+                            "energy": a.energy,
+                            "alive": a.alive,
+                        }
+                        for a in (frames_m[-1].agents if frames_m else [])
+                    ],
+                )
+                st.session_state["watch_multi_replay"] = mrep
+                st.session_state.pop("watch_replay", None)
+                try:
+                    gif_path = artifacts / "replays" / "_last_watch_multi.gif"
+                    multi_replay_to_gif(
+                        mrep,
+                        gif_path,
+                        cell=max(8, int(cell) - 4),
+                        duration_ms=int(speed),
+                        show_trail=show_trail,
+                    )
+                    st.session_state["watch_gif_path"] = str(gif_path)
+                except Exception:
+                    pass
+                status.success(
+                    f"Multi stream done · {len(frames_m)} frames · "
+                    f"agents={len(policies)}"
+                )
+            else:
+                with st.spinner("Recording multi-agent episode…"):
+                    mrep = record_multi_episode(
+                        policies,
+                        world,
+                        seed=int(seed),
+                        ablation=ablation,
+                        episode_timeout_s=float(fit.episode_timeout_s or 30),
+                    )
+                st.session_state["watch_multi_replay"] = mrep
+                st.session_state.pop("watch_replay", None)
+                st.session_state["watch_frame_idx"] = 0
+                if mrep.error:
+                    st.error(mrep.error)
+                else:
+                    st.success(
+                        f"Multi recorded {len(mrep.frames)} frames · "
+                        f"agents={len(mrep.genome_ids)}"
+                    )
+                    try:
+                        gif_path = artifacts / "replays" / "_last_watch_multi.gif"
+                        multi_replay_to_gif(
+                            mrep,
+                            gif_path,
+                            cell=max(8, int(cell) - 4),
+                            duration_ms=int(speed),
+                            show_trail=show_trail,
+                        )
+                        st.session_state["watch_gif_path"] = str(gif_path)
+                    except Exception:
+                        pass
+        except Exception as e:
+            st.exception(e)
+        # stay on multi UI after run/error
+        if watch_mode == "multi" and not st.session_state.get("watch_multi_replay"):
+            st.info("Pick ≥2 genomes, then Live stream or Record.")
+            return
+
+    # Multi replay viewer
+    mrep = st.session_state.get("watch_multi_replay")
+    if watch_mode == "multi" and mrep and getattr(mrep, "frames", None):
+        from organism.multiagent import multi_frame_to_rgb, multi_replay_to_gif, trails_up_to
+
+        gif_p = st.session_state.get("watch_gif_path")
+        if gif_p and Path(gif_p).exists():
+            st.markdown("#### Multi video loop (GIF)")
+            st.image(str(gif_p), caption="Multi-agent GIF")
+        frames_m = mrep.frames
+        n = len(frames_m)
+        idx = st.slider("Frame", 0, max(0, n - 1), 0, key="watch_multi_slider")
+        fr = frames_m[idx]
+        trails = trails_up_to(frames_m, idx) if show_trail else None
+        rgb = multi_frame_to_rgb(fr, cell=int(cell), trails=trails)
+        left, right = st.columns([1.4, 1])
+        with left:
+            st.image(rgb, caption=f"tick={fr.tick}", use_container_width=False)
+        with right:
+            st.markdown("**Agents**")
+            for i, a in enumerate(fr.agents):
+                st.write(
+                    f"**[{i}] {a.genome_id}** · food={a.food_collected} · "
+                    f"E={a.energy:.1f} · ({a.x},{a.y}) · {a.action_name()} · "
+                    f"{'alive' if a.alive else 'dead'}"
+                )
+            if mrep.final:
+                st.markdown("**Final scores**")
+                st.dataframe(mrep.final, hide_index=True)
+        if st.button("Save multi GIF", key="watch_multi_gif"):
+            out = (
+                artifacts
+                / "replays"
+                / f"multi_{int(seed)}_{int(datetime.now().timestamp())}.gif"
+            )
+            multi_replay_to_gif(
+                mrep, out, cell=max(8, int(cell) - 4), duration_ms=int(speed)
+            )
+            st.success(f"Wrote {out}")
+        return  # multi mode done
+
     # --- Live stream: paint as the sim runs ---
-    if live_clicked:
+    if watch_mode == "single" and live_clicked:
         st.session_state["watch_playing"] = False
         stage = st.empty()
         status = st.empty()
@@ -1380,7 +1592,7 @@ def page_watch(artifacts: Path, db: Path) -> None:
         except Exception as e:
             st.exception(e)
 
-    if rec_clicked:
+    if watch_mode == "single" and rec_clicked:
         try:
             with st.spinner("Recording episode on host…"):
                 rep = record_episode(
@@ -1394,6 +1606,7 @@ def page_watch(artifacts: Path, db: Path) -> None:
                     fit_cfg=fit,
                 )
             st.session_state["watch_replay"] = rep
+            st.session_state.pop("watch_multi_replay", None)
             st.session_state["watch_frame_idx"] = 0
             st.session_state["watch_playing"] = True  # autoplay after record
             if rep.error:
@@ -1423,11 +1636,13 @@ def page_watch(artifacts: Path, db: Path) -> None:
             st.exception(e)
 
     rep = st.session_state.get("watch_replay")
-    if not rep or not getattr(rep, "frames", None):
-        st.info(
-            "Click **Live stream (video)** to watch the organism move in real time, "
-            "or **Record only** then scrub / autoplay."
-        )
+    if watch_mode != "single" or not rep or not getattr(rep, "frames", None):
+        if watch_mode == "single":
+            st.info(
+                "Click **Live stream (video)** to watch the organism move in real time, "
+                "or **Record only** then scrub / autoplay. Switch Mode to **multi** for "
+                "several genomes on one map."
+            )
         return
 
     frames = rep.frames

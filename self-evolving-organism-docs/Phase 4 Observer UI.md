@@ -30,7 +30,7 @@ seo ui
 | **Timeline** | Event log (filterable) |
 | **Evaluations** | Fitness history table |
 | **Control** | Pause / freeze mutations → `artifacts/control.json` |
-| **Watch** | Live video stream + GIF loop + scrubber on the 24×24 grid |
+| **Watch** | Live video + multi-agent same-map (viz) + GIF + scrubber |
 | **Run** | Operator console — start mutate/evolve/ablate/weights/docker jobs |
 
 ## Run tab (operator console)
@@ -117,7 +117,8 @@ Enforced by **`seo mutate`** and **`seo evolve`** (exit 3 if blocked). Does not 
 - [x] Live log auto-refresh + launch plan + durable final result
 - [x] Windows-safe job encoding for redirected CLI logs
 - [x] Watch surface — live stream video + GIF loop + scrubber (`seo watch`)
-- [ ] Charts / multi-organism same-map view (Phase 5)
+- [x] Multi-agent same-map Watch (viz only · Phase 5)
+- [ ] Charts / deeper analytics
 
 ## See also
 

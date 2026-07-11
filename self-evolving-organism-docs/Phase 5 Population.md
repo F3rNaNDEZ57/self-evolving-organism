@@ -56,11 +56,27 @@ seo mutate --dry-run --select fitness_rank
 seo evolve --dry-run --cycles 3 --select tournament --tournament-k 3
 ```
 
+## Multi-agent same-map Watch (viz only)
+
+| Item | Status |
+|------|--------|
+| Shared food arena (host-only) | ☑ `organism/multiagent.py` |
+| UI Watch mode **multi** (2–6 agents) | ☑ live stream + GIF |
+| CLI `seo watch --multi N` / `--agents a,b` | ☑ |
+
+**Not for fitness claims** — policies compete on one map for operator eyes only.
+
+```powershell
+seo watch --multi 3 --seed 0 --gif artifacts/replays/last_watch_multi.gif
+seo watch --agents g_xxx,g_yyy --gif artifacts/replays/duel.gif
+# UI: seo ui → Watch → Mode multi → pick agents → Live stream
+```
+
 ## Not yet (later Phase 5)
 
-- [ ] Multi-agent same-map Watch
 - [ ] Solo vs population experiment write-up
 - [ ] Hard resource isolation between lineages (Docker-per-lineage)
+- [ ] Multi-agent used in fitness / selection (if ever)
 
 ## Operator flow
 
@@ -81,6 +97,7 @@ seo mutate --dry-run --ablation Bc --parent-id g_xxxxxxxx
 | `src/organism/elites.py` | Registry promote/demote/list/resolve |
 | `src/organism/selection.py` | fitness_rank / tournament parent pick |
 | `src/organism/lineages.py` | slots, budgets, pick schedule |
+| `src/organism/multiagent.py` | same-map multi-agent Watch arena (viz only) |
 | `src/organism/evolve.py` | select + auto_elite + population evolve |
 | `src/organism/mutation.py` | `resolve_parent_genome(..., parent_id=)` |
 | `src/organism/cli.py` | `seo elite *` · mutate/evolve `--select` |
