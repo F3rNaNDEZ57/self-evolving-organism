@@ -46,8 +46,10 @@ seo init
 seo pins
 
 # Mutation loop (dry-run offline, or live free NIM)
+# Default: static + free NIM critic before Docker eval
 seo mutate --dry-run --ablation Bc
 seo mutate --ablation Bc
+seo mutate --no-critic --dry-run
 
 # Full ablation suite + holdout δ (Bcw − B0)
 seo ablate --quick
