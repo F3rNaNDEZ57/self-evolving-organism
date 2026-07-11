@@ -101,8 +101,8 @@ cssclasses:
 | Ops | `seo doctor` · `seo soak` · `seo package` · `seo runs export` |
 | Git remote | https://github.com/F3rNaNDEZ57/self-evolving-organism |
 | Secrets | `.env` only (gitignored) |
-| Next | Validate proposal-quality with short multi-lineage live · weights only if Δ>0 |
-| Propose | quality gate (empty/no-op) · fallback coder on parse fail · energy/rest/walls steer |
+| Next | Optional longer live under Bc · weights only if Δ>0 · or document free-NIM ceiling |
+| Propose | quality gate + fallback coder · validated `evo_4d46fba79c` (fitness rej, usable patch) |
 | Lab | [[Runs/2026-07-12-population-evo-6a1f0edb0a]] · [[Runs/2026-07-12-population-evo-450b8e1afc]] |
 | Active | `g_0a2b03eafe` · fit **28.13** · weights diagnose **False** |
 | Live soak | **acc=0/att=10** · ok (2026-07-11) |

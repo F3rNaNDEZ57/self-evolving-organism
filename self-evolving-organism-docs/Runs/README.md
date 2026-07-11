@@ -80,4 +80,5 @@ Writes `self-evolving-organism-docs/Runs/YYYY-MM-DD-….md` and appends this ind
 | 2026-07-12 | [[2026-07-12-population-evo-f3f53426e0]] | multi-lineage live 3-slot | **acc=0/rej=3 critic low_value** · plateau 28.13 |
 | 2026-07-12 | [[2026-07-12-population-evo-450b8e1afc]] | multi-lineage live (diverse) | 3 unique parents · **acc=0** · hold_lineage OK |
 | 2026-07-12 | [[2026-07-12-population-evo-6a1f0edb0a]] | multi-lineage + food gate | **acc=0** · 2 fitness rej · 1 nonsense · plateau |
+| 2026-07-12 | [[2026-07-12-population-evo-4d46fba79c]] | population | auto-export: 2026-07-12-population-evo-4d46fba79c |
 
