@@ -126,6 +126,7 @@ cssclasses:
 > [!tip] Obsidian habits
 > - **After every task:** update vault + [[System Map]] ([[Working Rules]])
 > - Open [[System Map]] as the **live project dashboard** (re-open/fit view after updates)
+> - **Canvas layout:** keep section shape + spacing (Rule 2b in [[Working Rules]] / `AGENTS.md`) — ☑/☐ checklists, no overlaps
 > - Prefer **wikilinks** `[[Note]]`
 > - Tag with `#phase/0` … `#phase/6`
 > - Experiment logs → `Runs/YYYY-MM-DD-…`

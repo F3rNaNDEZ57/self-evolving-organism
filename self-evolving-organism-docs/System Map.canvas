@@ -13,7 +13,7 @@
 		{
 			"id": "process",
 			"type": "text",
-			"text": "**Process rule:** after every task → update vault + this canvas · no secrets in vault · see Working Rules / AGENTS.md",
+			"text": "**Process rule:** after every task → vault + this canvas · Working Rules Rule 2b layout contract · ☑/☐ checklists · no overlaps · no secrets",
 			"x": 0,
 			"y": 170,
 			"width": 2800,

@@ -13,8 +13,15 @@ These rules apply to **every** AI agent and human contributor working in this re
 
 2. **Update the project dashboard canvas**
    - File: `self-evolving-organism-docs/System Map.canvas`
-   - Keep status banner, phase checklist, “next action”, and verified infra accurate
-   - Prefer a clean layout (no overlaps); fit the canvas as a **dashboard**, not a dump
+   - Keep status banner, **roadmap ☑/☐ checklist cards**, “next action”, and verified infra accurate
+   - **Layout contract (keep shape stable — see vault `Working Rules` Rule 2b):**
+     - Sections top→bottom: header → vault files → **4 phase checklist cards** → next+CLI → organism | kernel | live science → timescales | storage
+     - Min gaps: groups ≥80px, sibling cards ≥40px, group padding ≥50px
+     - Cards large enough that **text never clips**; canvas ~2800px wide; scroll OK, overlap not OK
+     - Checkboxes: Unicode `☑` / `☐` only (not markdown `- [x]`)
+     - Prefer edit-in-place of existing cards; do not restack into a messy dump
+     - Few edges; no long lines across checklist/file bands
+   - After edit: confirm no overlaps in Obsidian (fit view)
 
 3. **Cross-link**
    - New notes should appear from `Home.md` (and Phase notes when relevant)
@@ -26,7 +33,8 @@ A task is **not done** until:
 
 - [ ] Code/config/docs for the task itself are complete  
 - [ ] Vault notes reflect the new truth  
-- [ ] `System Map.canvas` reflects phase, status, and next action  
+- [ ] `System Map.canvas` reflects phase, status, next action, **and checklist ☑/☐**  
+- [ ] Canvas layout still follows the spacing contract (no overlaps / no clipped text)  
 - [ ] No secrets committed (`.env` stays gitignored)  
 
 ### When the task is tiny
