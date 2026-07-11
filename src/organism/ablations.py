@@ -491,9 +491,16 @@ def _run_single_ablation_pass(
             critic_cfg=critic_cfg,
         )
     if "Bcw" in selected:
+        # Dual timescale: when Bc ran, start Bcw from evolved code then train weights
+        # (independent re-mutation from seed often wastes budget; Bc already improved code).
+        bcw_seed = suite_seed
+        bcw_muts = muts
+        if "Bc" in results:
+            bcw_seed = Path(results["Bc"].genome_path)
+            bcw_muts = 0  # code already evolved in Bc arm
         results["Bcw"] = run_arm_code(
             ablation="Bcw",
-            seed_dir=suite_seed,
+            seed_dir=bcw_seed,
             world=world,
             fit=fit,
             wcfg=wcfg,
@@ -502,13 +509,17 @@ def _run_single_ablation_pass(
             store=store,
             artifacts_dir=artifacts_dir,
             run_id=run_id,
-            max_mutations=muts,
+            max_mutations=bcw_muts,
             dry_run=use_dry,
             client=client,
             train_passes=train_passes,
             b0_holdout=b0_h,
             critic_cfg=critic_cfg,
         )
+        if "Bc" in results:
+            results["Bcw"].notes += "; started_from_Bc_code"
+            results["Bcw"].meta["started_from_bc"] = True
+            results["Bcw"].meta["bc_genome_path"] = results["Bc"].genome_path
     return results
 
 
