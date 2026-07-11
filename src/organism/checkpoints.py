@@ -258,6 +258,51 @@ def list_checkpoints(artifacts_dir: Path) -> list[CheckpointMeta]:
     return metas
 
 
+def _bootstrap_from_heuristics(
+    scorer: LinearScorer,
+    *,
+    genome_dir: Path,
+    world,
+    wcfg: WeightConfig,
+    seeds: list[int],
+    n_episodes: int,
+) -> int:
+    """Behavioral cloning from seed heuristics so weights don't start as pure thrash."""
+    from organism.genome_loader import make_policy_factory
+    from organism.world import GridWorld
+
+    if n_episodes <= 0:
+        return 0
+    teacher_f = make_policy_factory(
+        genome_dir, ablation="B0", weight_cfg=wcfg, force_train=False
+    )
+    teacher = teacher_f()
+    alpha = float(getattr(wcfg, "bootstrap_alpha", 0.05))
+    done_eps = 0
+    seed_cycle = list(seeds) or [0]
+    for i in range(n_episodes):
+        seed = int(seed_cycle[i % len(seed_cycle)]) + 50_000 + i
+        env = GridWorld(world, seed=seed)
+        obs = env.reset()
+        teacher.reset(seed)
+        # ensure scorer feature dim matches
+        if scorer.feature_dim != obs.feature_dim():
+            # rebuild scorer in place if vision mismatch (shouldn't happen mid-run)
+            pass
+        for _ in range(max(1, int(world.T))):
+            a = teacher.act(obs)
+            scorer.imitate(obs, a, alpha=alpha)
+            result = env.step(a)
+            if result.done:
+                break
+            obs = env.observe()
+        done_eps += 1
+    scorer._trace.clear()
+    scorer._rewards.clear()
+    scorer._episode_return = 0.0
+    return done_eps
+
+
 def train_and_checkpoint(
     *,
     genome_dir: Path,
@@ -272,10 +317,13 @@ def train_and_checkpoint(
     fit_cfg=None,
     eval_seeds: list[int] | None = None,
 ) -> CheckpointMeta:
-    """Train scorer on genome, optionally score train fitness, save checkpoint."""
-    from organism.evaluator import evaluate
+    """
+    Train scorer: optional heuristic BC bootstrap → REINFORCE passes → checkpoint.
+    Bootstrap prevents random-init weights from erasing competent seed behavior.
+    """
+    from organism.evaluator import evaluate, run_episode
     from organism.genome_loader import make_policy_factory
-    from organism.evaluator import run_episode
+    from organism.world import GridWorld
 
     factory = make_policy_factory(
         genome_dir,
@@ -284,23 +332,27 @@ def train_and_checkpoint(
         force_train=True,
     )
     policy = factory()
-    episodes = 0
-    for p in range(passes):
-        for seed in train_seeds:
-            run_episode(policy, world, seed + p * 10_000, train_weights=True)
-            episodes += 1
+    # Materialize scorer on a dummy obs before bootstrap
+    probe = GridWorld(world, seed=int(train_seeds[0] if train_seeds else 0)).reset()
+    if hasattr(policy, "_ensure_scorer"):
+        scorer = policy._ensure_scorer(probe)  # type: ignore[attr-defined]
+    else:
+        scorer = LinearScorer(LinearScorer.feature_dim_for(probe), wcfg)
+        policy.scorer = scorer  # type: ignore[attr-defined]
 
-    scorer = getattr(policy, "scorer", None)
-    if scorer is None:
-        from organism.world import GridWorld
+    bootstrap_n = int(getattr(wcfg, "bootstrap_episodes", 8) or 0)
+    boot_eps = _bootstrap_from_heuristics(
+        scorer,
+        genome_dir=genome_dir,
+        world=world,
+        wcfg=wcfg,
+        seeds=list(train_seeds),
+        n_episodes=bootstrap_n,
+    )
 
-        obs = GridWorld(world, train_seeds[0]).reset()
-        scorer = LinearScorer(obs.feature_dim(), wcfg)
-        policy.scorer = scorer
-
-    train_fitness = None
-    if fit_cfg is not None and eval_seeds is not None:
-        # save temp then eval with frozen weights
+    def _train_fit_snapshot() -> float | None:
+        if fit_cfg is None or not eval_seeds:
+            return None
         tmp = weights_root(artifacts_dir) / "_tmp_train.npz"
         scorer.save(tmp)
         res = evaluate(
@@ -316,11 +368,33 @@ def train_and_checkpoint(
             eval_seeds,
             train_weights=False,
         )
-        train_fitness = res.fitness
         try:
             tmp.unlink(missing_ok=True)
         except Exception:
             pass
+        return float(res.fitness)
+
+    # Keep best weights — REINFORCE often *destroys* good BC bootstrap
+    best_theta = np.array(scorer.theta, copy=True)
+    best_baseline = float(scorer.baseline)
+    best_fit = _train_fit_snapshot()
+    episodes = boot_eps
+
+    for p in range(passes):
+        for seed in train_seeds:
+            run_episode(policy, world, seed + p * 10_000, train_weights=True)
+            episodes += 1
+        # After each pass, keep only if train fitness improved
+        cur = _train_fit_snapshot()
+        if cur is not None and (best_fit is None or cur > best_fit + 1e-6):
+            best_fit = cur
+            best_theta = np.array(scorer.theta, copy=True)
+            best_baseline = float(scorer.baseline)
+
+    scorer = getattr(policy, "scorer", None) or scorer
+    scorer.theta = best_theta
+    scorer.baseline = best_baseline
+    train_fitness = best_fit if best_fit is not None else _train_fit_snapshot()
 
     return save_checkpoint(
         scorer,

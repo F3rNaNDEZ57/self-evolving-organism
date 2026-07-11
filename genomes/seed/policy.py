@@ -48,7 +48,8 @@ class Policy:
 
     def _ensure_scorer(self, observation: Observation) -> LinearScorer:
         if self.scorer is None:
-            self._feature_dim = observation.feature_dim()
+            # Engineered feature dim (local map + direction/energy stats)
+            self._feature_dim = LinearScorer.feature_dim_for(observation)
             self.scorer = LinearScorer(
                 self._feature_dim,
                 self.weight_cfg,

@@ -32,11 +32,14 @@ eval:
 
 weights:
   backend: numpy_linear
-  alpha: 0.05
+  alpha: 0.02
   init_std: 0.01
   clip_abs: 5.0
   explore_train: 0.10
-  explore_eval: 0.05
+  explore_eval: 0.0          # deterministic holdout of learned policy
+  gamma: 0.99
+  bootstrap_episodes: 8      # BC from seed heuristics before REINFORCE
+  bootstrap_alpha: 0.05
 
 genomic:
   mutate_every_episodes: 10
@@ -90,7 +93,7 @@ ablation: B0  # B0 | Bw | Bc | Bcw
 # Suite runner defaults (seo ablate)
 ablation_suite:
   max_mutations: 3          # pre-reg allows up to 30; 3 is practical default
-  train_passes: 2           # Bw weight training passes over train seeds (aligned with Bcw)
+  train_passes: 4           # Bw/Bcw REINFORCE passes after heuristic bootstrap
   repeats: 1                # K independent arm trajectories (mean±std on δ); use 3+ for claim
   quick:
     train_seeds: [0, 1, 2]

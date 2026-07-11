@@ -112,8 +112,9 @@ def make_policy_factory(
     Policy = load_policy_class(genome_dir)
     use_weights = ablation in ("Bw", "Bcw")
     train = ablation in ("Bw", "Bcw") if force_train is None else force_train
-    explore = 0.05 if not train else 0.10
     wcfg = weight_cfg or WeightConfig()
+    # Honor WeightConfig explore rates (eval default 0.0 — random eval was tanking Bw)
+    explore = float(wcfg.explore_train if train else wcfg.explore_eval)
     wpath = Path(weight_path) if weight_path else None
 
     def factory() -> Any:

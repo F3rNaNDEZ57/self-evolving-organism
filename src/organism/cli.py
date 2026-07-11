@@ -34,12 +34,16 @@ def _load_cfgs():
     exp = experiment_config()
     world = WorldConfig.from_dict(exp.get("world", {}))
     fit = FitnessConfig.from_dict(exp.get("fitness", {}), exp.get("world", {}))
+    w = exp.get("weights", {})
     wcfg = WeightConfig(
-        alpha=float(exp.get("weights", {}).get("alpha", 0.05)),
-        init_std=float(exp.get("weights", {}).get("init_std", 0.01)),
-        clip_abs=float(exp.get("weights", {}).get("clip_abs", 5.0)),
-        explore_train=float(exp.get("weights", {}).get("explore_train", 0.10)),
-        explore_eval=float(exp.get("weights", {}).get("explore_eval", 0.05)),
+        alpha=float(w.get("alpha", 0.02)),
+        init_std=float(w.get("init_std", 0.01)),
+        clip_abs=float(w.get("clip_abs", 5.0)),
+        explore_train=float(w.get("explore_train", 0.10)),
+        explore_eval=float(w.get("explore_eval", 0.0)),
+        gamma=float(w.get("gamma", 0.99)),
+        bootstrap_episodes=int(w.get("bootstrap_episodes", 8)),
+        bootstrap_alpha=float(w.get("bootstrap_alpha", 0.05)),
     )
     return exp, world, fit, wcfg
 
