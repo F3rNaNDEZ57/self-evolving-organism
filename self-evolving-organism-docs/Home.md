@@ -105,7 +105,7 @@ cssclasses:
 | Lab | [[Runs/2026-07-12-population-evo-f3f53426e0]] · [[Runs/2026-07-11-soak-soak-1783791309]] |
 | Active | `g_0a2b03eafe` · fit **28.13** · weights diagnose **False** |
 | Live soak | **acc=0/att=10** · ok (2026-07-11) |
-| Multi-lineage | live 3-slot · **acc=0/rej=3 critic low_value** · plateau (2026-07-12) |
+| Multi-lineage | diversity OK (3 content keys) · still **acc=0** · static food-repeat gate added |
 
 ---
 

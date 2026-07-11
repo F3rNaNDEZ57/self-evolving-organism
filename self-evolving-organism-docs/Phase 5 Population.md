@@ -132,6 +132,19 @@ seo evolve --live --cycles 8 --lineages 3 --select fitness_rank --ablation Bc --
 # --select applies only on single-lineage; multi-lineage preserves per-slot parents
 ```
 
+### Live re-run `evo_450b8e1afc` (post-fix)
+
+| Check | Result |
+|-------|--------|
+| Unique content keys | **3/3** (diversity OK) |
+| hold_lineage select | all 3 slots |
+| mutations | acc=0 / rej=3 |
+| slot0 | fitness no-gain vs parent+ε |
+| slot1 | critic low_value food again |
+| slot2 | contract_break (bad policy.py proposal) |
+
+Follow-up: validate parents on open; static reject food-only re-tweaks when lessons flag them.
+
 ## Not yet (later Phase 5)
 
 - [ ] Hard resource isolation between lineages (Docker-per-lineage)

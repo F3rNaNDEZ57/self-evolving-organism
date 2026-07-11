@@ -78,4 +78,5 @@ Writes `self-evolving-organism-docs/Runs/YYYY-MM-DD-….md` and appends this ind
 | 2026-07-11 | [[2026-07-11-population-evo-308b7ef211]] | population | auto-export: 2026-07-11-population-evo-308b7ef211 |
 | 2026-07-11 | [[2026-07-11-soak-soak-1783791309]] | live soak r=10 Bc | **acc=0/att=10** · fit 28.13 · genome stable |
 | 2026-07-12 | [[2026-07-12-population-evo-f3f53426e0]] | multi-lineage live 3-slot | **acc=0/rej=3 critic low_value** · plateau 28.13 |
+| 2026-07-12 | [[2026-07-12-population-evo-450b8e1afc]] | multi-lineage live (diverse) | 3 unique parents · **acc=0** · hold_lineage OK |
 

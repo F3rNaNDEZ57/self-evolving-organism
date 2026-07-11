@@ -299,6 +299,8 @@ def propose_policy_patch(
         "Prefer a single small change to heuristics.py if possible.\n"
         "If past lessons say low_value on food-direction tweaks, change a "
         "DIFFERENT behavior (energy/rest/forage/walls), not the same function.\n"
+        "Do NOT rewrite policy.py unless required; prefer heuristics.py only.\n"
+        "Do NOT re-edit nearest_food_direction / should_forage when lessons forbid it.\n"
         "Keep Policy interface; only use real Observation fields (tick not ticks).\n"
         f"Recent episode summaries: {json.dumps(episode_summaries[:8])}\n\n"
         + "\n\n".join(sources)
@@ -708,6 +710,7 @@ def run_mutation_cycle(
             lessons_text=lessons_text,
             soft_threshold=soft_thr,
             soft_codes=list(soft_codes),
+            parent_dir=parent_dir,
         )
         store.log_event(
             "mutation_critic",

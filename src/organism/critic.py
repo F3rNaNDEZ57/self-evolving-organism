@@ -127,7 +127,87 @@ def _parse_verdict(text: str) -> dict[str, Any]:
     return {}
 
 
-def static_precheck(files: dict[str, str]) -> CriticVerdict | None:
+def _func_dumps(source: str) -> dict[str, str]:
+    """Map top-level function name → AST dump (for change detection)."""
+    import ast
+
+    out: dict[str, str] = {}
+    try:
+        tree = ast.parse(source)
+    except SyntaxError:
+        return out
+    for node in tree.body:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            out[node.name] = ast.dump(node, annotate_fields=False)
+    return out
+
+
+def static_food_heuristic_repeat(
+    files: dict[str, str],
+    *,
+    parent_dir: Path | None,
+    lessons_text: str = "",
+) -> CriticVerdict | None:
+    """
+    When lessons already flag repeated food-direction low_value work, hard-reject
+    patches that only re-tweak nearest_food_direction / should_forage.
+    """
+    if parent_dir is None:
+        return None
+    lt = (lessons_text or "").lower()
+    if not any(
+        x in lt
+        for x in (
+            "nearest_food",
+            "food-direction",
+            "food_direction",
+            "low_value",
+            "diversity",
+        )
+    ):
+        return None
+    # Only applies to heuristics-only patches (other modules = different surface)
+    if set(files.keys()) != {"heuristics.py"}:
+        return None
+    parent_h = Path(parent_dir) / "heuristics.py"
+    if not parent_h.exists():
+        return None
+    try:
+        parent_src = parent_h.read_text(encoding="utf-8")
+    except OSError:
+        return None
+    new_src = files["heuristics.py"]
+    old_f = _func_dumps(parent_src)
+    new_f = _func_dumps(new_src)
+    if not old_f or not new_f:
+        return None
+    changed = [name for name in new_f if old_f.get(name) != new_f.get(name)]
+    added = [name for name in new_f if name not in old_f]
+    removed = [name for name in old_f if name not in new_f]
+    if added or removed:
+        return None  # structural change elsewhere — ok
+    food_only = {"nearest_food_direction", "should_forage"}
+    if changed and set(changed).issubset(food_only):
+        return CriticVerdict(
+            decision="reject",
+            code="low_value",
+            confidence=1.0,
+            reasons=[
+                "static: only re-tweaked food-direction heuristics already flagged "
+                f"in lessons ({', '.join(changed)}); try energy/rest/walls/timeout instead",
+            ],
+            model="static",
+            dry_run=True,
+        )
+    return None
+
+
+def static_precheck(
+    files: dict[str, str],
+    *,
+    parent_dir: Path | None = None,
+    lessons_text: str = "",
+) -> CriticVerdict | None:
     """Hard reject without LLM if AST/static rules fail on proposed sources."""
     errors: list[str] = []
     total_lines = 0
@@ -160,6 +240,11 @@ def static_precheck(files: dict[str, str]) -> CriticVerdict | None:
             model="static",
             dry_run=True,
         )
+    food = static_food_heuristic_repeat(
+        files, parent_dir=parent_dir, lessons_text=lessons_text
+    )
+    if food is not None:
+        return food
     return None
 
 
@@ -223,13 +308,15 @@ def review_proposal(
     lessons_text: str = "",
     soft_threshold: float = 0.6,
     soft_codes: list[str] | None = None,
+    parent_dir: Path | str | None = None,
 ) -> CriticVerdict:
     """
     Review proposed file sources. Static hard-fail first, then free NIM critic
     (or dry_run critic). Soft-threshold: low-confidence other/low_value → allow eval.
     On NIM error: fail_open→approve@0.3 or fail-closed reject.
     """
-    hard = static_precheck(files)
+    pdir = Path(parent_dir) if parent_dir else None
+    hard = static_precheck(files, parent_dir=pdir, lessons_text=lessons_text)
     if hard is not None:
         return hard  # never soft-pass static hard fails (conf=1.0 + hard codes)
 

@@ -84,7 +84,15 @@ class LineageSlot:
 
 def _path_ok(path: str | Path) -> bool:
     p = Path(path)
-    return p.exists() and (p / "policy.py").exists()
+    if not (p.exists() and (p / "policy.py").exists()):
+        return False
+    # Skip broken/incomplete genomes so multi-lineage does not waste cycles
+    try:
+        from organism.validate import validate_genome_dir
+
+        return not validate_genome_dir(p)
+    except Exception:
+        return True
 
 
 def genome_content_key(path: str | Path) -> str:

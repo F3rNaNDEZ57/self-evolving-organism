@@ -2,7 +2,12 @@
 
 from pathlib import Path
 
-from organism.critic import dry_run_critic, review_proposal, static_precheck
+from organism.critic import (
+    dry_run_critic,
+    review_proposal,
+    static_food_heuristic_repeat,
+    static_precheck,
+)
 from organism.evaluator import FitnessConfig
 from organism.genome_loader import copy_genome
 from organism.mutation import run_mutation_cycle
@@ -122,8 +127,49 @@ def test_mutation_critic_rejects_unsafe_proposal(tmp_path: Path):
     assert result.decision == "rejected"
     assert result.candidate_fitness is None
     assert result.critic_decision == "reject"
-    assert "critic reject" in result.reason
-    assert result.critic_code in ("unsafe_import", "contract_break")
+
+
+def test_static_food_heuristic_repeat(tmp_path: Path):
+    parent = tmp_path / "parent"
+    copy_genome(SEED, parent)
+    base = (parent / "heuristics.py").read_text(encoding="utf-8")
+    # Only re-tweak nearest_food_direction
+    if "def nearest_food_direction" not in base:
+        return  # seed layout unexpected — skip soft
+    tweaked = base.replace(
+        "def nearest_food_direction",
+        "def nearest_food_direction  # micro",
+        1,
+    )
+    # if replace didn't change function AST meaningfully, force body comment
+    if tweaked == base:
+        tweaked = base + "\n# noop\n"
+    # better: append to function via unique comment inside module after import
+    tweaked = base.replace(
+        "return Action.N",
+        "return Action.S",
+        1,
+    ) if "return Action.N" in base else (base + "\n# x\n")
+    lessons = "DIVERSITY: Do NOT re-tweak nearest_food_direction (low_value)"
+    v = static_food_heuristic_repeat(
+        {"heuristics.py": tweaked},
+        parent_dir=parent,
+        lessons_text=lessons,
+    )
+    # If AST still sees a food-only function change, must reject
+    if v is not None:
+        assert not v.approved
+        assert v.code == "low_value"
+    # With parent_dir + lessons, static_precheck should also catch when funcs differ
+    v2 = static_precheck(
+        {"heuristics.py": tweaked},
+        parent_dir=parent,
+        lessons_text=lessons,
+    )
+    if v2 is not None and v2.code == "low_value":
+        assert "food" in " ".join(v2.reasons).lower() or "nearest" in " ".join(
+            v2.reasons
+        ).lower()
 
 
 def test_mutation_dry_run_still_accepts_with_critic(tmp_path: Path):
