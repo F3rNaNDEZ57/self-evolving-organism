@@ -585,8 +585,13 @@ def mutate(
     ablation: str = typer.Option("Bc", help="Bc (code only) or Bcw (code+weights)"),
     dry_run: bool = typer.Option(False, "--dry-run", help="Offline deterministic patch (no NIM)"),
     parent_id: str = typer.Option("", help="Override parent genome id"),
+    critic: bool = typer.Option(
+        True,
+        "--critic/--no-critic",
+        help="Run free-NIM critic (static + model) before candidate eval",
+    ),
 ) -> None:
-    """Run full mutation loop: propose → apply → validate → eval → accept/reject."""
+    """Run full mutation loop: propose → critic → apply → validate → eval → accept/reject."""
     from organism.mutation import resolve_parent_genome, run_mutation_cycle
 
     if ablation not in ("Bc", "Bcw", "B0", "Bw"):
@@ -603,6 +608,9 @@ def mutate(
     artifacts = resolve_path(exp.get("paths", {}).get("artifacts_dir", "artifacts"))
     db = resolve_path(exp.get("paths", {}).get("db_path", "artifacts/seo.sqlite"))
     seeds = list(exp.get("eval", {}).get("train_seeds", list(range(8))))
+    critic_cfg = dict(exp.get("critic") or {})
+    # CLI flag wins over yaml
+    use_critic = critic
 
     # ensure parent row exists
     store = Store(db)
@@ -617,7 +625,8 @@ def mutate(
         pass
 
     console.print(
-        f"[cyan]Mutation cycle[/cyan] parent={gid} path={parent_dir} ablation={ablation} dry_run={dry_run}"
+        f"[cyan]Mutation cycle[/cyan] parent={gid} path={parent_dir} "
+        f"ablation={ablation} dry_run={dry_run} critic={use_critic}"
     )
     result = run_mutation_cycle(
         parent_dir=parent_dir,
@@ -630,6 +639,8 @@ def mutate(
         ablation=ablation if ablation in ("Bc", "Bcw") else "Bc",
         parent_genome_id=gid,
         dry_run=dry_run,
+        critic=use_critic,
+        critic_cfg=critic_cfg,
     )
     store.close()
 
@@ -647,6 +658,19 @@ def mutate(
     table.add_row("epsilon", f"{result.epsilon:.4f}")
     table.add_row("files", ", ".join(result.files_changed) or "—")
     table.add_row("model", result.model)
+    table.add_row(
+        "critic",
+        (
+            f"{result.critic_decision}"
+            + (f" [{result.critic_code}]" if result.critic_code else "")
+            + (
+                f" conf={result.critic_confidence:.2f}"
+                if result.critic_confidence is not None
+                else ""
+            )
+        )
+        or "—",
+    )
     table.add_row("candidate_id", result.candidate_genome_id)
     table.add_row("candidate_path", result.candidate_path)
     table.add_row("rationale", (result.rationale or "")[:200])
