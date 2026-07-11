@@ -134,6 +134,145 @@ def build_docker_smoke_argv() -> list[str]:
     return _seo_argv(["docker-smoke"])
 
 
+def parse_cli_params(argv: list[str]) -> dict[str, Any]:
+    """
+    Parse seo CLI argv into structured operator-facing parameters.
+
+    Handles flags used by mutate / evolve / ablate / weights train / docker-smoke.
+    Unknown tokens are collected under raw_tokens for transparency.
+    """
+    tokens = list(argv or [])
+    # Drop interpreter / -m organism.cli prefix if present
+    for i, t in enumerate(tokens):
+        if t in ("organism.cli", "seo") or t.endswith("organism.cli"):
+            tokens = tokens[i + 1 :]
+            break
+        if t == "-m" and i + 1 < len(tokens) and "organism.cli" in tokens[i + 1]:
+            tokens = tokens[i + 2 :]
+            break
+
+    params: dict[str, Any] = {}
+    if not tokens:
+        return params
+
+    command = tokens[0]
+    rest = tokens[1:]
+    # weights train → command "weights train"
+    if command == "weights" and rest and rest[0] == "train":
+        params["command"] = "weights train"
+        rest = rest[1:]
+    else:
+        params["command"] = command
+
+    i = 0
+    bool_flags = {
+        "--dry-run": ("dry_run", True),
+        "--live": ("live", True),
+        "--critic": ("critic", True),
+        "--no-critic": ("critic", False),
+        "--quick": ("quick", True),
+        "--host": ("host", True),
+        "--docker": ("docker", True),
+    }
+    value_flags = {
+        "--ablation": "ablation",
+        "--cycles": "cycles",
+        "--max-mutations": "max_mutations",
+        "--every": "every",
+        "--plateau": "plateau",
+        "--passes": "passes",
+        "--parent-id": "parent_id",
+        "--arms": "arms",
+        "--genome-id": "genome_id",
+        "--label": "label",
+        "--weights": "weights",
+        "--seeds": "seeds",
+    }
+    unknown: list[str] = []
+    while i < len(rest):
+        t = rest[i]
+        if t in bool_flags:
+            key, val = bool_flags[t]
+            params[key] = val
+            i += 1
+            continue
+        if t in value_flags and i + 1 < len(rest):
+            key = value_flags[t]
+            raw = rest[i + 1]
+            # coerce ints where obvious
+            if key in (
+                "cycles",
+                "max_mutations",
+                "every",
+                "plateau",
+                "passes",
+                "seeds",
+            ):
+                try:
+                    params[key] = int(raw)
+                except ValueError:
+                    params[key] = raw
+            else:
+                params[key] = raw
+            i += 2
+            continue
+        if t.startswith("-"):
+            # --flag=value form
+            if "=" in t:
+                k, _, v = t.partition("=")
+                name = value_flags.get(k) or k.lstrip("-").replace("-", "_")
+                params[name] = v
+            else:
+                unknown.append(t)
+            i += 1
+            continue
+        unknown.append(t)
+        i += 1
+
+    # Normalize live vs dry for display (CLI defaults when flag omitted)
+    cmd = str(params.get("command") or "")
+    if "dry_run" not in params and "live" in params:
+        params["dry_run"] = not bool(params["live"])
+    if "live" not in params and "dry_run" in params:
+        params["live"] = not bool(params["dry_run"])
+    if cmd in ("mutate", "evolve", "ablate") and "dry_run" not in params:
+        # mutate/evolve/ablate without --dry-run means live (or suite default)
+        params["dry_run"] = False
+        params["live"] = True
+    if cmd == "mutate" and "critic" not in params:
+        params["critic"] = True  # CLI default --critic
+
+    if unknown:
+        params["extra_args"] = unknown
+    return params
+
+
+def job_parameters(rec: JobRecord) -> dict[str, Any]:
+    """Full operator view: record fields + parsed CLI params + derived timing."""
+    cli = parse_cli_params(rec.argv)
+    duration_s: float | None = None
+    if rec.started_at:
+        end = rec.ended_at if rec.ended_at else time.time()
+        duration_s = max(0.0, float(end) - float(rec.started_at))
+    return {
+        "job_id": rec.job_id,
+        "kind": rec.kind,
+        "status": rec.status,
+        "pid": rec.pid,
+        "returncode": rec.returncode,
+        "note": rec.note,
+        "error": rec.error,
+        "created_at": rec.created_at,
+        "started_at": rec.started_at,
+        "ended_at": rec.ended_at,
+        "duration_s": duration_s,
+        "log_path": rec.log_path,
+        "meta_path": rec.meta_path,
+        "argv": list(rec.argv),
+        "cli": cli,
+    }
+
+
 def _pid_alive(pid: int | None) -> bool:
     if not pid:
         return False

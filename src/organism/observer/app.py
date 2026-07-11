@@ -604,7 +604,74 @@ def page_run(artifacts: Path, db: Path) -> None:
         with c4:
             st.metric("kind", rec.kind)
 
-        st.code(" ".join(rec.argv), language="text")
+        detail = jobmod.job_parameters(rec)
+        cli = detail.get("cli") or {}
+        # Always visible parameter strip for running/selected jobs
+        with st.expander(
+            "Job parameters",
+            expanded=rec.status in ("running", "queued"),
+        ):
+            p1, p2, p3, p4 = st.columns(4)
+            with p1:
+                st.metric("command", str(cli.get("command") or rec.kind))
+            with p2:
+                dry = cli.get("dry_run")
+                st.metric(
+                    "mode",
+                    "dry-run" if dry is True else ("live" if dry is False else "—"),
+                )
+            with p3:
+                dur = detail.get("duration_s")
+                st.metric(
+                    "duration",
+                    f"{dur:.1f}s" if isinstance(dur, (int, float)) else "—",
+                )
+            with p4:
+                st.metric("note", (rec.note or "—")[:28])
+
+            # Kind-specific CLI flags as a clean table
+            flag_rows = {
+                k: v
+                for k, v in cli.items()
+                if k not in ("command",)
+            }
+            if flag_rows:
+                st.markdown("**CLI flags**")
+                st.table(
+                    [{"parameter": k, "value": str(v)} for k, v in sorted(flag_rows.items())]
+                )
+
+            st.markdown("**Timing**")
+            st.table(
+                [
+                    {"field": "created_at", "value": fmt_ts(detail.get("created_at"))},
+                    {"field": "started_at", "value": fmt_ts(detail.get("started_at"))},
+                    {"field": "ended_at", "value": fmt_ts(detail.get("ended_at"))},
+                    {
+                        "field": "duration_s",
+                        "value": (
+                            f"{detail['duration_s']:.2f}"
+                            if detail.get("duration_s") is not None
+                            else "—"
+                        ),
+                    },
+                ]
+            )
+
+            st.markdown("**Paths**")
+            st.code(
+                f"log:  {rec.log_path or '—'}\nmeta: {rec.meta_path or '—'}",
+                language="text",
+            )
+            if rec.error:
+                st.error(rec.error)
+
+            st.markdown("**Full argv**")
+            st.code(" ".join(rec.argv), language="text")
+
+            st.markdown("**Raw job record**")
+            st.json(detail)
+
         b1, b2, b3 = st.columns(3)
         with b1:
             if st.button("Refresh log now", key="job_ref"):
