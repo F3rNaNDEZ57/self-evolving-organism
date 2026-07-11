@@ -90,6 +90,8 @@ def build_mutate_argv(
     ablation: str = "Bc",
     critic: bool = True,
     parent_id: str = "",
+    select: str = "active",
+    tournament_k: int = 3,
 ) -> list[str]:
     args = ["mutate", "--ablation", ablation]
     if dry_run:
@@ -100,6 +102,10 @@ def build_mutate_argv(
         args.append("--no-critic")
     if parent_id:
         args.extend(["--parent-id", str(parent_id)])
+    elif select and select != "active":
+        args.extend(["--select", str(select)])
+        if select == "tournament":
+            args.extend(["--tournament-k", str(int(tournament_k))])
     return _seo_argv(args)
 
 
@@ -111,6 +117,8 @@ def build_evolve_argv(
     max_mutations: int = 5,
     every: int = 8,
     plateau: int = 20,
+    select: str = "active",
+    tournament_k: int = 3,
 ) -> list[str]:
     args = [
         "evolve",
@@ -124,6 +132,10 @@ def build_evolve_argv(
         str(every),
         "--plateau",
         str(plateau),
+        "--select",
+        str(select or "active"),
+        "--tournament-k",
+        str(int(tournament_k)),
     ]
     if dry_run:
         args.append("--dry-run")
@@ -200,6 +212,9 @@ def parse_cli_params(argv: list[str]) -> dict[str, Any]:
         "--plateau": "plateau",
         "--passes": "passes",
         "--parent-id": "parent_id",
+        "--select": "select",
+        "--tournament-k": "tournament_k",
+        "--policy": "policy",
         "--arms": "arms",
         "--genome-id": "genome_id",
         "--label": "label",
@@ -225,6 +240,7 @@ def parse_cli_params(argv: list[str]) -> dict[str, Any]:
                 "plateau",
                 "passes",
                 "seeds",
+                "tournament_k",
             ):
                 try:
                     params[key] = int(raw)

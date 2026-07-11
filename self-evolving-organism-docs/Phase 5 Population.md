@@ -14,15 +14,31 @@ Move from **single active lineage** toward an operator-curated **elite archive**
 | Item | Status |
 |------|--------|
 | Elite registry `artifacts/elites/registry.json` | ☑ |
-| `seo elite list \| promote \| demote` | ☑ |
+| `seo elite list \| promote \| demote \| select` | ☑ |
 | Genomes UI: promote / demote + elite table | ☑ |
-| Mutate parent picker (active · elite · genome) | ☑ |
+| Mutate parent picker (auto · active · elite · genome) | ☑ |
 | `seo mutate --parent-id <id>` resolves path correctly | ☑ |
 | Job runner passes `--parent-id` | ☑ |
+| **Auto selection** `active \| fitness_rank \| tournament` | ☑ |
+| Evolve re-selects parent before each mutation | ☑ |
+| Auto-promote accepts to elites when select≠active | ☑ |
+
+## Selection policies
+
+| Policy | Behavior |
+|--------|----------|
+| `active` | Current active_genome pointer (single lineage) |
+| `fitness_rank` | Highest last fitness among elites + active + recent DB |
+| `tournament` | Sample k candidates, pick best fitness in shortlist |
+
+```powershell
+seo elite select --policy fitness_rank
+seo mutate --dry-run --select fitness_rank
+seo evolve --dry-run --cycles 3 --select tournament --tournament-k 3
+```
 
 ## Not yet (later Phase 5)
 
-- [ ] Automatic selection policy (tournament / fitness rank)
 - [ ] Multi-organism budgets / concurrent lineages
 - [ ] Multi-agent same-map Watch
 - [ ] Solo vs population experiment write-up
@@ -44,10 +60,12 @@ seo mutate --dry-run --ablation Bc --parent-id g_xxxxxxxx
 | Path | Role |
 |------|------|
 | `src/organism/elites.py` | Registry promote/demote/list/resolve |
+| `src/organism/selection.py` | fitness_rank / tournament parent pick |
+| `src/organism/evolve.py` | select + auto_elite_on_accept |
 | `src/organism/mutation.py` | `resolve_parent_genome(..., parent_id=)` |
-| `src/organism/cli.py` | `seo elite *` |
-| `src/organism/observer/app.py` | Genomes + Run parent picker |
-| `src/organism/observer/jobs.py` | `build_mutate_argv(parent_id=)` |
+| `src/organism/cli.py` | `seo elite *` · mutate/evolve `--select` |
+| `src/organism/observer/app.py` | Genomes + Run parent / select UI |
+| `src/organism/observer/jobs.py` | argv builders for select + parent |
 
 ## Design notes
 

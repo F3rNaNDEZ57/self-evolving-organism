@@ -436,6 +436,47 @@ def elite_demote(
         raise typer.Exit(1)
 
 
+@elite_app.command("select")
+def elite_select(
+    policy: str = typer.Option(
+        "fitness_rank",
+        "--policy",
+        help="active | fitness_rank | tournament",
+    ),
+    tournament_k: int = typer.Option(3, help="Tournament k"),
+    seed: int = typer.Option(0, help="RNG seed for tournament"),
+) -> None:
+    """Preview which parent selection would pick (does not mutate)."""
+    from organism.selection import SELECT_POLICIES, select_and_resolve
+
+    exp, _, _, _ = _load_cfgs()
+    artifacts = resolve_path(exp.get("paths", {}).get("artifacts_dir", "artifacts"))
+    db = resolve_path(exp.get("paths", {}).get("db_path", "artifacts/seo.sqlite"))
+    pol = (policy or "fitness_rank").strip().lower()
+    if pol not in SELECT_POLICIES:
+        console.print(f"[red]policy must be one of {SELECT_POLICIES}[/red]")
+        raise typer.Exit(2)
+    store = Store(db)
+    res = select_and_resolve(
+        artifacts,
+        store,
+        exp,
+        policy=pol,
+        tournament_k=int(tournament_k),
+        seed=int(seed),
+    )
+    store.close()
+    table = Table(title="Selection preview")
+    table.add_column("field")
+    table.add_column("value")
+    for k, v in res.to_dict().items():
+        if k == "shortlist":
+            table.add_row(k, json.dumps(v)[:200])
+        else:
+            table.add_row(k, str(v))
+    console.print(table)
+
+
 @weights_app.command("train")
 def weights_train(
     passes: int = typer.Option(2, help="Passes over train seeds"),
@@ -570,9 +611,20 @@ def evolve(
     max_mutations: int = typer.Option(None, help="Cap mutations this run"),
     every: int = typer.Option(None, help="Override schedule: mutate every N seed-episodes"),
     plateau: int = typer.Option(None, help="Override plateau window (seed-episodes)"),
+    select: str = typer.Option(
+        "active",
+        help="Parent selection: active | fitness_rank | tournament",
+    ),
+    tournament_k: int = typer.Option(3, help="Tournament shortlist size"),
+    auto_elite: Optional[bool] = typer.Option(
+        None,
+        "--auto-elite/--no-auto-elite",
+        help="Promote accepted children to elites (default: on when select!=active)",
+    ),
 ) -> None:
     """Run continuous evolution with schedule + plateau mutation triggers."""
     from organism.evolve import EvolveConfig, run_evolve
+    from organism.selection import SELECT_POLICIES
 
     exp, world, fit, wcfg = _load_cfgs()
     artifacts = resolve_path(exp.get("paths", {}).get("artifacts_dir", "artifacts"))
@@ -592,11 +644,22 @@ def evolve(
         cfg.mutate_every_episodes = every
     if plateau is not None:
         cfg.plateau_episodes = plateau
+    sel = (select or "active").strip().lower()
+    if sel not in SELECT_POLICIES:
+        console.print(f"[red]select must be one of {SELECT_POLICIES}[/red]")
+        raise typer.Exit(2)
+    cfg.select = sel
+    cfg.tournament_k = int(tournament_k)
+    if auto_elite is None:
+        cfg.auto_elite_on_accept = sel != "active"
+    else:
+        cfg.auto_elite_on_accept = bool(auto_elite)
 
     store = Store(db)
     console.print(
         f"[cyan]Evolve[/cyan] cycles={cycles} ablation={ablation} dry_run={cfg.dry_run} "
-        f"every={cfg.mutate_every_episodes} plateau={cfg.plateau_episodes} max_mut={cfg.max_mutations}"
+        f"every={cfg.mutate_every_episodes} plateau={cfg.plateau_episodes} "
+        f"max_mut={cfg.max_mutations} select={cfg.select} k={cfg.tournament_k}"
     )
     report = run_evolve(
         exp=exp,
@@ -720,6 +783,11 @@ def mutate(
     ablation: str = typer.Option("Bc", help="Bc (code only) or Bcw (code+weights)"),
     dry_run: bool = typer.Option(False, "--dry-run", help="Offline deterministic patch (no NIM)"),
     parent_id: str = typer.Option("", help="Override parent genome id"),
+    select: str = typer.Option(
+        "active",
+        help="If no --parent-id: active | fitness_rank | tournament",
+    ),
+    tournament_k: int = typer.Option(3, help="Tournament shortlist size"),
     critic: bool = typer.Option(
         True,
         "--critic/--no-critic",
@@ -727,7 +795,8 @@ def mutate(
     ),
 ) -> None:
     """Run full mutation loop: propose → critic → apply → validate → eval → accept/reject."""
-    from organism.mutation import resolve_parent_genome, run_mutation_cycle
+    from organism.mutation import run_mutation_cycle
+    from organism.selection import SELECT_POLICIES, select_and_resolve
 
     if ablation not in ("Bc", "Bcw", "B0", "Bw"):
         console.print("[red]ablation should be Bc or Bcw for mutation[/red]")
@@ -750,10 +819,27 @@ def mutate(
     critic_cfg = dict(exp.get("critic") or {})
     # CLI flag wins over yaml
     use_critic = critic
+    sel = (select or "active").strip().lower()
+    if sel not in SELECT_POLICIES:
+        console.print(f"[red]select must be one of {SELECT_POLICIES}[/red]")
+        raise typer.Exit(2)
 
     store = Store(db)
     try:
-        parent_dir, gid = resolve_parent_genome(exp, parent_id=parent_id, store=store)
+        choice = select_and_resolve(
+            artifacts,
+            store,
+            exp,
+            policy=sel,
+            tournament_k=int(tournament_k),
+            parent_id=parent_id,
+        )
+        parent_dir = Path(choice.path)
+        gid = choice.genome_id
+        console.print(
+            f"[dim]select[/dim] policy={choice.policy} parent={gid} "
+            f"fit={choice.fitness} · {choice.reason}"
+        )
     except FileNotFoundError as e:
         store.close()
         console.print(f"[red]Parent genome not found:[/red] {e}")

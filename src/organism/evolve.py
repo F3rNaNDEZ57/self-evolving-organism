@@ -11,9 +11,10 @@ from typing import Any
 
 from organism.evaluator import FitnessConfig, episode_score, evaluate, run_episode
 from organism.genome_loader import make_policy_factory
-from organism.mutation import resolve_parent_genome, run_mutation_cycle
+from organism.mutation import run_mutation_cycle
 from organism.nim_client import NimClient
 from organism.persistence import Store
+from organism.selection import select_and_resolve
 from organism.weights import WeightConfig
 from organism.world import WorldConfig
 
@@ -29,6 +30,10 @@ class EvolveConfig:
     eval_every: int = 1
     # plateau: no improvement greater than this absolute delta over the window
     plateau_epsilon: float = 0.01
+    # Phase 5: parent selection at each mutation trigger
+    select: str = "active"  # active | fitness_rank | tournament
+    tournament_k: int = 3
+    auto_elite_on_accept: bool = False  # promote accepted children into elite archive
 
     @classmethod
     def from_exp(cls, exp: dict[str, Any], *, dry_run: bool = False, ablation: str = "Bc") -> EvolveConfig:
@@ -42,6 +47,9 @@ class EvolveConfig:
             dry_run=dry_run,
             eval_every=int(evo.get("eval_every", 1)),
             plateau_epsilon=float(evo.get("plateau_epsilon", 0.01)),
+            select=str(evo.get("select", "active")),
+            tournament_k=int(evo.get("tournament_k", 3)),
+            auto_elite_on_accept=bool(evo.get("auto_elite_on_accept", False)),
         )
 
 
@@ -130,7 +138,17 @@ def run_evolve(
     seeds = train_seeds or list(exp.get("eval", {}).get("train_seeds", list(range(8))))
     run_id = _uid("evo")
 
-    parent_dir, parent_id = resolve_parent_genome(exp)
+    seed_sel = int(run_id.replace("evo_", "")[:8], 16) % (2**31) if len(run_id) > 4 else 0
+    sel0 = select_and_resolve(
+        artifacts_dir,
+        store,
+        exp,
+        policy=cfg.select,
+        tournament_k=cfg.tournament_k,
+        seed=seed_sel,
+    )
+    parent_dir = Path(sel0.path)
+    parent_id = sel0.genome_id
     # Ensure genome row
     store.insert_genome(
         genome_id=parent_id,
@@ -172,6 +190,9 @@ def run_evolve(
             "dry_run": cfg.dry_run,
             "max_eval_cycles": max_eval_cycles,
             "max_mutations": cfg.max_mutations,
+            "select": cfg.select,
+            "tournament_k": cfg.tournament_k,
+            "selection": sel0.to_dict(),
         },
     )
     man_path = write_manifest(artifacts_dir / "evolve" / f"{run_id}_manifest.json", man)
@@ -187,8 +208,21 @@ def run_evolve(
             "plateau_episodes": cfg.plateau_episodes,
             "max_mutations": cfg.max_mutations,
             "parent_id": parent_id,
+            "select": cfg.select,
+            "selection": sel0.to_dict(),
             "manifest_path": str(man_path),
         },
+    )
+    events.append(
+        asdict(
+            EvolveEvent(
+                kind="select",
+                episode_index=0,
+                fitness=sel0.fitness,
+                genome_id=parent_id,
+                reason=f"{sel0.policy}: {sel0.reason}",
+            )
+        )
     )
 
     start_id = parent_id
@@ -242,6 +276,34 @@ def run_evolve(
         mut_attempted += 1
         from organism.sandbox import SandboxConfig
 
+        # Re-select parent for population dynamics (elites / rank / tournament)
+        if (cfg.select or "active").lower() != "active":
+            sel = select_and_resolve(
+                artifacts_dir,
+                store,
+                exp,
+                policy=cfg.select,
+                tournament_k=cfg.tournament_k,
+                seed=(seed_sel + mut_attempted) % (2**31),
+            )
+            parent_dir = Path(sel.path)
+            parent_id = sel.genome_id
+            events.append(
+                asdict(
+                    EvolveEvent(
+                        kind="select",
+                        episode_index=episodes_run,
+                        fitness=sel.fitness,
+                        genome_id=parent_id,
+                        reason=f"{sel.policy}: {sel.reason}",
+                    )
+                )
+            )
+            store.log_event(
+                "evolve_select",
+                {"run_id": run_id, "mutation_n": mut_attempted, **sel.to_dict()},
+            )
+
         sb = SandboxConfig.from_exp(exp)
         mres = run_mutation_cycle(
             parent_dir=parent_dir,
@@ -265,6 +327,19 @@ def run_evolve(
             mut_accepted += 1
             parent_dir = Path(mres.candidate_path)
             parent_id = mres.candidate_genome_id
+            if cfg.auto_elite_on_accept:
+                try:
+                    from organism.elites import promote_elite
+
+                    promote_elite(
+                        artifacts_dir,
+                        store,
+                        parent_id,
+                        note=f"auto evolve accept {run_id}",
+                        fitness=mres.candidate_fitness,
+                    )
+                except Exception:
+                    pass
         elif mres.decision == "rejected":
             mut_rejected += 1
         else:

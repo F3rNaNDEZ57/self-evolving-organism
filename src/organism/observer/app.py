@@ -399,14 +399,24 @@ def page_run(artifacts: Path, db: Path) -> None:
         dry = st.checkbox("Dry-run (no NIM)", value=True, key="mut_dry")
         abl = st.selectbox("Ablation", ["Bc", "Bcw"], key="mut_abl")
         crit = st.checkbox("Critic", value=True, key="mut_crit")
-        # Parent: active default, or elite / recent genome
+        mut_select = st.selectbox(
+            "Auto-select policy",
+            ["active", "fitness_rank", "tournament"],
+            key="mut_select",
+            help="Used when Parent is 'auto' — fitness_rank / tournament over elites+DB",
+        )
+        mut_k = st.number_input(
+            "Tournament k", min_value=2, max_value=10, value=3, key="mut_k"
+        )
+        # Parent: auto (policy) · active · elite / recent genome
         try:
             exp = experiment_config()
             active_path, active_id = resolve_parent_genome(exp)
         except Exception:
             active_id, active_path = "active", Path(".")
         parent_choices: list[tuple[str, str]] = [
-            (f"active · {active_id}", ""),  # empty parent_id → CLI uses active
+            (f"auto · policy={mut_select}", "__auto__"),
+            (f"active · {active_id}", ""),  # empty parent_id → active pointer
         ]
         for e in list_elites(artifacts):
             gid = str(e.get("genome_id") or "")
@@ -434,13 +444,20 @@ def page_run(artifacts: Path, db: Path) -> None:
             range(len(parent_choices)),
             format_func=lambda i: parent_choices[i][0],
             key="mut_parent",
-            help="Phase 5: mutate from active, an elite, or any known genome",
+            help="Phase 5: auto policy, active, elite, or any known genome",
         )
-        parent_id = parent_choices[parent_i][1]
-        if parent_id:
-            st.caption(f"Will pass `--parent-id {parent_id}`")
+        parent_raw = parent_choices[parent_i][1]
+        if parent_raw == "__auto__":
+            parent_id = ""
+            select_policy = mut_select
+            st.caption(f"Auto-select `{mut_select}` (tournament k={int(mut_k)})")
         else:
-            st.caption(f"Uses active parent `{active_id}`")
+            parent_id = parent_raw
+            select_policy = "active"
+            if parent_id:
+                st.caption(f"Will pass `--parent-id {parent_id}`")
+            else:
+                st.caption(f"Uses active parent `{active_id}`")
 
         if st.button("Start mutate", type="primary", disabled=busy, key="mut_go"):
             if not dry and not st.session_state.get("mut_live_ok"):
@@ -451,6 +468,8 @@ def page_run(artifacts: Path, db: Path) -> None:
                         "ablation": abl,
                         "critic": crit,
                         "parent_id": parent_id,
+                        "select": select_policy,
+                        "tournament_k": int(mut_k),
                     }
                 else:
                     rec = jobmod.start_job(
@@ -461,8 +480,13 @@ def page_run(artifacts: Path, db: Path) -> None:
                             ablation=abl,
                             critic=crit,
                             parent_id=parent_id,
+                            select=select_policy,
+                            tournament_k=int(mut_k),
                         ),
-                        note=f"ui mutate dry-run parent={parent_id or active_id}",
+                        note=(
+                            f"ui mutate dry-run "
+                            f"parent={parent_id or select_policy}"
+                        ),
                     )
                     store = open_store(db)
                     try:
@@ -496,6 +520,8 @@ def page_run(artifacts: Path, db: Path) -> None:
                                 ablation=p["ablation"],
                                 critic=p["critic"],
                                 parent_id=p.get("parent_id") or "",
+                                select=p.get("select") or "active",
+                                tournament_k=int(p.get("tournament_k") or 3),
                             ),
                             note="ui mutate LIVE",
                         )
@@ -520,11 +546,22 @@ def page_run(artifacts: Path, db: Path) -> None:
         dry_e = st.checkbox("Dry-run (no NIM)", value=True, key="evo_dry")
         cycles = st.number_input("Cycles", min_value=1, max_value=50, value=5, key="evo_c")
         max_m = st.number_input("Max mutations", min_value=0, max_value=30, value=5, key="evo_m")
+        evo_select = st.selectbox(
+            "Parent selection",
+            ["active", "fitness_rank", "tournament"],
+            key="evo_select",
+            help="fitness_rank / tournament re-pick parent from elites before each mutation",
+        )
+        evo_k = st.number_input(
+            "Tournament k", min_value=2, max_value=10, value=3, key="evo_k"
+        )
         if st.button("Start evolve", type="primary", disabled=busy, key="evo_go"):
             if not dry_e:
                 st.session_state["pending_live_evolve"] = {
                     "cycles": int(cycles),
                     "max_mutations": int(max_m),
+                    "select": evo_select,
+                    "tournament_k": int(evo_k),
                 }
             else:
                 try:
@@ -535,8 +572,10 @@ def page_run(artifacts: Path, db: Path) -> None:
                             dry_run=True,
                             cycles=int(cycles),
                             max_mutations=int(max_m),
+                            select=evo_select,
+                            tournament_k=int(evo_k),
                         ),
-                        note="ui evolve dry-run",
+                        note=f"ui evolve dry-run select={evo_select}",
                     )
                     st.success(f"Started {rec.job_id}")
                     st.rerun()
@@ -554,6 +593,8 @@ def page_run(artifacts: Path, db: Path) -> None:
                             dry_run=False,
                             cycles=p["cycles"],
                             max_mutations=p["max_mutations"],
+                            select=p.get("select") or "active",
+                            tournament_k=int(p.get("tournament_k") or 3),
                         ),
                         note="ui evolve LIVE",
                     )
@@ -655,14 +696,17 @@ def page_run(artifacts: Path, db: Path) -> None:
     mut_dry = bool(ss.get("mut_dry", True))
     mut_abl = str(ss.get("mut_abl", "Bc"))
     mut_crit = bool(ss.get("mut_crit", True))
-    # Rebuild parent_id list in the same order as the Mutate tab selectbox
+    mut_select = str(ss.get("mut_select", "active"))
+    mut_k = int(ss.get("mut_k", 3))
+    # Rebuild parent list: auto, active, elites, genomes
     mut_parent_id = ""
+    mut_sel_eff = mut_select
     try:
         from organism.elites import list_elites
         from organism.mutation import resolve_parent_genome as rpg2
 
         _, aid2 = rpg2(experiment_config())
-        pcs: list[str] = [""]  # index 0 = active
+        pcs: list[str] = ["__auto__", ""]
         for e in list_elites(artifacts):
             gid = str(e.get("genome_id") or "")
             if gid:
@@ -677,12 +721,21 @@ def page_run(artifacts: Path, db: Path) -> None:
             store_lp.close()
         idx = int(ss.get("mut_parent", 0) or 0)
         if 0 <= idx < len(pcs):
-            mut_parent_id = pcs[idx]
+            raw = pcs[idx]
+            if raw == "__auto__":
+                mut_parent_id = ""
+                mut_sel_eff = mut_select
+            else:
+                mut_parent_id = raw
+                mut_sel_eff = "active"
     except Exception:
         mut_parent_id = ""
+        mut_sel_eff = mut_select
     evo_dry = bool(ss.get("evo_dry", True))
     evo_c = int(ss.get("evo_c", 5))
     evo_m = int(ss.get("evo_m", 5))
+    evo_select = str(ss.get("evo_select", "active"))
+    evo_k = int(ss.get("evo_k", 3))
     ab_q = bool(ss.get("ab_q", True))
     ab_dry = bool(ss.get("ab_dry", True))
     ab_m = int(ss.get("ab_m", 3))
@@ -694,7 +747,7 @@ def page_run(artifacts: Path, db: Path) -> None:
             "mode": "dry-run" if mut_dry else "LIVE",
             "parameters": (
                 f"ablation={mut_abl}, critic={mut_crit}, "
-                f"parent={mut_parent_id or 'active'}"
+                f"parent={mut_parent_id or mut_sel_eff}, select={mut_sel_eff}"
             ),
             "argv_preview": " ".join(
                 jobmod.build_mutate_argv(
@@ -702,16 +755,25 @@ def page_run(artifacts: Path, db: Path) -> None:
                     ablation=mut_abl,
                     critic=mut_crit,
                     parent_id=mut_parent_id,
+                    select=mut_sel_eff,
+                    tournament_k=mut_k,
                 )[3:]  # drop python -m organism.cli
             ),
         },
         {
             "tab": "Evolve",
             "mode": "dry-run" if evo_dry else "LIVE",
-            "parameters": f"cycles={evo_c}, max_mutations={evo_m}",
+            "parameters": (
+                f"cycles={evo_c}, max_mutations={evo_m}, "
+                f"select={evo_select}, k={evo_k}"
+            ),
             "argv_preview": " ".join(
                 jobmod.build_evolve_argv(
-                    dry_run=evo_dry, cycles=evo_c, max_mutations=evo_m
+                    dry_run=evo_dry,
+                    cycles=evo_c,
+                    max_mutations=evo_m,
+                    select=evo_select,
+                    tournament_k=evo_k,
                 )[3:]
             ),
         },
@@ -756,9 +818,15 @@ def page_run(artifacts: Path, db: Path) -> None:
                         ablation=mut_abl,
                         critic=mut_crit,
                         parent_id=mut_parent_id,
+                        select=mut_sel_eff,
+                        tournament_k=mut_k,
                     ),
                     "Evolve": jobmod.build_evolve_argv(
-                        dry_run=evo_dry, cycles=evo_c, max_mutations=evo_m
+                        dry_run=evo_dry,
+                        cycles=evo_c,
+                        max_mutations=evo_m,
+                        select=evo_select,
+                        tournament_k=evo_k,
                     ),
                     "Ablate": jobmod.build_ablate_argv(
                         dry_run=ab_dry or ab_q, max_mutations=ab_m, quick=ab_q

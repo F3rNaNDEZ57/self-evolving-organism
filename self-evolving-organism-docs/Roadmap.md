@@ -309,16 +309,17 @@ Build a system of **self-evolving digital organisms** that:
 - Resource limits, selection, archive of elites
 - Stronger isolation between organisms
 
-**Scaffold (2026-07-11 · `feat/phase5-elite-archive`)**
+**Scaffold (2026-07-11)**
 
 - [x] Elite archive `artifacts/elites/registry.json` + `seo elite *`
 - [x] Mutate parent picker (active / elite / genome) + `--parent-id` path fix
 - [x] Genomes UI promote/demote · [[Phase 5 Population]]
+- [x] Auto selection: `fitness_rank` / `tournament` (`feat/phase5-auto-selection`)
+- [x] Evolve re-selects parent; auto-elite on accept when select≠active
 
 **Deliverables**
 
 - [ ] Multi-organism scheduling + budgets
-- [ ] Documented selection policy (auto tournament / fitness rank)
 - [ ] Solo vs population experiment comparison
 - [ ] Multi-agent same-map Watch
 
@@ -407,16 +408,16 @@ Detail: [[Research Brief#Sandbox and safety]]
 | 2 | Paper organism | Bcw vs B0 under sandbox | ✅ runner · ✅ δ success (sequential dual) |
 | 3 | Free LLM pool + critic | Multi-model quality on free NIM | ✅ **soft critic · δ success** |
 | 4 | Observer UI | Legible lineage & mutations + run console | ✅ **merged** |
-| 5 | Population | Multi-organism selection | 🔧 **elite scaffold** |
+| 5 | Population | Multi-organism selection | 🔧 **elites + auto select** |
 | 6 | Hardening | Research-grade isolation & experiments | ⬜ |
 
 ---
 
 ## Immediate next steps
 
-1. Auto selection policy over elites (tournament / fitness rank)
+1. Multi-organism budgets / concurrent lineages
 2. Optional: close weight gap (Bw still below pure code holdout)
-3. Multi-organism budgets · multi-agent Watch
+3. Multi-agent same-map Watch · population experiment note
 
 ---
 

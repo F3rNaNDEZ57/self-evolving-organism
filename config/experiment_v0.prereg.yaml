@@ -73,6 +73,10 @@ evolve:
   plateau_epsilon: 0.01       # max fitness span to treat as flat
   max_mutations: 30
   eval_every: 1
+  # Phase 5 parent selection: active | fitness_rank | tournament
+  select: active
+  tournament_k: 3
+  auto_elite_on_accept: false  # true when using fitness_rank/tournament via CLI defaults
 
 paths:
   artifacts_dir: artifacts
