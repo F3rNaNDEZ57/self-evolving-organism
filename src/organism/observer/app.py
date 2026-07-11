@@ -325,6 +325,269 @@ def page_control(artifacts: Path, db: Path) -> None:
     st.markdown(f"`{artifacts / 'control.json'}`")
 
 
+def page_run(artifacts: Path, db: Path) -> None:
+    """Operator console: launch seo CLI jobs (not the organism brain)."""
+    from organism.observer import jobs as jobmod
+
+    st.subheader("Run experiment")
+    st.caption(
+        "Launches the same `seo` CLI in the background. Dry-run is default. "
+        "Live free-NIM / long ablations need confirmation. Single job at a time."
+    )
+
+    busy, busy_id = jobmod.is_busy(artifacts)
+    if busy:
+        st.warning(f"Job running: `{busy_id}` — wait or kill below.")
+
+    tab_mut, tab_evo, tab_ab, tab_w, tab_d = st.tabs(
+        ["Mutate", "Evolve", "Ablate", "Weights", "Docker"]
+    )
+
+    with tab_mut:
+        dry = st.checkbox("Dry-run (no NIM)", value=True, key="mut_dry")
+        abl = st.selectbox("Ablation", ["Bc", "Bcw"], key="mut_abl")
+        crit = st.checkbox("Critic", value=True, key="mut_crit")
+        if st.button("Start mutate", type="primary", disabled=busy, key="mut_go"):
+            if not dry and not st.session_state.get("mut_live_ok"):
+                st.session_state["mut_live_ok"] = False
+            try:
+                if not dry:
+                    st.session_state["pending_live_mutate"] = {
+                        "ablation": abl,
+                        "critic": crit,
+                    }
+                else:
+                    rec = jobmod.start_job(
+                        artifacts,
+                        kind="mutate",
+                        argv=jobmod.build_mutate_argv(
+                            dry_run=True, ablation=abl, critic=crit
+                        ),
+                        note="ui mutate dry-run",
+                    )
+                    store = open_store(db)
+                    try:
+                        store.log_event(
+                            "operator_job_start",
+                            {"job_id": rec.job_id, "kind": rec.kind, "argv": rec.argv},
+                        )
+                    finally:
+                        store.close()
+                    st.success(f"Started {rec.job_id}")
+                    st.rerun()
+            except Exception as e:
+                st.error(str(e))
+        if st.session_state.get("pending_live_mutate"):
+            st.error("Live mutate uses free NIM + Docker. Confirm to proceed.")
+            c1, c2 = st.columns(2)
+            with c1:
+                if st.button("Confirm LIVE mutate", type="primary", key="mut_live_yes"):
+                    p = st.session_state.pop("pending_live_mutate")
+                    try:
+                        rec = jobmod.start_job(
+                            artifacts,
+                            kind="mutate",
+                            argv=jobmod.build_mutate_argv(
+                                dry_run=False,
+                                ablation=p["ablation"],
+                                critic=p["critic"],
+                            ),
+                            note="ui mutate LIVE",
+                        )
+                        store = open_store(db)
+                        try:
+                            store.log_event(
+                                "operator_job_start",
+                                {"job_id": rec.job_id, "kind": "mutate", "live": True},
+                            )
+                        finally:
+                            store.close()
+                        st.success(f"Started LIVE {rec.job_id}")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(str(e))
+            with c2:
+                if st.button("Cancel", key="mut_live_no"):
+                    st.session_state.pop("pending_live_mutate", None)
+                    st.rerun()
+
+    with tab_evo:
+        dry_e = st.checkbox("Dry-run (no NIM)", value=True, key="evo_dry")
+        cycles = st.number_input("Cycles", min_value=1, max_value=50, value=5, key="evo_c")
+        max_m = st.number_input("Max mutations", min_value=0, max_value=30, value=5, key="evo_m")
+        if st.button("Start evolve", type="primary", disabled=busy, key="evo_go"):
+            if not dry_e:
+                st.session_state["pending_live_evolve"] = {
+                    "cycles": int(cycles),
+                    "max_mutations": int(max_m),
+                }
+            else:
+                try:
+                    rec = jobmod.start_job(
+                        artifacts,
+                        kind="evolve",
+                        argv=jobmod.build_evolve_argv(
+                            dry_run=True,
+                            cycles=int(cycles),
+                            max_mutations=int(max_m),
+                        ),
+                        note="ui evolve dry-run",
+                    )
+                    st.success(f"Started {rec.job_id}")
+                    st.rerun()
+                except Exception as e:
+                    st.error(str(e))
+        if st.session_state.get("pending_live_evolve"):
+            st.error("Live evolve uses free NIM. Confirm to proceed.")
+            if st.button("Confirm LIVE evolve", type="primary", key="evo_yes"):
+                p = st.session_state.pop("pending_live_evolve")
+                try:
+                    rec = jobmod.start_job(
+                        artifacts,
+                        kind="evolve",
+                        argv=jobmod.build_evolve_argv(
+                            dry_run=False,
+                            cycles=p["cycles"],
+                            max_mutations=p["max_mutations"],
+                        ),
+                        note="ui evolve LIVE",
+                    )
+                    st.success(f"Started LIVE {rec.job_id}")
+                    st.rerun()
+                except Exception as e:
+                    st.error(str(e))
+            if st.button("Cancel evolve", key="evo_no"):
+                st.session_state.pop("pending_live_evolve", None)
+                st.rerun()
+
+    with tab_ab:
+        quick = st.checkbox("Quick suite", value=True, key="ab_q")
+        dry_a = st.checkbox("Dry-run mutations", value=True, key="ab_dry")
+        max_a = st.number_input("Max mutations / code arm", min_value=0, max_value=30, value=3, key="ab_m")
+        if st.button("Start ablate", type="primary", disabled=busy, key="ab_go"):
+            if not dry_a and not quick:
+                st.session_state["pending_live_ablate"] = {
+                    "max_mutations": int(max_a),
+                    "quick": False,
+                }
+            else:
+                try:
+                    rec = jobmod.start_job(
+                        artifacts,
+                        kind="ablate",
+                        argv=jobmod.build_ablate_argv(
+                            dry_run=dry_a or quick,
+                            max_mutations=int(max_a),
+                            quick=quick,
+                        ),
+                        note="ui ablate",
+                    )
+                    st.success(f"Started {rec.job_id}")
+                    st.rerun()
+                except Exception as e:
+                    st.error(str(e))
+        if st.session_state.get("pending_live_ablate"):
+            st.error("Full live ablate can take hours and uses free NIM. Confirm.")
+            if st.button("Confirm LIVE ablate", type="primary", key="ab_yes"):
+                p = st.session_state.pop("pending_live_ablate")
+                try:
+                    rec = jobmod.start_job(
+                        artifacts,
+                        kind="ablate",
+                        argv=jobmod.build_ablate_argv(
+                            dry_run=False,
+                            max_mutations=p["max_mutations"],
+                            quick=False,
+                        ),
+                        note="ui ablate LIVE",
+                    )
+                    st.success(f"Started LIVE {rec.job_id}")
+                    st.rerun()
+                except Exception as e:
+                    st.error(str(e))
+            if st.button("Cancel ablate", key="ab_no"):
+                st.session_state.pop("pending_live_ablate", None)
+                st.rerun()
+
+    with tab_w:
+        passes = st.number_input("Train passes", min_value=1, max_value=20, value=2, key="w_p")
+        if st.button("Start weights train", type="primary", disabled=busy, key="w_go"):
+            try:
+                rec = jobmod.start_job(
+                    artifacts,
+                    kind="weights_train",
+                    argv=jobmod.build_weights_train_argv(passes=int(passes)),
+                    note="ui weights train",
+                )
+                st.success(f"Started {rec.job_id}")
+                st.rerun()
+            except Exception as e:
+                st.error(str(e))
+
+    with tab_d:
+        if st.button("Docker smoke", type="primary", disabled=busy, key="d_go"):
+            try:
+                rec = jobmod.start_job(
+                    artifacts,
+                    kind="docker_smoke",
+                    argv=jobmod.build_docker_smoke_argv(),
+                    note="ui docker-smoke",
+                )
+                st.success(f"Started {rec.job_id}")
+                st.rerun()
+            except Exception as e:
+                st.error(str(e))
+
+    st.markdown("---")
+    st.markdown("### Job status & log")
+    jobs = jobmod.list_jobs(artifacts, limit=30)
+    if not jobs:
+        st.info("No jobs yet. Start one above.")
+        return
+
+    # refresh running
+    for j in jobs:
+        if j.status == "running":
+            jobmod.refresh_job(artifacts, j)
+
+    jobs = jobmod.list_jobs(artifacts, limit=30)
+    labels = [f"{j.job_id} · {j.kind} · {j.status}" for j in jobs]
+    pick = st.selectbox("Job", range(len(labels)), format_func=lambda i: labels[i])
+    rec = jobs[pick]
+    rec = jobmod.refresh_job(artifacts, rec)
+
+    c1, c2, c3, c4 = st.columns(4)
+    with c1:
+        st.metric("status", rec.status)
+    with c2:
+        st.metric("pid", rec.pid or "—")
+    with c3:
+        st.metric("returncode", rec.returncode if rec.returncode is not None else "—")
+    with c4:
+        st.metric("kind", rec.kind)
+
+    st.code(" ".join(rec.argv), language="text")
+    b1, b2, b3 = st.columns(3)
+    with b1:
+        if st.button("Refresh log", key="job_ref"):
+            st.rerun()
+    with b2:
+        if rec.status == "running" and st.button("Kill job", type="primary", key="job_kill"):
+            jobmod.kill_job(artifacts, rec.job_id)
+            st.warning("Kill signal sent")
+            st.rerun()
+    with b3:
+        if rec.status == "running" and st.button("Soft pause (control.json)", key="job_soft"):
+            save_control(
+                artifacts,
+                ControlState(mutations_paused=True, note=f"paused from UI during {rec.job_id}"),
+            )
+            st.info("Paused next mutations via control.json")
+
+    st.markdown("#### Log tail")
+    st.text(jobmod.tail_log(artifacts, rec.job_id) or "(empty)")
+
+
 def main() -> None:
     st.set_page_config(
         page_title="SEO Observer",
@@ -333,7 +596,7 @@ def main() -> None:
         initial_sidebar_state="expanded",
     )
     st.title("Self-Evolving Organism — Observer")
-    st.caption("Phase 4 · read-mostly operator UI · not the organism brain")
+    st.caption("Phase 4 · operator console · inspect + launch seo jobs · not the organism brain")
 
     artifacts, db = _paths()
     st.sidebar.markdown("### Paths")
@@ -342,6 +605,7 @@ def main() -> None:
         "Surface",
         [
             "Overview",
+            "Run",
             "Genomes",
             "Lineage",
             "Mutations",
@@ -355,6 +619,8 @@ def main() -> None:
 
     if page == "Overview":
         page_overview(artifacts, db)
+    elif page == "Run":
+        page_run(artifacts, db)
     elif page == "Genomes":
         page_genomes(db)
     elif page == "Lineage":
