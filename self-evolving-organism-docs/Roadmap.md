@@ -291,8 +291,8 @@ Build a system of **self-evolving digital organisms** that:
 - UI launches **CLI jobs** (not reimplemented science); dry-run default; single job; logs under `artifacts/jobs/`
 - Slices: ☑ 4.1 job runner · ☑ 4.2 mutate/evolve/weights · ☑ 4.3 ablate/docker · ☑ 4.4 job history  
 - Polish: ☑ live log fragment · ☑ launch plan (form vs history) · ☑ job params + final snapshot · ☑ Windows UTF-8 job env  
-- Watch: ☑ grid episode replay UI + `seo watch` GIF (`feat/watch-grid-replay`)  
-- Branch: `feat/phase4-run-from-ui` → **merged `master`**
+- Watch: ☑ live stream video · GIF loop · scrubber · `seo watch` GIF  
+- Branches: `feat/phase4-run-from-ui` · `feat/watch-grid-replay` → **merged `master`**
 
 ---
 

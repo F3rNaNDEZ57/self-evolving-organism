@@ -30,7 +30,7 @@ seo ui
 | **Timeline** | Event log (filterable) |
 | **Evaluations** | Fitness history table |
 | **Control** | Pause / freeze mutations → `artifacts/control.json` |
-| **Watch** | Grid episode replay — see the organism move on the food map |
+| **Watch** | Live video stream + GIF loop + scrubber on the 24×24 grid |
 | **Run** | Operator console — start mutate/evolve/ablate/weights/docker jobs |
 
 ## Run tab (operator console)
@@ -85,6 +85,18 @@ Enforced by **`seo mutate`** and **`seo evolve`** (exit 3 if blocked). Does not 
 | `seo ui` | Launcher |
 | `seo watch` | CLI: record episode → GIF under `artifacts/replays/` |
 
+## Watch (grid video)
+
+| Mode | What |
+|------|------|
+| **Live stream (video)** | Runs host episode and paints each step in real time |
+| **Record only** | Full record then scrubber / autoplay |
+| **GIF loop** | Browser-native looping animation after a run |
+| **seo watch** | Offline GIF export |
+
+- Module: `src/organism/replay.py` (`iter_episode`, `record_episode`, `frame_to_rgb`, `replay_to_gif`)
+- Single agent vs world (v0); multi-agent same map → Phase 5
+
 ## Jobs on disk
 
 | File | Content |
@@ -104,7 +116,7 @@ Enforced by **`seo mutate`** and **`seo evolve`** (exit 3 if blocked). Does not 
 - [x] Run from UI (operator console) — slices 4.1–4.4
 - [x] Live log auto-refresh + launch plan + durable final result
 - [x] Windows-safe job encoding for redirected CLI logs
-- [x] Watch surface — grid episode replay + GIF (`seo watch`)
+- [x] Watch surface — live stream video + GIF loop + scrubber (`seo watch`)
 - [ ] Charts / multi-organism same-map view (Phase 5)
 
 ## See also
