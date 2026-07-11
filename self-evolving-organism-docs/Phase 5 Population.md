@@ -157,6 +157,17 @@ Follow-up: validate parents on open; static reject food-only re-tweaks when less
 
 Note: [[Runs/2026-07-12-population-evo-6a1f0edb0a]]. Food-repeat spam reduced; free NIM still below champion bar.
 
+### Long live `evo_e7bd5a260f` — **first accept**
+
+| Metric | Result |
+|--------|--------|
+| cycles / max mut | 12 / 9 |
+| mutations | **acc=1 / rej=5 / att=6** |
+| best fitness | **28.7563** (was 28.13 plateau) |
+| champion child | **`g_c07765783a`** (slot 1) |
+
+Note: [[Runs/2026-07-12-population-evo-e7bd5a260f]]. Diversity + quality rails → free NIM beat old champion on a non-active lineage.
+
 ## Proposal quality gate (2026-07-12 · `feat/proposal-quality`)
 
 | Gate | Behavior |

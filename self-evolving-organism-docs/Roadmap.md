@@ -436,9 +436,9 @@ Detail: [[Research Brief#Sandbox and safety]]
 
 ## Immediate next steps
 
-1. Proposal quality gate landed — short multi-lineage live validation
-2. Keep **Bc** (weights holdout still negative)
-3. `seo doctor` before long runs; `seo package` / `seo runs export` after suites
+1. Promote / point active to `g_c07765783a` (fit ~28.76) if desired
+2. Continue multi-lineage live under **Bc** from new best
+3. `seo doctor` / package / export after suites
 4. Weights only if holdout Δ > 0
 
 ---
