@@ -97,6 +97,12 @@ seo weights holdout --on-seed --passes 2
 4. `seo soak` / `seo package` for health + shareable artifact bundle  
 5. `seo runs export` after every live suite  
 
+## Live ops suite (2026-07-11)
+
+Confirmed end-to-end: doctor · soak · seed p8 train (discarded) · diagnose False · live evolve Bc rej · live mutate Bc rej · package · watch GIF · multi-lineage dry · critic-ab · docker-eval.
+
+Active genome unchanged: `g_0a2b03eafe` @ ~28.13. See [[Runs/2026-07-11-seed-vs-active-weights-ab]].
+
 ## See also
 
 - [[Roadmap]]

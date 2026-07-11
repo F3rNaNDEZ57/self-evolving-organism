@@ -433,10 +433,10 @@ Detail: [[Research Brief#Sandbox and safety]]
 
 ## Immediate next steps
 
-1. `seo doctor` before long live runs; `seo soak` for dry health
-2. Prefer Bc mutates (auto when diagnose negative) + best-of Bcw
-3. `seo weights diagnose`; seed-only experiments via `--on-seed`
-4. `seo package` after suites worth sharing
+1. Keep live evolve under **Bc** (weights holdout still negative)
+2. `seo doctor` / `seo soak` before long runs; `seo package` after suites
+3. Weights only if holdout Δ > 0; else stay code-path
+4. Optional multi-hour live soak when operator has wall time
 
 ---
 

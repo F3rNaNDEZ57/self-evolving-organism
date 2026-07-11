@@ -69,4 +69,11 @@ Writes `self-evolving-organism-docs/Runs/YYYY-MM-DD-….md` and appends this ind
 | 2026-07-11 | [[2026-07-11-seed-vs-active-weights-ab]] | seed vs active A/B | both Bw lag; prefer **Bc** |
 | 2026-07-11 | [[2026-07-11-weights-diagnose-wd-1783790309]] | diagnose | auto-export: 2026-07-11-weights-diagnose-wd-178379030 |
 | 2026-07-11 | [[2026-07-11-soak-soak-1783789768]] | soak | auto-export: 2026-07-11-soak-soak-1783789768 |
+| 2026-07-11 | [[2026-07-11-weights-diagnose-wd-1783790481]] | diagnose | auto-export: 2026-07-11-weights-diagnose-wd-178379048 |
+| 2026-07-11 | [[2026-07-11-soak-soak-1783790476]] | soak | auto-export: 2026-07-11-soak-soak-1783790476 |
+| 2026-07-11 | [[2026-07-11-bw-holdout-wh-1783790480]] | weights_holdout | auto-export: 2026-07-11-bw-holdout-wh-1783790480 |
+| 2026-07-11 | [[2026-07-11-mutate-m-d054d3532d]] | mutation | auto-export: 2026-07-11-mutate-m-d054d3532d |
+| 2026-07-11 | [[2026-07-11-evolve-evo-f993560c5d]] | evolve | auto-export: 2026-07-11-evolve-evo-f993560c5d |
+| 2026-07-11 | [[2026-07-11-bw-holdout-wh-1783790587]] | weights_holdout | auto-export: 2026-07-11-bw-holdout-wh-1783790587 |
+| 2026-07-11 | [[2026-07-11-population-evo-308b7ef211]] | population | auto-export: 2026-07-11-population-evo-308b7ef211 |
 

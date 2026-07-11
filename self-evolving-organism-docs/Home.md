@@ -101,8 +101,9 @@ cssclasses:
 | Ops | `seo doctor` · `seo soak` · `seo package` · `seo runs export` |
 | Git remote | https://github.com/F3rNaNDEZ57/self-evolving-organism |
 | Secrets | `.env` only (gitignored) |
-| Next | Live evolve under **Bc** · longer seed train · optional public packaging |
-| Lab | [[Runs/2026-07-11-seed-vs-active-weights-ab]] seed vs active (both Bw lag) |
+| Next | Keep **Bc** evolve · multi-hour soak optional · weights only if Δ>0 |
+| Lab | [[Runs/2026-07-11-seed-vs-active-weights-ab]] · live ops suite 2026-07-11 |
+| Active | `g_0a2b03eafe` · fit **28.13** · weights diagnose **False** |
 
 ---
 
