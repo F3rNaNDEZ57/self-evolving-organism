@@ -1,0 +1,10 @@
+# Minimal image for episode isolation: Python + numpy only (no network at runtime).
+# Build: docker build -f Dockerfile.sandbox -t seo-sandbox:py312 .
+FROM python:3.12-slim
+
+RUN pip install --no-cache-dir "numpy>=1.26,<3"
+
+# Worker + kernel code are bind-mounted at runtime (read-only).
+WORKDIR /job
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
