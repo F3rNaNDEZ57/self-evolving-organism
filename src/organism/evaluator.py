@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import time
 from dataclasses import dataclass
 from typing import Any, Callable, Protocol
 
@@ -29,6 +30,7 @@ class FitnessConfig:
     delta_success: float = 0.30
     energy_max: float = 100.0
     T: int = 200
+    episode_timeout_s: float = 5.0
 
     @classmethod
     def from_dict(cls, d: dict[str, Any], world: dict[str, Any] | None = None) -> FitnessConfig:
@@ -44,10 +46,14 @@ class FitnessConfig:
             delta_success=float(d.get("delta_success", 0.30)),
             energy_max=float(world.get("energy_max", 100.0)),
             T=int(world.get("T", 200)),
+            episode_timeout_s=float(d.get("episode_timeout_s", 5.0)),
         )
 
 
 def episode_score(summary: EpisodeSummary, fit: FitnessConfig) -> float:
+    # Wall-clock timeout episodes score 0 (violation / non-survival)
+    if summary.death_reason == "timeout_wall":
+        return 0.0
     return (
         fit.w1 * summary.food_collected
         + fit.w2 * (summary.ticks_survived / max(1, fit.T))
@@ -62,14 +68,32 @@ def run_episode(
     world_cfg: WorldConfig,
     seed: int,
     train_weights: bool = False,
+    episode_timeout_s: float | None = None,
 ) -> EpisodeSummary:
+    """
+    Run one episode. If episode_timeout_s is set, wall-clock budget is enforced
+    between steps so a hostile policy.act() hang is bounded by that budget
+    (act itself is not preempted mid-call without OS signals; docker outer
+    timeout is the hard backstop).
+    """
     world = GridWorld(world_cfg, seed=seed)
     obs = world.reset()
     policy.reset(seed)
     death = "timeout"
-    while True:
+    deadline = (
+        time.monotonic() + float(episode_timeout_s)
+        if episode_timeout_s is not None and episode_timeout_s > 0
+        else None
+    )
+    max_steps = max(1, int(world_cfg.T) + 5)  # hard step cap beyond world.T
+    steps = 0
+    while steps < max_steps:
+        if deadline is not None and time.monotonic() >= deadline:
+            death = "timeout_wall"
+            break
         action = policy.act(obs)
         result = world.step(action)
+        steps += 1
         if train_weights:
             policy.on_step_result(result)
         else:
@@ -79,17 +103,22 @@ def run_episode(
             except Exception:
                 pass
         if result.done:
+            if death == "timeout_wall":
+                break
             if not result.alive or world.energy <= 0:
                 death = "energy"
             break
         obs = world.observe()
+        if deadline is not None and time.monotonic() >= deadline:
+            death = "timeout_wall"
+            break
 
     summary = EpisodeSummary(
         seed=seed,
         score=0.0,
-        food_collected=world.food_collected,
+        food_collected=world.food_collected if death != "timeout_wall" else 0,
         ticks_survived=world.tick,
-        final_energy=world.energy,
+        final_energy=world.energy if death != "timeout_wall" else 0.0,
         invalid_actions=world.invalid_actions,
         wall_bumps=world.wall_bumps,
         death_reason=death,
@@ -112,12 +141,28 @@ def evaluate(
     fit_cfg: FitnessConfig,
     seeds: list[int],
     train_weights: bool = False,
+    episode_timeout_s: float | None = None,
 ) -> EvalResult:
+    ep_timeout = (
+        float(episode_timeout_s)
+        if episode_timeout_s is not None
+        else float(getattr(fit_cfg, "episode_timeout_s", 5.0) or 0) or None
+    )
+    # 0 / negative → disable wall timeout (tests may want unlimited short episodes)
+    if ep_timeout is not None and ep_timeout <= 0:
+        ep_timeout = None
+
     episodes: list[EpisodeSummary] = []
     scores: list[float] = []
     for seed in seeds:
         policy = policy_factory()
-        summary = run_episode(policy, world_cfg, seed, train_weights=train_weights)
+        summary = run_episode(
+            policy,
+            world_cfg,
+            seed,
+            train_weights=train_weights,
+            episode_timeout_s=ep_timeout,
+        )
         summary.score = episode_score(summary, fit_cfg)
         episodes.append(summary)
         scores.append(summary.score)
@@ -132,3 +177,4 @@ def evaluate(
         episodes=episodes,
         seeds=list(seeds),
     )
+
