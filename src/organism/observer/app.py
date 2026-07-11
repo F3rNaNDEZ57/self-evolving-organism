@@ -878,6 +878,226 @@ def page_run(artifacts: Path, db: Path) -> None:
     _job_status_panel()
 
 
+def page_watch(artifacts: Path, db: Path) -> None:
+    """See the organism on the grid — host episode replay (not the brain)."""
+    from organism.checkpoints import list_checkpoints, resolve_checkpoint_path
+    from organism.evaluator import FitnessConfig
+    from organism.genome_loader import make_policy_factory
+    from organism.replay import (
+        frame_to_rgb,
+        record_episode,
+        replay_to_gif,
+        trail_up_to,
+    )
+    from organism.world import WorldConfig
+    from organism.weights import WeightConfig
+
+    st.subheader("Watch")
+    st.caption(
+        "Record a host episode and play it back on the 24x24 food grid. "
+        "Visualization only — same policy as eval, not the mutation brain."
+    )
+
+    exp = experiment_config()
+    world = WorldConfig.from_dict(exp.get("world", {}))
+    fit = FitnessConfig.from_dict(exp.get("fitness", {}), exp.get("world", {}))
+    wcfg_d = exp.get("weights", {}) or {}
+    wcfg = WeightConfig(
+        alpha=float(wcfg_d.get("alpha", 0.02)),
+        init_std=float(wcfg_d.get("init_std", 0.01)),
+        clip_abs=float(wcfg_d.get("clip_abs", 5.0)),
+        explore_train=float(wcfg_d.get("explore_train", 0.10)),
+        explore_eval=float(wcfg_d.get("explore_eval", 0.0)),
+    )
+
+    active = active_genome_info(artifacts) or {}
+    store = open_store(db)
+    try:
+        genomes = list_genomes(store, limit=80)
+    finally:
+        store.close()
+
+    seed_dir = ROOT / "genomes" / "seed"
+    options: list[tuple[str, str]] = []
+    if active.get("genome_id") and active.get("path"):
+        options.append((f"active · {active['genome_id']}", str(active["path"])))
+    options.append(("seed genome", str(seed_dir)))
+    for g in genomes:
+        gid = str(g.get("id") or "")
+        ap = str(g.get("artifact_path") or "")
+        if gid and ap and Path(ap).exists():
+            label = f"{gid} · {g.get('status') or '?'}"
+            if not any(o[1] == ap for o in options):
+                options.append((label, ap))
+
+    if not options:
+        st.warning("No genomes found.")
+        return
+
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        pick = st.selectbox(
+            "Genome",
+            range(len(options)),
+            format_func=lambda i: options[i][0],
+            key="watch_genome",
+        )
+        genome_path = Path(options[pick][1])
+        genome_id = options[pick][0].split("·")[0].strip().replace("active ", "").strip()
+        if genome_id == "seed genome":
+            genome_id = "g_seed"
+    with c2:
+        ablation = st.selectbox(
+            "Ablation (policy mode)",
+            ["Bc", "B0", "Bw", "Bcw"],
+            key="watch_abl",
+        )
+        seed = st.number_input("Episode seed", min_value=0, max_value=10_000, value=0, key="watch_seed")
+    with c3:
+        show_trail = st.checkbox("Show path trail", value=True, key="watch_trail")
+        cell = st.slider("Cell size (px)", 8, 32, 18, key="watch_cell")
+        weight_ref = ""
+        if ablation in ("Bw", "Bcw"):
+            cps = list_checkpoints(artifacts)[:20]
+            weight_ref = st.selectbox(
+                "Weights",
+                ["(none)", "latest", "best"] + [c.checkpoint_id for c in cps],
+                key="watch_w",
+            )
+
+    if st.button("Record episode", type="primary", key="watch_go"):
+        wpath = None
+        if ablation in ("Bw", "Bcw") and weight_ref and weight_ref != "(none)":
+            try:
+                wpath = resolve_checkpoint_path(artifacts, weight_ref)
+            except Exception as e:
+                st.error(f"weights: {e}")
+                wpath = None
+        try:
+            factory = make_policy_factory(
+                genome_path,
+                ablation=ablation,
+                weight_cfg=wcfg,
+                weight_path=wpath,
+                force_train=False,
+            )
+            with st.spinner("Recording episode on host…"):
+                rep = record_episode(
+                    factory(),
+                    world,
+                    seed=int(seed),
+                    train_weights=False,
+                    episode_timeout_s=float(fit.episode_timeout_s or 30),
+                    genome_id=genome_id,
+                    ablation=ablation,
+                    fit_cfg=fit,
+                )
+            st.session_state["watch_replay"] = rep
+            st.session_state["watch_frame_idx"] = 0
+            st.session_state["watch_playing"] = False
+            if rep.error:
+                st.error(rep.error)
+            else:
+                st.success(
+                    f"Recorded {len(rep.frames)} frames · "
+                    f"food={rep.summary.food_collected} · "
+                    f"ticks={rep.summary.ticks_survived} · "
+                    f"death={rep.summary.death_reason} · "
+                    f"score={rep.summary.score:.3f}"
+                )
+        except Exception as e:
+            st.exception(e)
+
+    rep = st.session_state.get("watch_replay")
+    if not rep or not getattr(rep, "frames", None):
+        st.info("Record an episode to watch the organism move.")
+        st.markdown(
+            """
+**Legend**
+- **Dark** empty · **Green** food · **Yellow** agent · **Red** dead agent · **Blue-gray** trail
+"""
+        )
+        return
+
+    frames = rep.frames
+    n = len(frames)
+    play = st.toggle("Play", value=bool(st.session_state.get("watch_playing")), key="watch_play_tog")
+    st.session_state["watch_playing"] = play
+    speed = st.select_slider(
+        "Play speed (ms / frame)",
+        options=[50, 80, 120, 200, 350, 500],
+        value=120,
+        key="watch_speed",
+    )
+
+    run_every = timedelta(milliseconds=int(speed)) if play else None
+
+    @st.fragment(run_every=run_every)
+    def _player() -> None:
+        idx = int(st.session_state.get("watch_frame_idx", 0))
+        if st.session_state.get("watch_playing") and n > 0:
+            idx = (idx + 1) % n
+            st.session_state["watch_frame_idx"] = idx
+
+        idx = st.slider("Frame", 0, max(0, n - 1), idx, key="watch_slider")
+        st.session_state["watch_frame_idx"] = idx
+        fr = frames[idx]
+        trail = trail_up_to(frames, idx) if show_trail else None
+        rgb = frame_to_rgb(fr, cell=int(cell), trail=trail)
+
+        left, right = st.columns([1.4, 1])
+        with left:
+            st.image(rgb, caption=f"tick={fr.tick}  action={fr.action_name()}", use_container_width=False)
+        with right:
+            st.metric("tick", fr.tick)
+            st.metric("energy", f"{fr.energy:.1f} / {fr.energy_max:.0f}")
+            st.progress(min(1.0, max(0.0, fr.energy / max(1e-6, fr.energy_max))))
+            st.metric("position", f"({fr.x}, {fr.y})")
+            st.metric("action", fr.action_name())
+            st.metric("reward", f"{fr.reward:.3f}")
+            st.metric("food collected", fr.food_collected)
+            st.metric("alive", "yes" if fr.alive else "no")
+            s = rep.summary
+            st.markdown("**Episode summary**")
+            st.write(
+                {
+                    "genome": rep.genome_id,
+                    "ablation": rep.ablation,
+                    "seed": rep.seed,
+                    "score": round(s.score, 4),
+                    "food": s.food_collected,
+                    "ticks": s.ticks_survived,
+                    "death": s.death_reason,
+                    "invalid": s.invalid_actions,
+                    "wall_bumps": s.wall_bumps,
+                }
+            )
+
+    _player()
+
+    st.markdown("#### Export")
+    b1, b2 = st.columns(2)
+    with b1:
+        if st.button("Save GIF to artifacts/replays/", key="watch_gif"):
+            out_dir = artifacts / "replays"
+            out_dir.mkdir(parents=True, exist_ok=True)
+            name = f"watch_{rep.genome_id}_{rep.seed}_{int(datetime.now().timestamp())}.gif"
+            path = out_dir / name
+            try:
+                replay_to_gif(
+                    rep,
+                    path,
+                    cell=max(8, int(cell) - 4),
+                    duration_ms=int(speed),
+                    show_trail=show_trail,
+                )
+                st.success(f"Wrote {path}")
+            except Exception as e:
+                st.error(str(e))
+    with b2:
+        st.caption("GIF uses Pillow. Dark=empty, green=food, yellow=agent.")
+
+
 def main() -> None:
     st.set_page_config(
         page_title="SEO Observer",
@@ -895,6 +1115,7 @@ def main() -> None:
         "Surface",
         [
             "Overview",
+            "Watch",
             "Run",
             "Genomes",
             "Lineage",
@@ -909,6 +1130,8 @@ def main() -> None:
 
     if page == "Overview":
         page_overview(artifacts, db)
+    elif page == "Watch":
+        page_watch(artifacts, db)
     elif page == "Run":
         page_run(artifacts, db)
     elif page == "Genomes":

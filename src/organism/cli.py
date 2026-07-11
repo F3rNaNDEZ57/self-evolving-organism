@@ -880,6 +880,67 @@ def critic_ab_cmd(
     console.print(f"[dim]Wrote {out}[/dim]")
 
 
+@app.command("watch")
+def watch_cmd(
+    seed: int = typer.Option(0, help="Episode seed"),
+    ablation: str = typer.Option("Bc", help="B0 / Bw / Bc / Bcw"),
+    genome: str = typer.Option("", help="Genome dir (default: active or seed)"),
+    weights: str = typer.Option("", help="Checkpoint id/path/latest/best for Bw/Bcw"),
+    gif: str = typer.Option(
+        "artifacts/replays/last_watch.gif",
+        help="Output GIF path (empty to skip)",
+    ),
+) -> None:
+    """Record one host episode and write an animated GIF (grid watch)."""
+    from organism.checkpoints import resolve_checkpoint_path
+    from organism.genome_loader import make_policy_factory
+    from organism.mutation import resolve_parent_genome
+    from organism.replay import record_episode, replay_to_gif
+
+    exp, world, fit, wcfg = _load_cfgs()
+    artifacts = resolve_path(exp.get("paths", {}).get("artifacts_dir", "artifacts"))
+    if genome:
+        gdir = Path(genome)
+        gid = gdir.name
+    else:
+        gdir, gid = resolve_parent_genome(exp)
+    wpath = None
+    if weights and ablation in ("Bw", "Bcw"):
+        wpath = resolve_checkpoint_path(artifacts, weights)
+    factory = make_policy_factory(
+        gdir,
+        ablation=ablation,
+        weight_cfg=wcfg,
+        weight_path=wpath,
+        force_train=False,
+    )
+    console.print(
+        f"[cyan]Watch[/cyan] genome={gid} path={gdir} ablation={ablation} seed={seed}"
+    )
+    rep = record_episode(
+        factory(),
+        world,
+        seed=seed,
+        train_weights=False,
+        episode_timeout_s=float(fit.episode_timeout_s or 30),
+        genome_id=gid,
+        ablation=ablation,
+        fit_cfg=fit,
+    )
+    if rep.error:
+        console.print(f"[red]{rep.error}[/red]")
+        raise typer.Exit(1)
+    console.print(
+        f"frames={len(rep.frames)} food={rep.summary.food_collected} "
+        f"ticks={rep.summary.ticks_survived} death={rep.summary.death_reason} "
+        f"score={rep.summary.score:.4f}"
+    )
+    if gif:
+        out = resolve_path(gif)
+        replay_to_gif(rep, out, cell=14, duration_ms=80, show_trail=True)
+        console.print(f"[green]GIF[/green] {out}")
+
+
 @app.command("ui")
 def ui_cmd(
     port: int = typer.Option(8501, help="Streamlit port"),

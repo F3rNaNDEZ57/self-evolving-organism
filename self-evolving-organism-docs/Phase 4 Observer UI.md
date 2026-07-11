@@ -30,6 +30,7 @@ seo ui
 | **Timeline** | Event log (filterable) |
 | **Evaluations** | Fitness history table |
 | **Control** | Pause / freeze mutations → `artifacts/control.json` |
+| **Watch** | Grid episode replay — see the organism move on the food map |
 | **Run** | Operator console — start mutate/evolve/ablate/weights/docker jobs |
 
 ## Run tab (operator console)
@@ -80,7 +81,9 @@ Enforced by **`seo mutate`** and **`seo evolve`** (exit 3 if blocked). Does not 
 | `src/organism/observer/data.py` | Read-only SQLite/artifact queries |
 | `src/organism/observer/control.py` | Pause/freeze state |
 | `src/organism/observer/jobs.py` | CLI job subprocess manager + result snapshots |
+| `src/organism/replay.py` | Host episode recording + RGB frames / GIF |
 | `seo ui` | Launcher |
+| `seo watch` | CLI: record episode → GIF under `artifacts/replays/` |
 
 ## Jobs on disk
 
@@ -101,7 +104,8 @@ Enforced by **`seo mutate`** and **`seo evolve`** (exit 3 if blocked). Does not 
 - [x] Run from UI (operator console) — slices 4.1–4.4
 - [x] Live log auto-refresh + launch plan + durable final result
 - [x] Windows-safe job encoding for redirected CLI logs
-- [ ] Charts / multi-organism (Phase 5)
+- [x] Watch surface — grid episode replay + GIF (`seo watch`)
+- [ ] Charts / multi-organism same-map view (Phase 5)
 
 ## See also
 

@@ -218,11 +218,11 @@
 		{
 			"id": "chk-p4",
 			"type": "text",
-			"text": "**Phase 4 — Observer UI**\n\n☑ Population / organism list\n☑ Lineage tree\n☑ Mutation inspector\n☑ Event timeline\n☑ Kill switch / pause / freeze\n☑ Run-from-UI job console (4.1–4.4)\n☑ Live logs · launch plan · final snapshot\n☑ Windows-safe job encoding\n\n**Phase 5–6**\n\n☐ Multi-organism population\n☐ Research-grade hardening\n☐ Longer experiments",
+			"text": "**Phase 4 — Observer UI**\n\n☑ Population / organism list\n☑ Lineage tree\n☑ Mutation inspector\n☑ Event timeline\n☑ Kill switch / pause / freeze\n☑ Run-from-UI job console (4.1–4.4)\n☑ Live logs · launch plan · final snapshot\n☑ Windows-safe job encoding\n☑ Watch grid replay + seo watch GIF\n\n**Phase 5–6**\n\n☐ Multi-organism population\n☐ Research-grade hardening\n☐ Longer experiments",
 			"x": 2140,
 			"y": 880,
 			"width": 600,
-			"height": 600,
+			"height": 640,
 			"color": "1"
 		},
 		{
@@ -238,7 +238,7 @@
 		{
 			"id": "n-next",
 			"type": "text",
-			"text": "**Next**\n\n1. Phase 5 population when ready\n2. Optional: close Bw holdout gap\n3. Optional: charts / multi-job filters\n\n**UI:** seo ui → Run · Launch plan + live logs + final result\n**Phase 4:** merged master (run-from-UI)",
+			"text": "**Next**\n\n1. Phase 5 population when ready\n2. Optional: close Bw holdout gap\n3. Multi-agent on one map (later)\n\n**UI:** seo ui → Watch (grid) · Run console\n**CLI:** seo watch --gif …\n**Phase 4:** run-from-UI + watch",
 			"x": 50,
 			"y": 1660,
 			"width": 1750,
@@ -248,7 +248,7 @@
 		{
 			"id": "n-cli",
 			"type": "text",
-			"text": "**CLI**\n\nseo ui  ← inspect + Run console\nseo mutate | evolve | ablate\nseo metrics | weights | docker-*\nseo pins",
+			"text": "**CLI**\n\nseo ui  ← Watch + Run console\nseo watch  ← episode GIF\nseo mutate | evolve | ablate\nseo metrics | weights | docker-*\nseo pins",
 			"x": 1860,
 			"y": 1660,
 			"width": 880,
