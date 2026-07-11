@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "self-evolving-organism"
 version = "0.2.0"
-description = "Phase 2 paper organism — grid body, weights, sandboxed code mutation via free NIM"
+description = "Self-evolving digital organism — grid body, free NIM mutations, observer UI"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
@@ -19,6 +19,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0"]
+ui = ["streamlit>=1.32"]
 
 [project.scripts]
 seo = "organism.cli:app"

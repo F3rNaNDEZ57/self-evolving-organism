@@ -1,3 +1,3 @@
-"""Self-evolving organism — Phase 2 paper organism kernel + runtime."""
+"""Self-evolving organism — grid body, free NIM, observer UI."""
 
-__version__ = "0.2.0"
+__version__ = "0.4.0"

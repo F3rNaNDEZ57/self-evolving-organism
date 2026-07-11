@@ -479,6 +479,13 @@ def evolve(
     exp, world, fit, wcfg = _load_cfgs()
     artifacts = resolve_path(exp.get("paths", {}).get("artifacts_dir", "artifacts"))
     db = resolve_path(exp.get("paths", {}).get("db_path", "artifacts/seo.sqlite"))
+    from organism.observer.control import mutations_allowed
+
+    ok, why = mutations_allowed(artifacts)
+    if not ok:
+        console.print(f"[red]Blocked by operator control:[/red] {why}")
+        console.print("[dim]Clear via seo ui → Control, or delete artifacts/control.json[/dim]")
+        raise typer.Exit(3)
     use_dry = True if dry_run or not live else False
     cfg = EvolveConfig.from_exp(exp, dry_run=use_dry, ablation=ablation)
     if max_mutations is not None:
@@ -637,6 +644,13 @@ def mutate(
         gid = parent_id
     artifacts = resolve_path(exp.get("paths", {}).get("artifacts_dir", "artifacts"))
     db = resolve_path(exp.get("paths", {}).get("db_path", "artifacts/seo.sqlite"))
+    from organism.observer.control import mutations_allowed
+
+    ok, why = mutations_allowed(artifacts)
+    if not ok:
+        console.print(f"[red]Blocked by operator control:[/red] {why}")
+        console.print("[dim]Clear via seo ui → Control, or delete artifacts/control.json[/dim]")
+        raise typer.Exit(3)
     seeds = list(exp.get("eval", {}).get("train_seeds", list(range(8))))
     critic_cfg = dict(exp.get("critic") or {})
     # CLI flag wins over yaml
@@ -841,6 +855,39 @@ def critic_ab_cmd(
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(report.to_dict(), indent=2), encoding="utf-8")
     console.print(f"[dim]Wrote {out}[/dim]")
+
+
+@app.command("ui")
+def ui_cmd(
+    port: int = typer.Option(8501, help="Streamlit port"),
+    browser: bool = typer.Option(True, "--browser/--no-browser"),
+) -> None:
+    """Phase 4 observer UI (Streamlit) — read-mostly operator dashboard."""
+    import subprocess
+    import sys
+
+    try:
+        import streamlit  # noqa: F401
+    except ImportError:
+        console.print(
+            "[red]streamlit not installed[/red] — run: pip install -e \".[ui]\""
+        )
+        raise typer.Exit(2)
+
+    app_path = Path(__file__).resolve().parent / "observer" / "app.py"
+    cmd = [
+        sys.executable,
+        "-m",
+        "streamlit",
+        "run",
+        str(app_path),
+        "--server.port",
+        str(port),
+        "--server.headless",
+        "true" if not browser else "false",
+    ]
+    console.print(f"[cyan]Observer UI[/cyan] {app_path} · http://localhost:{port}")
+    raise SystemExit(subprocess.call(cmd))
 
 
 @app.callback()
