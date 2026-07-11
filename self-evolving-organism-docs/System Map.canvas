@@ -3,7 +3,7 @@
 		{
 			"id": "title",
 			"type": "text",
-			"text": "# Self-Evolving Organism — Dashboard\n\nPhase 0–4 · δ SUCCESS · observer + run-from-UI console\nOrigin: github.com/F3rNaNDEZ57/self-evolving-organism",
+			"text": "# Self-Evolving Organism — Dashboard\n\nPhase 0–4 COMPLETE · δ SUCCESS · run-from-UI on master\nOrigin: github.com/F3rNaNDEZ57/self-evolving-organism",
 			"x": 0,
 			"y": 0,
 			"width": 2800,
@@ -218,11 +218,11 @@
 		{
 			"id": "chk-p4",
 			"type": "text",
-			"text": "**Phase 4 — Observer UI**\n\n☑ Population / organism list\n☑ Lineage tree\n☑ Mutation inspector\n☑ Event timeline\n☑ Kill switch / pause / freeze\n☑ Run-from-UI job console (4.1–4.4)\n\n**Phase 5–6**\n\n☐ Multi-organism population\n☐ Research-grade hardening\n☐ Longer experiments",
+			"text": "**Phase 4 — Observer UI**\n\n☑ Population / organism list\n☑ Lineage tree\n☑ Mutation inspector\n☑ Event timeline\n☑ Kill switch / pause / freeze\n☑ Run-from-UI job console (4.1–4.4)\n☑ Live logs · launch plan · final snapshot\n☑ Windows-safe job encoding\n\n**Phase 5–6**\n\n☐ Multi-organism population\n☐ Research-grade hardening\n☐ Longer experiments",
 			"x": 2140,
 			"y": 880,
 			"width": 600,
-			"height": 560,
+			"height": 600,
 			"color": "1"
 		},
 		{
@@ -238,7 +238,7 @@
 		{
 			"id": "n-next",
 			"type": "text",
-			"text": "**Next**\n\n1. Merge feat/phase4-run-from-ui\n2. Optional UI polish / auto-refresh\n3. Phase 5 population when ready\n\n**UI:** seo ui → Run tab launches seo CLI jobs",
+			"text": "**Next**\n\n1. Phase 5 population when ready\n2. Optional: close Bw holdout gap\n3. Optional: charts / multi-job filters\n\n**UI:** seo ui → Run · Launch plan + live logs + final result\n**Phase 4:** merged master (run-from-UI)",
 			"x": 50,
 			"y": 1660,
 			"width": 1750,

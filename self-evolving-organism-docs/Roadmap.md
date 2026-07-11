@@ -286,11 +286,12 @@ Build a system of **self-evolving digital organisms** that:
 
 **Launch:** `pip install -e ".[ui]"` · `seo ui` · [[Phase 4 Observer UI]]
 
-**Operator console (decided 2026-07-11)**
+**Operator console (decided 2026-07-11 · merged)**
 
 - UI launches **CLI jobs** (not reimplemented science); dry-run default; single job; logs under `artifacts/jobs/`
 - Slices: ☑ 4.1 job runner · ☑ 4.2 mutate/evolve/weights · ☑ 4.3 ablate/docker · ☑ 4.4 job history  
-- Branch: `feat/phase4-run-from-ui` (merge when ready)
+- Polish: ☑ live log fragment · ☑ launch plan (form vs history) · ☑ job params + final snapshot · ☑ Windows UTF-8 job env  
+- Branch: `feat/phase4-run-from-ui` → **merged `master`**
 
 ---
 
@@ -397,7 +398,7 @@ Detail: [[Research Brief#Sandbox and safety]]
 | 1 | Research package | Matrix + NIM pins + Docker + pre-reg | ✅ |
 | 2 | Paper organism | Bcw vs B0 under sandbox | ✅ runner · ✅ δ success (sequential dual) |
 | 3 | Free LLM pool + critic | Multi-model quality on free NIM | ✅ **soft critic · δ success** |
-| 4 | Observer UI | Legible lineage & mutations | 🔧 **scaffold live** |
+| 4 | Observer UI | Legible lineage & mutations + run console | ✅ **merged** |
 | 5 | Population | Multi-organism selection | ⬜ |
 | 6 | Hardening | Research-grade isolation & experiments | ⬜ |
 
@@ -405,9 +406,9 @@ Detail: [[Research Brief#Sandbox and safety]]
 
 ## Immediate next steps
 
-1. Merge `feat/phase4-run-from-ui` → master
+1. Phase 5 population when ready
 2. Optional: close weight gap (Bw still below pure code holdout)
-3. Phase 5 population when ready
+3. Optional UI: charts / multi-job history filters
 
 ---
 

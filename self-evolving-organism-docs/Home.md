@@ -89,16 +89,16 @@ cssclasses:
 
 | Field | Value |
 |-------|-------|
-| Stage | **Phase 4 operator console** · inspect + **run-from-UI** |
-| Code | soft critic · sequential Bcw · Streamlit · jobs under `artifacts/jobs/` |
+| Stage | **Phase 4 complete** · observer + run-from-UI on `master` |
+| Code | soft critic · sequential Bcw · Streamlit · `artifacts/jobs/` |
 | Science | **Bcw − B0 = +4.44** · thr 0.30 · success=True |
-| UI | [[Phase 4 Observer UI]] · **Run** tab launches seo CLI · pause/freeze |
+| UI | [[Phase 4 Observer UI]] · Launch plan · live logs · final result snapshots |
 | Critic | hard schema · soft_pass other@conf&lt;0.6 · mutation memory |
 | Weights | BC bootstrap · keep-best · Bw holdout ~8.45 |
 | Runs | [[Runs/2026-07-11-soft-critic-delta-success]] · [[Runs/2026-07-11-live-ablation-weight-fix]] |
 | Git remote | https://github.com/F3rNaNDEZ57/self-evolving-organism |
 | Secrets | `.env` only (gitignored) |
-| Next | Merge `feat/phase4-run-from-ui` · optional UI polish · Phase 5 |
+| Next | Phase 5 population · optional Bw gap · charts |
 
 ---
 
