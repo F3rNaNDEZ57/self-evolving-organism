@@ -249,15 +249,17 @@ Build a system of **self-evolving digital organisms** that:
 - [x] Offline critic A/B (`seo critic-ab`) for evals-saved estimate
 - [x] Live free-NIM field trial (mutate · evolve · ablate) + [[Runs/2026-07-11-live-ablation-weight-fix]]
 - [x] Mutation memory (SQL) + schema AST contracts
-- [ ] Soft critic `other` threshold / more code accepts for δ
+- [x] Soft critic `other`/`low_value` conf&lt;0.6 → soft_pass
+- [x] Sequential Bcw (from Bc code) + best phenotype holdout
+- [x] **δ success** Bcw − B0 = **+4.44** (`abl_de9d2391b0`) → [[Runs/2026-07-11-soft-critic-delta-success]]
 
 **Exit criteria**
 
-- Critic reduces wasted evals — **yes** (61% reject rate · 11 evals avoided · contract_break live)
-- Free-tier RPM handled; model pins revalidated — **yes** (40 RPM · no fail_open storms)
-- δ success still open under max_mutations=3 (honest negative)
+- Critic reduces wasted evals — **yes** (hard schema + soft_pass for noisy other)
+- Free-tier RPM handled; model pins revalidated — **yes**
+- **δ success** — **yes** under free NIM + soft critic + sequential dual timescale
 
-**Smoke:** pytest **49p** · live ablate post weight fix · metrics · mutation memory
+**Smoke:** live soft-critic suite · Bc 3/8 accepts · sequential Bcw δ=+4.44
 
 ---
 
@@ -385,8 +387,8 @@ Detail: [[Research Brief#Sandbox and safety]]
 |------:|------|-----------------|--------|
 | 0 | Concept freeze | Definitions + decisions + canvas | ✅ |
 | 1 | Research package | Matrix + NIM pins + Docker + pre-reg | ✅ |
-| 2 | Paper organism | Bcw vs B0 under sandbox | ✅ runner · 🔧 δ open (live negative) |
-| 3 | Free LLM pool + critic | Multi-model quality on free NIM | 🔧 **field-trialed** |
+| 2 | Paper organism | Bcw vs B0 under sandbox | ✅ runner · ✅ δ success (sequential dual) |
+| 3 | Free LLM pool + critic | Multi-model quality on free NIM | ✅ **soft critic · δ success** |
 | 4 | Observer UI | Legible lineage & mutations | ⬜ |
 | 5 | Population | Multi-organism selection | ⬜ |
 | 6 | Hardening | Research-grade isolation & experiments | ⬜ |
@@ -395,9 +397,9 @@ Detail: [[Research Brief#Sandbox and safety]]
 
 ## Immediate next steps
 
-1. Raise free-NIM **code accept** rate (soft `other` / evolve budget)
-2. Optional: Bcw parent eval without train-mode fitness noise
-3. Phase 4 observer UI when ready
+1. Merge `feat/soft-critic-delta` → master
+2. Phase 4 observer UI (lineage / mutation inspector)
+3. Optional: close weight gap (Bw still below pure code holdout)
 
 ---
 

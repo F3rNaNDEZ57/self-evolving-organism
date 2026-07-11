@@ -44,4 +44,5 @@ status: planned | running | complete
 | Date | Note | Baseline | Result |
 |------|------|----------|--------|
 | 2026-07-11 | [[2026-07-11-live-ablation-weight-fix]] | B0/Bw/Bc/Bcw live free NIM | δ −10.5 → **−2.5** after weight fix; δ still fail |
+| 2026-07-11 | [[2026-07-11-soft-critic-delta-success]] | soft critic + sequential Bcw | **δ = +4.44 · success=True** |
 

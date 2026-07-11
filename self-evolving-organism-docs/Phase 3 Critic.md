@@ -64,8 +64,8 @@ Pool (all-time after suite B): critic reject rate **~61%** · evals avoided **11
 - [x] Live free-NIM mutate / evolve / ablate field trial
 - [x] Mutation memory (SQL lessons)
 - [x] Schema contract AST (ticks / choice weights)
-- [ ] Soft-threshold noisy `other` rejects (optional)
-- [ ] Raise free-NIM code accept rate enough for δ claim
+- [x] Soft-threshold `other`/`low_value` conf&lt;0.6 → soft_pass
+- [x] Raise free-NIM code accepts (Bc 3/8) + **δ success** [[Runs/2026-07-11-soft-critic-delta-success]]
 
 ## See also
 

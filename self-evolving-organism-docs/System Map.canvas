@@ -3,7 +3,7 @@
 		{
 			"id": "title",
 			"type": "text",
-			"text": "# Self-Evolving Organism — Dashboard\n\nPhase 0–3 field-trialed · weight fix · live ablate δ=−2.5 (was −10.5)\nOrigin: github.com/F3rNaNDEZ57/self-evolving-organism",
+			"text": "# Self-Evolving Organism — Dashboard\n\nPhase 0–3 · δ SUCCESS (+4.44) · soft critic · branch feat/soft-critic-delta\nOrigin: github.com/F3rNaNDEZ57/self-evolving-organism",
 			"x": 0,
 			"y": 0,
 			"width": 2800,
@@ -23,7 +23,7 @@
 		{
 			"id": "status",
 			"type": "text",
-			"text": "**Verified:** pytest 49p · abl_dd5cb56e83 live · Bw holdout 8.45 (was 0.49) · mutation memory · schema AST · Docker hardened",
+			"text": "**Verified:** δ=+4.44 success · abl_de9d2391b0 · soft_pass · Bc 3/8 accepts · sequential Bcw",
 			"x": 0,
 			"y": 270,
 			"width": 2800,
@@ -81,7 +81,7 @@
 		{
 			"id": "chk-p2",
 			"type": "text",
-			"text": "**Phase 2 — Paper organism**\n\n☑ Episode runner + SQLite\n☑ Frozen multi-seed fitness\n☑ Weight checkpoints (`seo weights`)\n☑ Mutation accept / reject loop\n☑ Ablation B0 / Bw / Bc / Bcw + δ report\n☑ Evolve schedule / plateau\n☑ Docker-isolated candidate eval\n☑ Hardened Docker (caps, non-root, RO job)\n☑ Schema AST + adversarial tests\n☑ Runs/ lab note\n\n☐ **δ success** Bcw ≥ B0+δ\n   (open — live δ = −2.51)",
+			"text": "**Phase 2 — Paper organism**\n\n☑ Episode runner + SQLite\n☑ Frozen multi-seed fitness\n☑ Weight checkpoints (`seo weights`)\n☑ Mutation accept / reject loop\n☑ Ablation B0 / Bw / Bc / Bcw + δ report\n☑ Evolve schedule / plateau\n☑ Docker-isolated candidate eval\n☑ Hardened Docker (caps, non-root, RO job)\n☑ Schema AST + adversarial tests\n☑ Runs/ lab note\n\n☑ **δ success** Bcw ≥ B0+δ\n   (+4.44 · abl_de9d2391b0)",
 			"x": 720,
 			"y": 880,
 			"width": 660,
@@ -91,7 +91,7 @@
 		{
 			"id": "chk-p3",
 			"type": "text",
-			"text": "**Phase 3 — Free LLM pool + critic**\n\n☑ Pins: coder / critic / summarizer\n☑ Critic taxonomy + mutation gate\n☑ Router + session budgets\n☑ Summarizer episode distill\n☑ `seo metrics` rollup\n☑ `seo critic-ab` offline A/B\n☑ Live free-NIM field trial\n☑ Mutation memory (SQL lessons)\n☑ Schema contracts (ticks / choice weights)\n\n☐ Soft critic `other` / more code accepts\n☐ δ claim under free NIM still open",
+			"text": "**Phase 3 — Free LLM pool + critic**\n\n☑ Pins: coder / critic / summarizer\n☑ Critic taxonomy + mutation gate\n☑ Router + session budgets\n☑ Summarizer episode distill\n☑ `seo metrics` rollup\n☑ `seo critic-ab` offline A/B\n☑ Live free-NIM field trial\n☑ Mutation memory (SQL lessons)\n☑ Schema contracts (ticks / choice weights)\n\n☑ Soft critic other@conf<0.6 soft_pass\n☑ δ claim success under free NIM",
 			"x": 1430,
 			"y": 880,
 			"width": 660,
@@ -122,7 +122,7 @@
 		{
 			"id": "n-next",
 			"type": "text",
-			"text": "**Next**\n\n1. Raise free-NIM **code accepts** (soft `other` conf / evolve budget)\n2. Optional: Bcw parent eval without train-mode noise\n3. Phase 4 UI when science loop is good enough\n\n**Latest science:** suite A δ=−10.47 → suite B δ=−2.51 · Bw holdout 0.49 → 8.45 · success=False",
+			"text": "**Next**\n\n1. Merge feat/soft-critic-delta → master\n2. Phase 4 observer UI\n3. Optional: weight path catch-up vs pure code\n\n**Latest science:** soft-critic live · Bc holdout 15.39 · sequential Bcw δ=+4.44 · success=True",
 			"x": 50,
 			"y": 1660,
 			"width": 1750,
@@ -255,7 +255,7 @@
 		{
 			"id": "n-ablate",
 			"type": "text",
-			"text": "**Live ablations (seed suite)**\n\nSuite A · abl_01d836 (pre fix)\n  δ = −10.47 · Bw holdout = 0.49\n\nSuite B · abl_dd5cb (post fix)\n  δ = **−2.51** · Bw holdout = **8.45**\n\nsuccess = False · max_mutations = 3\n\nNote: Runs/2026-07-11-live-ablation-weight-fix",
+			"text": "**Live ablations**\n\nPre-fix δ=−10.47 · post-weight δ=−2.51\nSoft-critic live: Bc 3/8 · holdout 15.39\nSequential Bcw: δ=**+4.44** thr=0.30\n\nsuccess=**True** · abl_de9d2391b0\nRuns/2026-07-11-soft-critic-delta-success",
 			"x": 1970,
 			"y": 2020,
 			"width": 780,
