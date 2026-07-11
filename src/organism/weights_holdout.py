@@ -80,6 +80,7 @@ def run_weights_holdout(
     sb = sandbox or SandboxConfig(mode="host", episode_isolation=False, require_docker=False)
     isolation = "host" if force_host or not sb.episode_isolation else "docker"
 
+    # Force single-path eval so we report raw B0 and raw Bw (not best-of collapse)
     b0_res = evaluate_genome(
         genome_dir,
         world=world,
@@ -91,6 +92,7 @@ def run_weights_holdout(
         train_weights=False,
         weight_path=None,
         force_host=force_host,
+        best_of_phenotype=False,
     )
     bw_res = evaluate_genome(
         genome_dir,
@@ -103,7 +105,11 @@ def run_weights_holdout(
         train_weights=False,
         weight_path=weight_path,
         force_host=force_host,
+        best_of_phenotype=False,
     )
+    # Phenotype best the organism would actually keep
+    best_fit = max(float(b0_res.fitness), float(bw_res.fitness))
+    best_ph = "code_only" if b0_res.fitness >= bw_res.fitness else "with_weights"
 
     delta = float(bw_res.fitness) - float(b0_res.fitness)
     run_id = f"wh_{int(time.time())}"
@@ -135,7 +141,8 @@ def run_weights_holdout(
         created_at=time.time(),
         notes=(
             "Holdout comparison: B0 heuristics-only vs Bw with frozen checkpoint "
-            "(train=False). Positive delta means weights help on holdout."
+            f"(train=False). Phenotype best={best_ph} fitness={best_fit:.4f}. "
+            "Positive delta means weights alone beat B0 on holdout."
         ),
     )
 

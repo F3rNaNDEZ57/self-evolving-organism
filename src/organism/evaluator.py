@@ -133,6 +133,10 @@ class EvalResult:
     std_score: float
     episodes: list[EpisodeSummary]
     seeds: list[int]
+    # Dual-timescale phenotype attribution (optional; set by best-of eval)
+    phenotype: str = ""  # code_only | with_weights | ""
+    fitness_code_only: float | None = None
+    fitness_with_weights: float | None = None
 
 
 def evaluate(

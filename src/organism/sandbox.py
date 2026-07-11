@@ -395,6 +395,53 @@ def evaluate_genome_in_docker(
         shutil.rmtree(job_dir, ignore_errors=True)
 
 
+def _eval_one_phenotype(
+    genome_dir: Path,
+    *,
+    world: WorldConfig,
+    fit: FitnessConfig,
+    wcfg: WeightConfig,
+    seeds: list[int],
+    ablation: str,
+    train_weights: bool,
+    weight_path: Path | None,
+    use_docker: bool,
+    sb: SandboxConfig,
+    ep_timeout: float,
+) -> EvalResult:
+    from organism.evaluator import evaluate
+    from organism.genome_loader import make_policy_factory
+
+    if use_docker:
+        return evaluate_genome_in_docker(
+            genome_dir,
+            world=world,
+            fit=fit,
+            wcfg=wcfg,
+            seeds=seeds,
+            ablation=ablation,
+            cfg=sb,
+            train_weights=train_weights,
+            weight_path=weight_path,
+            episode_timeout_s=ep_timeout,
+        )
+    factory = make_policy_factory(
+        genome_dir,
+        ablation=ablation,
+        weight_cfg=wcfg,
+        weight_path=weight_path,
+        force_train=train_weights,
+    )
+    return evaluate(
+        factory,
+        world,
+        fit,
+        seeds,
+        train_weights=train_weights,
+        episode_timeout_s=ep_timeout,
+    )
+
+
 def evaluate_genome(
     genome_dir: Path,
     *,
@@ -409,14 +456,17 @@ def evaluate_genome(
     force_host: bool = False,
     force_docker: bool = False,
     episode_timeout_s: float | None = None,
+    best_of_phenotype: bool | None = None,
 ) -> EvalResult:
     """
     Dispatch evaluation to Docker (isolated) or host.
     Default: docker when sandbox.episode_isolation and mode=docker.
-    """
-    from organism.evaluator import evaluate
-    from organism.genome_loader import make_policy_factory
 
+    For Bw/Bcw with a frozen weight checkpoint (train_weights=False), by default
+    run dual phenotype eval (code-only vs with-weights) and return the better
+    fitness so a weak scorer cannot tank a strong policy (D5 dual timescale).
+    Set best_of_phenotype=False to force single-path eval.
+    """
     sb = sandbox or SandboxConfig()
     ep_timeout = float(
         episode_timeout_s if episode_timeout_s is not None else sb.episode_timeout_s
@@ -435,32 +485,65 @@ def evaluate_genome(
                 raise RuntimeError("Docker required for episode isolation but unavailable")
             use_docker = False
 
-    if use_docker:
-        return evaluate_genome_in_docker(
+    # Dual-timescale best-of: only when weights are a frozen checkpoint, not mid-train
+    do_best = best_of_phenotype
+    if do_best is None:
+        do_best = (
+            ablation in ("Bw", "Bcw")
+            and weight_path is not None
+            and not train_weights
+            and Path(weight_path).exists()
+        )
+
+    if do_best:
+        code_ablation = "B0" if ablation == "Bw" else "Bc"
+        code_res = _eval_one_phenotype(
+            genome_dir,
+            world=world,
+            fit=fit,
+            wcfg=wcfg,
+            seeds=seeds,
+            ablation=code_ablation,
+            train_weights=False,
+            weight_path=None,
+            use_docker=use_docker,
+            sb=sb,
+            ep_timeout=ep_timeout,
+        )
+        w_res = _eval_one_phenotype(
             genome_dir,
             world=world,
             fit=fit,
             wcfg=wcfg,
             seeds=seeds,
             ablation=ablation,
-            cfg=sb,
-            train_weights=train_weights,
+            train_weights=False,
             weight_path=weight_path,
-            episode_timeout_s=ep_timeout,
+            use_docker=use_docker,
+            sb=sb,
+            ep_timeout=ep_timeout,
         )
+        if code_res.fitness >= w_res.fitness:
+            out = code_res
+            ph = "code_only"
+        else:
+            out = w_res
+            ph = "with_weights"
+        out.phenotype = ph
+        out.fitness_code_only = float(code_res.fitness)
+        out.fitness_with_weights = float(w_res.fitness)
+        return out
 
-    factory = make_policy_factory(
+    return _eval_one_phenotype(
         genome_dir,
+        world=world,
+        fit=fit,
+        wcfg=wcfg,
+        seeds=seeds,
         ablation=ablation,
-        weight_cfg=wcfg,
-        weight_path=weight_path,
-        force_train=train_weights,
-    )
-    return evaluate(
-        factory,
-        world,
-        fit,
-        seeds,
         train_weights=train_weights,
-        episode_timeout_s=ep_timeout,
+        weight_path=weight_path,
+        use_docker=use_docker,
+        sb=sb,
+        ep_timeout=ep_timeout,
     )

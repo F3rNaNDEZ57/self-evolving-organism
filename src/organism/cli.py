@@ -213,9 +213,18 @@ def eval_cmd(
             "ablation": ablation,
             "fitness": result.fitness,
             "holdout": holdout,
+            "phenotype": result.phenotype,
+            "fitness_code_only": result.fitness_code_only,
+            "fitness_with_weights": result.fitness_with_weights,
         },
     )
     store.close()
+    if result.phenotype:
+        console.print(
+            f"[dim]phenotype best={result.phenotype} "
+            f"code_only={result.fitness_code_only} "
+            f"with_weights={result.fitness_with_weights}[/dim]"
+        )
 
     table = Table(title=f"Eval {ablation}")
     table.add_column("metric")
@@ -686,6 +695,9 @@ def weights_holdout_cmd(
         "Bw - B0",
         f"[{color}]{report.delta_bw_minus_b0:+.4f}[/{color}]  beats_b0={report.bw_beats_b0}",
     )
+    best_ph = "with_weights" if report.bw_beats_b0 else "code_only"
+    best_fit = max(report.b0.fitness, report.bw.fitness)
+    table.add_row("phenotype_best", f"{best_ph} @ {best_fit:.4f}")
     console.print(table)
     console.print("[dim]Report: artifacts/last_weights_holdout.json[/dim]")
 
