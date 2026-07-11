@@ -1,0 +1,149 @@
+---
+title: Home
+tags:
+  - moc
+  - hub
+aliases:
+  - Index
+  - Vault Home
+  - Start here
+status: active
+updated: 2026-07-11
+cssclasses:
+  - wide-page
+---
+
+# Self-Evolving Organism
+
+> [!abstract] Vault hub
+> Research vault for **digital organisms** that rewrite their own code through experience + **trainable weights**, assisted by an **NVIDIA NIM free-endpoint LLM pool**, with bodies you can monitor.
+>
+> **Repo:** `self-evolving-organism` · **Phase 2 scaffold live** · 0–1 ✅  
+> **Canvas:** [[System Map]] (dashboard)  
+> **Process:** after every task → vault + canvas ([[Working Rules]] · repo `AGENTS.md`)
+
+---
+
+## Start here
+
+| Order | Note | Why |
+|------:|------|-----|
+| 0 | [[System Map]] | **Project dashboard** (status · next · architecture) |
+| — | [[Working Rules]] | **After every task:** update vault + canvas |
+| 1 | [[Project Overview]] | What we're building, why, status |
+| 2 | [[Roadmap]] | Phases 0–6, milestones |
+| 3 | [[Research Brief]] | Scientific object (schema, fitness, safety) |
+| 4 | [[Open Decisions]] | D1–D12 locked freeze |
+| 5 | [[Artifact Management]] | SQLite + disk + Obsidian lab pattern |
+| 6 | [[Glossary]] | Shared vocabulary |
+| 7 | [[References]] | Papers, systems, links |
+| 8 | [[Phase 1 Research Package]] | NIM pins · literature · Docker containment · pre-reg |
+| 9 | [[NIM Pin Log]] | Live-verified model ids + Docker smoke |
+| 10 | [[Phase 2 Scaffold]] | Package layout, CLI, smoke results, next slices |
+| 11 | [[GitNexus]] | Code intelligence index (1013 symbols, 82 flows) |
+
+---
+
+## Map of content
+
+### Core
+
+- [[System Map]] — **dashboard** (must stay current)
+- [[Working Rules]] — vault + canvas after every task
+- [[Project Overview]] — vision, pillars, status
+- [[Roadmap]] — phased plan
+- [[Research Brief]] — v0 freeze detail
+
+### Decisions & storage
+
+- [[Open Decisions]] — locked D1–D12 + amendments
+- [[Artifact Management]] — three-layer storage
+
+### Reference
+
+- [[Glossary]] — terms
+- [[References]] — external sources
+
+### Lab notebooks (empty until experiments)
+
+- [[Runs/README|Runs/]] — experiment write-ups
+- [[Mutations/README|Mutations/]] — patch post-mortems
+- [[Lineage/README|Lineage/]] — lineage narratives
+
+### Later
+
+- Phase 1 deliverables → [[Phase 1 Research Package]]
+- Formal ADR pack (optional)
+- `Runs/` experiment notes (Phase 2+)
+
+---
+
+## North-star question
+
+> [!question] The only question that matters for v0
+> What is the simplest organism that can improve its own code on a measurable task **without escaping the sandbox**?
+
+---
+
+## Quick status
+
+| Field | Value |
+|-------|-------|
+| Stage | **Phase 2: mutate · ablate · weight checkpoints** |
+| Code | `seo eval` · `seo mutate` · `seo ablate` · **`seo weights`** |
+| Checkpoints | `artifacts/weights/*.npz` + sidecar JSON · list/show/latest/best |
+| GitNexus | Indexed · [[GitNexus]] |
+| Secrets | `.env` only (gitignored) |
+| Containment | AST jail + Docker smoke **PASS** |
+| Next | Live ablations · plateau auto-mutate · optional Docker episode eval |
+
+---
+
+## v0 freeze (one screen)
+
+| ID | Lock |
+|----|------|
+| D1 | Grid body |
+| D2 | Task multi-seed fitness |
+| D3 | Whitelist genome modules |
+| D4 | Episode summaries + event subsample |
+| D5 | Memory + trainable weights + code mutation |
+| D6 | NIM free endpoints only |
+| D7 | SQLite + artifacts + Obsidian notes |
+| D8 | Python |
+| D9 | Subprocess + allowlist + timeouts |
+| D10 | Single active lineage |
+| D11 | No UI in Phase 2 (CLI + DB) |
+| D12 | Open-ended survival deferred |
+
+---
+
+## How to use this vault
+
+> [!tip] Obsidian habits
+> - **After every task:** update vault + [[System Map]] ([[Working Rules]])
+> - Open [[System Map]] as the **live project dashboard** (re-open/fit view after updates)
+> - Prefer **wikilinks** `[[Note]]`
+> - Tag with `#phase/0` … `#phase/6`
+> - Experiment logs → `Runs/YYYY-MM-DD-…`
+> - Kernel vs genome language → [[Glossary]]
+> - No API keys in the vault
+
+---
+
+## Doc graph
+
+```mermaid
+flowchart LR
+  Home --> Canvas[System Map]
+  Home --> Overview[Project Overview]
+  Home --> Roadmap
+  Home --> Brief[Research Brief]
+  Overview --> Roadmap
+  Overview --> Brief
+  Brief --> Decisions[Open Decisions]
+  Decisions --> Artifacts[Artifact Management]
+  Brief --> Glossary
+  Overview --> References
+  Artifacts --> Runs
+```
