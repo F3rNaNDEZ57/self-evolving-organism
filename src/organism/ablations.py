@@ -51,6 +51,10 @@ class AblationReport:
     comparisons: dict[str, float]
     config_snapshot: dict[str, Any]
     created_at: float
+    delta_mean: float | None = None
+    delta_std: float | None = None
+    repeat_deltas: list[float] = field(default_factory=list)
+    manifest_path: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -62,6 +66,10 @@ class AblationReport:
             "comparisons": self.comparisons,
             "config_snapshot": self.config_snapshot,
             "created_at": self.created_at,
+            "delta_mean": self.delta_mean,
+            "delta_std": self.delta_std,
+            "repeat_deltas": self.repeat_deltas,
+            "manifest_path": self.manifest_path,
         }
 
 
@@ -300,6 +308,8 @@ def run_arm_code(
     max_mutations: int,
     dry_run: bool,
     client: NimClient | None,
+    train_passes: int = 2,
+    b0_holdout: float | None = None,
 ) -> ArmResult:
     assert ablation in ("Bc", "Bcw")
     # private working copy so mutations don't stomp shared seed
@@ -334,6 +344,7 @@ def run_arm_code(
 
     # optional: train weights after mutations for Bcw final snapshot
     weight_path = None
+    attribution: dict[str, float] = {}
     if ablation == "Bcw":
         wpath = artifacts_dir / "weights" / f"{final_id}.npz"
         ckpt_path = train_weights_on_seed(
@@ -341,7 +352,7 @@ def run_arm_code(
             world,
             wcfg,
             train_seeds,
-            passes=1,
+            passes=int(train_passes),
             out_path=wpath,
             artifacts_dir=artifacts_dir,
             genome_id=final_id,
@@ -362,6 +373,23 @@ def run_arm_code(
             train_weights=False,
             weight_path=ckpt_path,
         )
+        # D5 rule 5: code-only re-eval (weights zeroed / not loaded) vs full Bcw
+        ho_code = _eval(
+            final_dir,
+            world,
+            fit,
+            wcfg,
+            holdout_seeds,
+            "Bc",
+            train_weights=False,
+            weight_path=None,
+        )
+        attribution["holdout_code_only"] = ho_code.fitness
+        attribution["holdout_with_weights"] = ho.fitness
+        attribution["fitness_gain_from_weights"] = ho.fitness - ho_code.fitness
+        if b0_holdout is not None:
+            attribution["fitness_gain_from_code"] = ho_code.fitness - float(b0_holdout)
+            attribution["fitness_gain_total_vs_b0"] = ho.fitness - float(b0_holdout)
     else:
         tr = _eval(final_dir, world, fit, wcfg, train_seeds, "Bc", train_weights=False)
         ho = _eval(final_dir, world, fit, wcfg, holdout_seeds, "Bc", train_weights=False)
@@ -382,81 +410,39 @@ def run_arm_code(
         mutations_attempted=attempted,
         mutations_accepted=accepted,
         weight_path=str(weight_path) if weight_path else None,
-        notes=f"mutations accepted {accepted}/{attempted}",
+        notes=f"mutations accepted {accepted}/{attempted}"
+        + (f"; train_passes={train_passes}" if ablation == "Bcw" else ""),
+        meta=attribution,
     )
 
 
-def run_ablation_suite(
+def _shift_seeds(seeds: list[int], offset: int) -> list[int]:
+    return [int(s) + int(offset) for s in seeds]
+
+
+def _run_single_ablation_pass(
     *,
-    exp: dict[str, Any],
+    run_id: str,
+    selected: list[str],
+    suite_seed: Path,
     world: WorldConfig,
     fit: FitnessConfig,
     wcfg: WeightConfig,
+    train_seeds: list[int],
+    holdout_seeds: list[int],
     store: Store,
     artifacts_dir: Path,
-    seed_dir: Path,
-    quick: bool = False,
-    dry_run: bool | None = None,
-    arms: list[str] | None = None,
-    max_mutations: int | None = None,
-    client: NimClient | None = None,
-) -> AblationReport:
-    """
-    Run B0/Bw/Bc/Bcw (subset via arms=) and compute holdout δ success.
-    """
-    suite = exp.get("ablation_suite", {})
-    eval_cfg = exp.get("eval", {})
-    genomic = exp.get("genomic", {})
-
-    if quick:
-        q = suite.get("quick", {})
-        train_seeds = list(q.get("train_seeds", [0, 1, 2]))
-        holdout_seeds = list(q.get("holdout_seeds", [100, 101, 102]))
-        muts = int(q.get("max_mutations", 1))
-        train_passes = int(q.get("train_passes", 1))
-        use_dry = True if dry_run is None else dry_run
-    else:
-        train_seeds = list(eval_cfg.get("train_seeds", list(range(8))))
-        holdout_seeds = list(eval_cfg.get("holdout_seeds", list(range(100, 108))))
-        muts = int(max_mutations if max_mutations is not None else genomic.get("max_mutations", 3))
-        # default 3 mutations for full suite practicality; config can set 30
-        if max_mutations is None and "max_mutations" not in genomic:
-            muts = int(suite.get("max_mutations", 3))
-        train_passes = int(suite.get("train_passes", 2))
-        use_dry = False if dry_run is None else dry_run
-
-    selected = arms or ["B0", "Bw", "Bc", "Bcw"]
-    run_id = _uid("abl")
-    artifacts_dir = Path(artifacts_dir)
-    artifacts_dir.mkdir(parents=True, exist_ok=True)
-
-    # fresh seed copy for suite
-    suite_seed = artifacts_dir / "genomes" / f"{run_id}_seed"
-    if suite_seed.exists():
-        import shutil
-
-        shutil.rmtree(suite_seed)
-    copy_genome(seed_dir, suite_seed)
-
-    store.log_event(
-        "ablation_suite_start",
-        {
-            "run_id": run_id,
-            "arms": selected,
-            "quick": quick,
-            "dry_run": use_dry,
-            "train_seeds": train_seeds,
-            "holdout_seeds": holdout_seeds,
-            "max_mutations": muts,
-        },
-    )
-
+    muts: int,
+    train_passes: int,
+    use_dry: bool,
+    client: NimClient | None,
+) -> dict[str, ArmResult]:
     results: dict[str, ArmResult] = {}
-
     if "B0" in selected:
         results["B0"] = run_arm_b0(
             suite_seed, world, fit, wcfg, train_seeds, holdout_seeds, store, run_id
         )
+    b0_h = results["B0"].holdout_fitness if "B0" in results else None
     if "Bw" in selected:
         results["Bw"] = run_arm_bw(
             suite_seed,
@@ -485,6 +471,8 @@ def run_ablation_suite(
             max_mutations=muts,
             dry_run=use_dry,
             client=client,
+            train_passes=train_passes,
+            b0_holdout=b0_h,
         )
     if "Bcw" in selected:
         results["Bcw"] = run_arm_code(
@@ -501,13 +489,169 @@ def run_ablation_suite(
             max_mutations=muts,
             dry_run=use_dry,
             client=client,
+            train_passes=train_passes,
+            b0_holdout=b0_h,
         )
+    return results
+
+
+def run_ablation_suite(
+    *,
+    exp: dict[str, Any],
+    world: WorldConfig,
+    fit: FitnessConfig,
+    wcfg: WeightConfig,
+    store: Store,
+    artifacts_dir: Path,
+    seed_dir: Path,
+    quick: bool = False,
+    dry_run: bool | None = None,
+    arms: list[str] | None = None,
+    max_mutations: int | None = None,
+    client: NimClient | None = None,
+    repeats: int | None = None,
+) -> AblationReport:
+    """
+    Run B0/Bw/Bc/Bcw (subset via arms=) and compute holdout δ success.
+    repeats=K runs independent seed-offset trajectories and reports mean±std on δ.
+    Recommend K≥3 and max_mutations≥3 for a defensible claim (free-tier RPM limited).
+    """
+    suite = exp.get("ablation_suite", {})
+    eval_cfg = exp.get("eval", {})
+    genomic = exp.get("genomic", {})
+
+    if quick:
+        q = suite.get("quick", {})
+        train_seeds = list(q.get("train_seeds", [0, 1, 2]))
+        holdout_seeds = list(q.get("holdout_seeds", [100, 101, 102]))
+        muts = int(q.get("max_mutations", 1))
+        train_passes = int(q.get("train_passes", 1))
+        use_dry = True if dry_run is None else dry_run
+        k_rep = int(repeats if repeats is not None else q.get("repeats", 1))
+    else:
+        train_seeds = list(eval_cfg.get("train_seeds", list(range(8))))
+        holdout_seeds = list(eval_cfg.get("holdout_seeds", list(range(100, 108))))
+        muts = int(max_mutations if max_mutations is not None else genomic.get("max_mutations", 3))
+        # default 3 mutations for full suite practicality; config can set 30
+        if max_mutations is None and "max_mutations" not in genomic:
+            muts = int(suite.get("max_mutations", 3))
+        train_passes = int(suite.get("train_passes", 2))
+        use_dry = False if dry_run is None else dry_run
+        k_rep = int(repeats if repeats is not None else suite.get("repeats", 1))
+    k_rep = max(1, k_rep)
+
+    selected = arms or ["B0", "Bw", "Bc", "Bcw"]
+    run_id = _uid("abl")
+    artifacts_dir = Path(artifacts_dir)
+    artifacts_dir.mkdir(parents=True, exist_ok=True)
+
+    # fresh seed copy for suite
+    suite_seed = artifacts_dir / "genomes" / f"{run_id}_seed"
+    if suite_seed.exists():
+        import shutil
+
+        shutil.rmtree(suite_seed)
+    copy_genome(seed_dir, suite_seed)
+
+    store.log_event(
+        "ablation_suite_start",
+        {
+            "run_id": run_id,
+            "arms": selected,
+            "quick": quick,
+            "dry_run": use_dry,
+            "train_seeds": train_seeds,
+            "holdout_seeds": holdout_seeds,
+            "max_mutations": muts,
+            "repeats": k_rep,
+            "train_passes": train_passes,
+        },
+    )
+
+    # Reproducibility package
+    from organism.config import ROOT, nim_config
+    from organism.manifest import build_manifest, write_manifest
+
+    try:
+        pins = nim_config().get("models", {})
+    except Exception:
+        pins = {}
+    manifest = build_manifest(
+        run_id=run_id,
+        run_kind="ablation",
+        root=ROOT,
+        exp=exp,
+        world={
+            "grid": [world.height, world.width],
+            "T": world.T,
+            "food_density": world.food_density,
+            "vision": world.vision,
+        },
+        fitness={
+            "lambda_std": fit.lambda_std,
+            "epsilon_accept": fit.epsilon_accept,
+            "delta_success": fit.delta_success,
+            "episode_timeout_s": getattr(fit, "episode_timeout_s", 5.0),
+        },
+        weights={
+            "alpha": wcfg.alpha,
+            "init_std": wcfg.init_std,
+            "clip_abs": wcfg.clip_abs,
+        },
+        nim_pins={str(k): str(v) for k, v in pins.items()},
+        rng_roots={
+            "train_seeds": train_seeds,
+            "holdout_seeds": holdout_seeds,
+            "repeats": k_rep,
+            "seed_offset_per_repeat": 10_000,
+        },
+        extra={"arms": selected, "quick": quick, "dry_run": use_dry, "max_mutations": muts},
+    )
+    man_path = write_manifest(artifacts_dir / "ablations" / f"{run_id}_manifest.json", manifest)
+
+    repeat_deltas: list[float] = []
+    results: dict[str, ArmResult] = {}
+    for rep in range(k_rep):
+        # Independent trajectory: offset seeds so food maps / RNG differ
+        offset = rep * 10_000
+        ts = _shift_seeds(train_seeds, offset)
+        hs = _shift_seeds(holdout_seeds, offset)
+        rep_id = run_id if k_rep == 1 else f"{run_id}_r{rep}"
+        results = _run_single_ablation_pass(
+            run_id=rep_id,
+            selected=selected,
+            suite_seed=suite_seed,
+            world=world,
+            fit=fit,
+            wcfg=wcfg,
+            train_seeds=ts,
+            holdout_seeds=hs,
+            store=store,
+            artifacts_dir=artifacts_dir,
+            muts=muts,
+            train_passes=train_passes,
+            use_dry=use_dry,
+            client=client,
+        )
+        if "B0" in results and "Bcw" in results:
+            repeat_deltas.append(results["Bcw"].holdout_fitness - results["B0"].holdout_fitness)
 
     b0_h = results["B0"].holdout_fitness if "B0" in results else 0.0
     bcw_h = results["Bcw"].holdout_fitness if "Bcw" in results else 0.0
     delta = bcw_h - b0_h
     delta_thr = float(fit.delta_success)
-    success = ("B0" in results and "Bcw" in results) and (bcw_h >= b0_h + delta_thr)
+    if repeat_deltas:
+        import numpy as np
+
+        delta_mean = float(np.mean(repeat_deltas))
+        delta_std = float(np.std(repeat_deltas, ddof=0)) if len(repeat_deltas) > 1 else 0.0
+        # Success: mean δ meets threshold (primary) or last-run for K=1
+        success = delta_mean >= delta_thr
+        delta = delta_mean
+    else:
+        delta_mean = None
+        delta_std = None
+        success = ("B0" in results and "Bcw" in results) and (bcw_h >= b0_h + delta_thr)
 
     comparisons: dict[str, float] = {}
     if "B0" in results and "Bw" in results:
@@ -515,7 +659,9 @@ def run_ablation_suite(
     if "B0" in results and "Bc" in results:
         comparisons["holdout_Bc_minus_B0"] = results["Bc"].holdout_fitness - results["B0"].holdout_fitness
     if "B0" in results and "Bcw" in results:
-        comparisons["holdout_Bcw_minus_B0"] = delta
+        comparisons["holdout_Bcw_minus_B0"] = (
+            results["Bcw"].holdout_fitness - results["B0"].holdout_fitness
+        )
     if "Bw" in results and "Bcw" in results:
         comparisons["holdout_Bcw_minus_Bw"] = (
             results["Bcw"].holdout_fitness - results["Bw"].holdout_fitness
@@ -524,6 +670,10 @@ def run_ablation_suite(
         comparisons["holdout_Bcw_minus_Bc"] = (
             results["Bcw"].holdout_fitness - results["Bc"].holdout_fitness
         )
+    if "Bcw" in results and results["Bcw"].meta:
+        for k, v in results["Bcw"].meta.items():
+            if isinstance(v, (int, float)):
+                comparisons[f"bcw_{k}"] = float(v)
 
     report = AblationReport(
         run_id=run_id,
@@ -539,12 +689,18 @@ def run_ablation_suite(
             "holdout_seeds": holdout_seeds,
             "max_mutations": muts,
             "train_passes": train_passes,
+            "repeats": k_rep,
             "epsilon_accept": fit.epsilon_accept,
             "delta_success": delta_thr,
             "world_T": world.T,
             "grid": [world.height, world.width],
+            "manifest_path": str(man_path),
         },
         created_at=time.time(),
+        delta_mean=delta_mean,
+        delta_std=delta_std,
+        repeat_deltas=repeat_deltas,
+        manifest_path=str(man_path),
     )
 
     out_dir = artifacts_dir / "ablations"

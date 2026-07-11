@@ -146,6 +146,36 @@ def run_evolve(
     episodes_since_mut = 0
     mut_attempted = mut_accepted = mut_rejected = mut_failed = 0
 
+    from organism.config import ROOT, nim_config
+    from organism.manifest import build_manifest, write_manifest
+
+    try:
+        pins = nim_config().get("models", {})
+    except Exception:
+        pins = {}
+    man = build_manifest(
+        run_id=run_id,
+        run_kind="evolve",
+        root=ROOT,
+        exp=exp,
+        world={"grid": [world.height, world.width], "T": world.T},
+        fitness={
+            "epsilon_accept": fit.epsilon_accept,
+            "delta_success": fit.delta_success,
+            "lambda_std": fit.lambda_std,
+        },
+        weights={"alpha": wcfg.alpha, "init_std": wcfg.init_std},
+        nim_pins={str(k): str(v) for k, v in pins.items()},
+        rng_roots={"train_seeds": seeds},
+        extra={
+            "ablation": cfg.ablation,
+            "dry_run": cfg.dry_run,
+            "max_eval_cycles": max_eval_cycles,
+            "max_mutations": cfg.max_mutations,
+        },
+    )
+    man_path = write_manifest(artifacts_dir / "evolve" / f"{run_id}_manifest.json", man)
+
     store.log_event(
         "evolve_start",
         {
@@ -157,6 +187,7 @@ def run_evolve(
             "plateau_episodes": cfg.plateau_episodes,
             "max_mutations": cfg.max_mutations,
             "parent_id": parent_id,
+            "manifest_path": str(man_path),
         },
     )
 
