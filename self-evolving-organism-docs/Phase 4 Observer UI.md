@@ -30,6 +30,7 @@ seo ui
 | **Timeline** | Event log (filterable) |
 | **Evaluations** | Fitness history table |
 | **Control** | Pause / freeze mutations → `artifacts/control.json` |
+| **Run** | Operator console — start mutate/evolve/ablate/weights/docker jobs |
 
 ## Kill switch
 
@@ -64,10 +65,10 @@ Enforced by **`seo mutate`** and **`seo evolve`** (exit 3 if blocked). Does not 
 
 | Slice | Deliverable | Status |
 |-------|-------------|--------|
-| **4.1** | Job runner + status/log files | 🔧 in progress (`feat/phase4-run-from-ui`) |
-| **4.2** | Run page: mutate, evolve, weights train | planned |
-| **4.3** | Ablate + docker smoke + live confirm | planned |
-| **4.4** | Job history in UI | planned |
+| **4.1** | Job runner + status/log files | ☑ `observer/jobs.py` |
+| **4.2** | Run page: mutate, evolve, weights train | ☑ UI **Run** tab |
+| **4.3** | Ablate + docker smoke + live confirm | ☑ |
+| **4.4** | Job history in UI | ☑ job list + log tail + kill |
 
 ## Code map
 
@@ -76,8 +77,12 @@ Enforced by **`seo mutate`** and **`seo evolve`** (exit 3 if blocked). Does not 
 | `src/organism/observer/app.py` | Streamlit app |
 | `src/organism/observer/data.py` | Read-only SQLite/artifact queries |
 | `src/organism/observer/control.py` | Pause/freeze state |
-| `src/organism/observer/jobs.py` | *(planned)* CLI job subprocess manager |
+| `src/organism/observer/jobs.py` | CLI job subprocess manager |
 | `seo ui` | Launcher |
+
+## Jobs on disk
+
+`artifacts/jobs/job_*.json` · `job_*.log` · `current.lock`
 
 ## Deliverables
 
@@ -86,7 +91,7 @@ Enforced by **`seo mutate`** and **`seo evolve`** (exit 3 if blocked). Does not 
 - [x] Mutation inspector (scores, critic, cost, sources)
 - [x] Event timeline
 - [x] Kill switch / pause / freeze
-- [ ] Run from UI (operator console) — slices 4.1–4.4
+- [x] Run from UI (operator console) — slices 4.1–4.4
 - [ ] Polish: auto-refresh, charts, multi-organism (Phase 5)
 
 ## See also
