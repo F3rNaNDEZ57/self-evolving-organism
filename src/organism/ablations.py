@@ -195,6 +195,7 @@ def run_code_mutations(
             dry_run=dry_run,
             sandbox_cfg=sb,
             force_host_eval=dry_run,
+            critic_cfg={"enabled": True},
         )
         if result.decision == "accepted":
             accepted += 1

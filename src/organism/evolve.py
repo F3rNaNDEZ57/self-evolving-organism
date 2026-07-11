@@ -226,6 +226,7 @@ def run_evolve(
             dry_run=cfg.dry_run,
             sandbox_cfg=sb,
             force_host_eval=cfg.dry_run or sb.mode == "host" or not sb.episode_isolation,
+            critic_cfg=dict(exp.get("critic") or {}),
         )
         episodes_since_mut = 0
 
