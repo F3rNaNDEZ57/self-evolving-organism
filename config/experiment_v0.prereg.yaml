@@ -58,10 +58,14 @@ paths:
   seed_genome: genomes/seed
 
 sandbox:
-  mode: docker  # docker | subprocess (subprocess is weaker; not for untrusted code)
-  image: python:3.12-slim
+  mode: docker              # docker | host
+  image: seo-sandbox:py312  # local image with numpy (seo docker-build)
   network: none
+  memory: 512m
+  cpus: "1"
   require_docker: true
+  episode_isolation: true   # run candidate (and optional parent) evals in Docker
+  parent_isolation: false   # keep parent eval on host for speed; set true for full parity
 
 ablation: B0  # B0 | Bw | Bc | Bcw
 
