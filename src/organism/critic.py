@@ -38,6 +38,7 @@ REJECT_TAXONOMY = {
     "low_value": "Unlikely to improve fitness / empty change",
     "overly_large": "Patch too large or sprawling",
     "nonsense": "Incoherent or invalid code",
+    "fail_open": "NIM critic unavailable; static-only pass (fail_open)",
     "other": "Rejected for other review reasons",
 }
 
@@ -166,10 +167,13 @@ def review_proposal(
     client: NimClient | None = None,
     dry_run: bool = False,
     model: str | None = None,
+    fail_open: bool = True,
+    store: Any | None = None,
+    mutation_id: str | None = None,
 ) -> CriticVerdict:
     """
     Review proposed file sources. Static hard-fail first, then free NIM critic
-    (or dry_run critic).
+    (or dry_run critic). On NIM error: fail_open→approve@0.3 or fail-closed reject.
     """
     hard = static_precheck(files)
     if hard is not None:
@@ -201,7 +205,7 @@ def review_proposal(
         + "\n\n".join(file_blobs)
     )
     try:
-        raw = client.chat(
+        chat = client.chat(
             [
                 {"role": "system", "content": CRITIC_SYSTEM},
                 {"role": "user", "content": prompt},
@@ -209,16 +213,36 @@ def review_proposal(
             model=critic_model,
             max_tokens=800,
             temperature=0.1,
+            role="critic",
         )
+        raw = chat.content
+        if store is not None:
+            store.insert_llm_call(
+                model=chat.model,
+                role="critic",
+                mutation_id=mutation_id,
+                tokens_in=chat.tokens_in,
+                tokens_out=chat.tokens_out,
+                estimated_usd=chat.estimated_usd,
+                latency_ms=chat.latency_ms,
+                meta={"stage": "critic"},
+            )
     except Exception as e:
-        # Fail-open to static-only approve with note? Research: critic should reduce waste.
-        # Fail-closed soft: reject as other if critic unavailable after static pass is harsh.
-        # Use fail-open approve with low confidence so experiment continues, logged.
+        if fail_open:
+            return CriticVerdict(
+                decision="approve",
+                code="fail_open",
+                confidence=0.3,
+                reasons=[f"critic unavailable, fail_open static-only pass: {e}"],
+                model=critic_model,
+                raw=str(e),
+                dry_run=False,
+            )
         return CriticVerdict(
-            decision="approve",
-            code="approve",
-            confidence=0.3,
-            reasons=[f"critic unavailable, static-only pass: {e}"],
+            decision="reject",
+            code="other",
+            confidence=0.9,
+            reasons=[f"critic unavailable, fail_closed reject: {e}"],
             model=critic_model,
             raw=str(e),
             dry_run=False,

@@ -168,6 +168,8 @@ def propose_policy_patch(
     *,
     client: NimClient | None = None,
     parent_fitness: float | None = None,
+    store: Store | None = None,
+    mutation_id: str | None = None,
 ) -> dict[str, Any]:
     client = client or NimClient()
     sources = []
@@ -183,8 +185,9 @@ def propose_policy_patch(
         + "\n\n".join(sources)
     )
     model = client.cfg["models"]["coder_primary"]
+    chat_usage: dict[str, Any] | None = None
     try:
-        text = client.chat(
+        chat = client.chat(
             [
                 {"role": "system", "content": MUTATION_SYSTEM},
                 {"role": "user", "content": user},
@@ -192,11 +195,14 @@ def propose_policy_patch(
             model=model,
             max_tokens=4096,
             temperature=0.2,
+            role="coder",
         )
+        text = chat.content
+        chat_usage = chat.to_dict()
     except Exception:
         # fallback model
         model = client.cfg["models"].get("coder_fallback", model)
-        text = client.chat(
+        chat = client.chat(
             [
                 {"role": "system", "content": MUTATION_SYSTEM},
                 {"role": "user", "content": user},
@@ -204,6 +210,20 @@ def propose_policy_patch(
             model=model,
             max_tokens=4096,
             temperature=0.2,
+            role="coder_fallback",
+        )
+        text = chat.content
+        chat_usage = chat.to_dict()
+    if store is not None and chat_usage is not None:
+        store.insert_llm_call(
+            model=str(chat_usage.get("model", model)),
+            role=str(chat_usage.get("role") or "coder"),
+            mutation_id=mutation_id,
+            tokens_in=chat_usage.get("tokens_in"),
+            tokens_out=chat_usage.get("tokens_out"),
+            estimated_usd=float(chat_usage.get("estimated_usd") or 0.0),
+            latency_ms=float(chat_usage.get("latency_ms") or 0.0),
+            meta={"stage": "propose"},
         )
     files = extract_files_from_proposal(text)
     return {
@@ -212,6 +232,7 @@ def propose_policy_patch(
         "rationale": extract_rationale(text),
         "files": files,
         "applied": False,
+        "llm_usage": chat_usage,
     }
 
 
@@ -378,7 +399,12 @@ def run_mutation_cycle(
         else:
             client = client or NimClient()
             proposal = propose_policy_patch(
-                parent_dir, summaries, client=client, parent_fitness=parent_eval.fitness
+                parent_dir,
+                summaries,
+                client=client,
+                parent_fitness=parent_eval.fitness,
+                store=store,
+                mutation_id=mut_id,
             )
             model = str(proposal.get("model", ""))
 
@@ -422,6 +448,7 @@ def run_mutation_cycle(
 
     # 2b) Critic before expensive apply/eval (static hard-fail + free NIM / dry-run)
     if use_critic:
+        fail_open = bool(ccfg.get("fail_open", True))
         critic_verdict = review_proposal(
             files=files,
             rationale=rationale,
@@ -430,6 +457,9 @@ def run_mutation_cycle(
             client=None if dry_run else (client or NimClient()),
             dry_run=dry_run,
             model=critic_model or ccfg.get("model"),
+            fail_open=fail_open,
+            store=store,
+            mutation_id=mut_id,
         )
         store.log_event(
             "mutation_critic",
@@ -441,6 +471,7 @@ def run_mutation_cycle(
                 "model": critic_verdict.model,
                 "reasons": critic_verdict.reasons,
                 "dry_run": critic_verdict.dry_run,
+                "fail_open_used": critic_verdict.code == "fail_open",
             },
         )
         if not critic_verdict.approved:
@@ -674,6 +705,12 @@ def run_mutation_cycle(
         store.set_genome_status(cand_id, "rejected")
 
     critic_meta = critic_verdict.to_dict() if critic_verdict else {"decision": "skipped"}
+    llm_usage = store.llm_usage_for_mutation(mut_id)
+    cost_gain = store.cost_per_accepted_gain(
+        parent_fitness=parent_eval.fitness,
+        candidate_fitness=cand_eval.fitness,
+        tokens_total=int(llm_usage.get("tokens_total") or 0),
+    )
     store.insert_mutation(
         mut_id,
         parent_genome_id,
@@ -688,6 +725,8 @@ def run_mutation_cycle(
             "candidate_fitness": cand_eval.fitness,
             "epsilon": epsilon,
             "critic": critic_meta,
+            "llm_usage": llm_usage,
+            "cost_per_accepted_gain_tokens": cost_gain,
             "proposal": str(proposal.get("proposal", ""))[:8000],
         },
     )

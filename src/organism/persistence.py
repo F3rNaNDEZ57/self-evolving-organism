@@ -81,6 +81,18 @@ class Store:
               meta_json TEXT,
               created_at REAL
             );
+            CREATE TABLE IF NOT EXISTS llm_calls (
+              id TEXT PRIMARY KEY,
+              mutation_id TEXT,
+              role TEXT,
+              model TEXT,
+              tokens_in INTEGER,
+              tokens_out INTEGER,
+              estimated_usd REAL,
+              latency_ms REAL,
+              meta_json TEXT,
+              created_at REAL
+            );
             """
         )
         self.conn.commit()
@@ -238,3 +250,69 @@ class Store:
             (limit,),
         ).fetchall()
         return [dict(r) for r in rows]
+
+    def insert_llm_call(
+        self,
+        *,
+        model: str,
+        role: str = "",
+        mutation_id: str | None = None,
+        tokens_in: int | None = None,
+        tokens_out: int | None = None,
+        estimated_usd: float = 0.0,
+        latency_ms: float = 0.0,
+        meta: dict[str, Any] | None = None,
+    ) -> str:
+        cid = f"llm_{_uid()}"
+        self.conn.execute(
+            """
+            INSERT INTO llm_calls
+              (id, mutation_id, role, model, tokens_in, tokens_out,
+               estimated_usd, latency_ms, meta_json, created_at)
+            VALUES (?,?,?,?,?,?,?,?,?,?)
+            """,
+            (
+                cid,
+                mutation_id,
+                role,
+                model,
+                tokens_in,
+                tokens_out,
+                estimated_usd,
+                latency_ms,
+                json.dumps(meta or {}),
+                time.time(),
+            ),
+        )
+        self.conn.commit()
+        return cid
+
+    def llm_usage_for_mutation(self, mutation_id: str) -> dict[str, Any]:
+        rows = self.conn.execute(
+            "SELECT * FROM llm_calls WHERE mutation_id=?",
+            (mutation_id,),
+        ).fetchall()
+        tokens_in = sum(int(r["tokens_in"] or 0) for r in rows)
+        tokens_out = sum(int(r["tokens_out"] or 0) for r in rows)
+        latency = sum(float(r["latency_ms"] or 0) for r in rows)
+        return {
+            "calls": len(rows),
+            "tokens_in": tokens_in,
+            "tokens_out": tokens_out,
+            "tokens_total": tokens_in + tokens_out,
+            "latency_ms": latency,
+            "estimated_usd": sum(float(r["estimated_usd"] or 0) for r in rows),
+        }
+
+    def cost_per_accepted_gain(
+        self,
+        *,
+        parent_fitness: float,
+        candidate_fitness: float,
+        tokens_total: int,
+    ) -> float | None:
+        """Tokens per unit fitness gain (free endpoints: usd=0). None if no gain."""
+        gain = float(candidate_fitness) - float(parent_fitness)
+        if gain <= 0:
+            return None
+        return float(tokens_total) / gain
