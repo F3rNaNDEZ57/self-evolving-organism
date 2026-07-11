@@ -203,17 +203,30 @@ def eval_cmd(
 
 @app.command()
 def pins() -> None:
-    """Show pinned free NIM models from config/.env."""
+    """Show pinned free NIM models + router role map + budgets."""
+    from organism.router import FreeNimRouter
+
     cfg = nim_config()
-    table = Table(title="NIM pins")
-    table.add_column("role")
-    table.add_column("model id")
+    table = Table(title="NIM pins (config)")
+    table.add_column("key")
+    table.add_column("value")
     for k, v in (cfg.get("models") or {}).items():
         table.add_row(k, str(v))
     table.add_row("base_url", str(cfg.get("base_url")))
     table.add_row("api_key_set", "yes" if cfg.get("api_key") else "NO")
     table.add_row("max_rpm", str(cfg.get("max_rpm")))
     console.print(table)
+    try:
+        r = FreeNimRouter(cfg)
+        rt = Table(title="Router roles → free models")
+        rt.add_column("role")
+        rt.add_column("model")
+        for role, model in r.pins().items():
+            rt.add_row(role, model)
+        console.print(rt)
+        console.print(f"[dim]budget: {json.dumps(r.budget.to_dict())}[/dim]")
+    except Exception as e:
+        console.print(f"[dim]router unavailable: {e}[/dim]")
 
 
 @app.command("docker-build")
@@ -696,6 +709,136 @@ def mutate(
         raise typer.Exit(1)
 
 
+@app.command("metrics")
+def metrics_cmd(
+    write: bool = typer.Option(True, "--write/--no-write", help="Write last_pool_metrics.json"),
+) -> None:
+    """Roll up Phase 3 pool metrics from SQLite (accept rate, critic waste, tokens)."""
+    from organism.metrics import collect_pool_metrics, write_metrics_report
+
+    exp, _, _, _ = _load_cfgs()
+    artifacts = resolve_path(exp.get("paths", {}).get("artifacts_dir", "artifacts"))
+    db = resolve_path(exp.get("paths", {}).get("db_path", "artifacts/seo.sqlite"))
+    store = Store(db)
+    m = collect_pool_metrics(store)
+    store.close()
+
+    table = Table(title="Pool metrics")
+    table.add_column("metric")
+    table.add_column("value")
+    table.add_row("mutations", str(m.mutations_total))
+    table.add_row(
+        "accepted / rejected / failed",
+        f"{m.mutations_accepted} / {m.mutations_rejected} / {m.mutations_failed}",
+    )
+    table.add_row("accept_rate", f"{m.accept_rate:.3f}")
+    table.add_row("critic_rejects", str(m.critic_rejects))
+    table.add_row("critic_reject_rate", f"{m.critic_reject_rate:.3f}")
+    table.add_row("evals_avoided_by_critic", str(m.evals_avoided_by_critic))
+    table.add_row("evals_run", str(m.evals_run))
+    table.add_row("fitness_rejects", str(m.fitness_rejects))
+    table.add_row("critic_fail_open", str(m.critic_fail_open))
+    table.add_row("llm_calls", str(m.llm_calls))
+    table.add_row("tokens_total", str(m.tokens_total))
+    table.add_row(
+        "tokens_per_accepted_gain",
+        "—" if m.tokens_per_accepted_gain is None else f"{m.tokens_per_accepted_gain:.1f}",
+    )
+    table.add_row("by_role_tokens", json.dumps(m.by_role_tokens))
+    table.add_row("by_critic_code", json.dumps(m.by_critic_code))
+    console.print(table)
+
+    if write:
+        path = write_metrics_report(m, artifacts / "last_pool_metrics.json")
+        console.print(f"[dim]Wrote {path}[/dim]")
+
+
+@app.command("critic-ab")
+def critic_ab_cmd(
+    n: int = typer.Option(6, help="Number of synthetic proposals"),
+) -> None:
+    """
+    Offline critic A/B: count evals with critic gate vs always-eval.
+    Uses dry_run critic (static + heuristic) — no NIM required.
+    """
+    from organism.metrics import run_critic_ab
+
+    exp, _, _, _ = _load_cfgs()
+    artifacts = resolve_path(exp.get("paths", {}).get("artifacts_dir", "artifacts"))
+    seed = resolve_path(exp.get("paths", {}).get("seed_genome", "genomes/seed"))
+    pol = (seed / "policy.py").read_text(encoding="utf-8")
+    heur = (seed / "heuristics.py").read_text(encoding="utf-8")
+
+    proposals: list[dict] = []
+    # safe small tweak
+    pol_safe = pol.replace("self.rng.random() < 0.7", "self.rng.random() < 0.8")
+    proposals.append(
+        {"rationale": "slightly greedier chase", "files": {"policy.py": pol_safe}}
+    )
+    # hostile imports (should static-reject)
+    proposals.append(
+        {
+            "rationale": "exfil",
+            "files": {
+                "policy.py": (
+                    "import os\nclass Policy:\n    def reset(self,s): pass\n"
+                    "    def act(self,o): pass\n    def on_step_result(self,r): pass\n"
+                )
+            },
+        }
+    )
+    proposals.append(
+        {
+            "rationale": "kernel",
+            "files": {
+                "policy.py": (
+                    "from organism.config import nim_config\nclass Policy:\n"
+                    "    def reset(self,s): pass\n    def act(self,o): pass\n"
+                    "    def on_step_result(self,r): pass\n"
+                )
+            },
+        }
+    )
+    proposals.append(
+        {
+            "rationale": "subprocess",
+            "files": {
+                "policy.py": (
+                    "import subprocess\nclass Policy:\n    def reset(self,s): pass\n"
+                    "    def act(self,o): pass\n    def on_step_result(self,r): pass\n"
+                )
+            },
+        }
+    )
+    # empty
+    proposals.append({"rationale": "", "files": {}})
+    # another safe
+    heur2 = heur + "\n# tweak\n"
+    proposals.append(
+        {"rationale": "comment heuristics", "files": {"heuristics.py": heur2, "policy.py": pol}}
+    )
+    proposals = proposals[: max(1, n)]
+
+    report = run_critic_ab(proposals, parent_fitness=10.0)
+    table = Table(title="Critic A/B (dry)")
+    table.add_column("field")
+    table.add_column("value")
+    table.add_row("n_proposals", str(report.n_proposals))
+    table.add_row("without_critic_evals", str(report.without_critic_evals))
+    table.add_row("with_critic_evals", str(report.with_critic_evals))
+    table.add_row("evals_saved", str(report.evals_saved))
+    table.add_row("critic_reject_rate", f"{report.critic_reject_rate:.3f}")
+    table.add_row("static_rejects", str(report.static_rejects))
+    table.add_row("taxonomy", json.dumps(report.taxonomy))
+    table.add_row("notes", report.notes)
+    console.print(table)
+
+    out = artifacts / "last_critic_ab.json"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(report.to_dict(), indent=2), encoding="utf-8")
+    console.print(f"[dim]Wrote {out}[/dim]")
+
+
 @app.callback()
 def main() -> None:
     """self-evolving-organism CLI."""
@@ -704,3 +847,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     app()
+

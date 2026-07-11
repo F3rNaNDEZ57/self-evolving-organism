@@ -11,6 +11,13 @@ models:
   critic: nvidia/nemotron-3-nano-30b-a3b
   summarizer: meta/llama-3.1-8b-instruct
 
+# Session budgets (also overridable via experiment_v0.prereg pool.budget)
+budget:
+  max_rpm: 40
+  max_tokens_session: 200000
+  max_calls_session: 200
+  max_mutations: 30
+
 # Also confirmed present on this account (aliases / alternates)
 alternates:
   coder:

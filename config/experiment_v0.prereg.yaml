@@ -50,6 +50,15 @@ critic:
   # model: null → use config/nim.pinned.yaml models.critic
   fail_open: true   # on NIM error after static pass: approve@0.3 (false → reject)
   max_combined_lines: 500
+  use_summarizer: true  # distill episodes into coder/critic context
+
+# Free NIM pool budgets (router; free endpoints only)
+pool:
+  budget:
+    max_rpm: 40
+    max_tokens_session: 200000
+    max_calls_session: 200
+    max_mutations: 30
 
 # Continuous evolution loop (seo evolve)
 evolve:
