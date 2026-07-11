@@ -167,13 +167,40 @@ Report: `artifacts/last_evolve_report.json` · `artifacts/evolve/{run_id}.json`
 | mutations | 0 accepted / 2 rejected (already-strong active genome) |
 | pytest | **11 passed** |
 
+## Docker episode isolation (implemented)
+
+```powershell
+seo docker-build                 # build seo-sandbox:py312 (python+numpy)
+seo docker-smoke                 # network-none smoke
+seo docker-eval --seeds 0,1      # multi-seed eval inside container
+seo eval --docker --ablation Bc  # force Docker isolation
+seo eval --host --ablation B0    # force host (tests / speed)
+```
+
+| Piece | Role |
+|-------|------|
+| `Dockerfile.sandbox` | Image with numpy only (no runtime network) |
+| `docker_worker.py` | In-container eval worker → `/job/result.json` |
+| `evaluate_genome_in_docker` | Mounts `src`+genome RO, job RW, `--network none` |
+| Mutation candidates | Isolated by default when `episode_isolation: true` |
+| Dry-run / unit tests | Stay on host |
+
+### Smoke (2026-07-11)
+
+| Check | Result |
+|-------|--------|
+| pytest | **13 passed** (incl. docker isolation tests) |
+| `seo docker-build` | OK `seo-sandbox:py312` |
+| `seo docker-eval --seeds 0,1` | fitness ~22.76 · `isolated: true` |
+
 ## Not yet implemented (next slices)
 
 - [x] Full ablation runner B0/Bw/Bc/Bcw + holdout δ  
 - [x] Weight checkpoints under `artifacts/weights/`  
 - [x] Schedule/plateau auto mutation triggers (`seo evolve`)  
-- [ ] Docker-isolated episode eval (today: host eval after AST jail)  
-- [ ] Runs/ vault note auto-export (optional)
+- [x] Docker-isolated episode eval  
+- [ ] Runs/ vault note auto-export (optional)  
+- [ ] Phase 3 free NIM critic pool
 
 ---
 
