@@ -355,11 +355,14 @@ Build a system of **self-evolving digital organisms** that:
 
 - [x] Seed vs active weight A/B lab note + export `diagnose`/`soak`
 
+**Scaffold + rails (continued)**
+
+- [x] Live soak hardening + UI Soak tab + kernel CI (`feat/phase6-live-soak-ci`)
+
 **Candidates (next)**
 
-- Multi-hour live soak (operator)
+- Longer operator live soaks (`seo soak --live --rounds N`)
 - Stronger isolation defaults
-- Kernel regression gate (optional CI)
 - Optional public research notes
 - Live evolve under Bc-only (weights still lag)
 

@@ -1,0 +1,36 @@
+# Kernel regression gate — frozen harness must stay green on every push/PR.
+name: kernel
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+    branches: [master, main]
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install package
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+          # UI import optional for job builder tests that only import jobs
+          pip install "streamlit>=1.32" || true
+
+      - name: Kernel unit tests (no Docker / no NIM)
+        env:
+          # Skip accidental live NIM; unit suite is offline.
+          NVIDIA_API_KEY: ""
+        run: |
+          python -m pytest tests/ -q --tb=short \
+            --ignore=tests/test_docker_eval.py

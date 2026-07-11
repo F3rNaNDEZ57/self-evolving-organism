@@ -91,8 +91,8 @@ cssclasses:
 
 | Field | Value |
 |-------|-------|
-| Stage | **Phase 5 done** · **Phase 6** doctor · soak · package · safety rail |
-| Code | best-of · diagnose · safety→Bc · soak · package · seed-weight exp |
+| Stage | **Phase 5 done** · **Phase 6** rails + live soak + kernel CI |
+| Code | best-of · diagnose · safety→Bc · soak/--live · package · CI |
 | Science | **Bcw − B0 = +4.44** · thr 0.30 · success=True · holdout Bw lag on active |
 | UI | [[Phase 4 Observer UI]] · [[Phase 5 Population]] · [[Phase 6 Hardening]] |
 | Critic | soft_pass · truncated JSON retry |

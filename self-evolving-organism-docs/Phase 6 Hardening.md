@@ -18,6 +18,9 @@ Research-grade reliability, packaging, and longer experiments — without redesi
 | Phase 6 vault note + canvas | ☑ |
 | Safety rail: default **Bc** when diagnose negative | ☑ `feat/safety-default-bc` |
 | Soak harness (doctor-gated dry evolve) | ☑ `feat/phase6-soak-package` |
+| Live soak + safety rail + fitness track | ☑ `feat/phase6-live-soak-ci` |
+| UI Soak tab | ☑ Run → Soak |
+| Kernel CI (pytest on push/PR) | ☑ `.github/workflows/kernel.yml` |
 | Reproduce package (zip, no secrets) | ☑ `seo package` |
 | Weights train/holdout **on seed** (experiment) | ☑ `feat/weights-train-seed` |
 
@@ -25,6 +28,7 @@ Research-grade reliability, packaging, and longer experiments — without redesi
 seo doctor
 seo doctor --strict-docker
 seo soak --rounds 3
+seo soak --live --rounds 5 --cycles 2 --max-mutations 2   # free NIM
 seo package
 seo weights train --on-seed --passes 4
 seo weights holdout --on-seed --passes 2
@@ -64,8 +68,9 @@ seo weights holdout --on-seed --passes 2
 - [x] Weights holdout + diagnose + keep-if-beats-b0
 - [x] Safety default Bc when diagnose negative
 - [x] Short soak harness (doctor + dry evolve)
-- [ ] Multi-hour live soak (optional longer operator runs)
-- [ ] Kernel regression suite gate in CI (optional)
+- [x] Live soak flags + safety ablation + fitness first/last/best
+- [x] Kernel regression suite gate in CI (`.github/workflows/kernel.yml`)
+- [ ] Multi-hour operator soaks (run `seo soak --live --rounds N` as needed)
 
 ### Isolation
 

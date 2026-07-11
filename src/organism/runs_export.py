@@ -510,12 +510,20 @@ def render_soak_note(
         f"|-------|-------|",
         f"| ok | **{data.get('ok')}** |",
         f"| doctor_ok | {data.get('doctor_ok')} |",
+        f"| dry_run | {data.get('dry_run')} |",
+        f"| ablation | {data.get('ablation_requested')} → "
+        f"{data.get('ablation_effective')} |",
         f"| rounds | {data.get('rounds')} |",
         f"| evolve_cycles | {data.get('evolve_cycles')} |",
+        f"| fitness first→last | {_fmt_f(data.get('fitness_first'))} → "
+        f"{_fmt_f(data.get('fitness_last'))} |",
+        f"| fitness best | {_fmt_f(data.get('fitness_best'))} |",
         f"| mutations | acc={data.get('total_mutations_accepted')} / "
         f"att={data.get('total_mutations_attempted')} |",
         "",
     ]
+    if data.get("safety_reason"):
+        lines += [f"**Safety:** {data.get('safety_reason')}", ""]
     if isinstance(rounds, list) and rounds:
         lines += [
             "## Rounds",
@@ -541,7 +549,7 @@ def render_soak_note(
     lines += [
         "## Operator notes",
         "",
-        "_Dry soak validates harness health; 0 accepts is normal without live NIM._",
+        "_Dry soak = harness health; live soak = free NIM (use --live / UI Live)._",
         "",
         f"- Source: `{source}`",
         "",

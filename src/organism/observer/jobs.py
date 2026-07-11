@@ -178,6 +178,38 @@ def build_weights_train_argv(*, passes: int = 2, on_seed: bool = False) -> list[
     return _seo_argv(args)
 
 
+def build_soak_argv(
+    *,
+    rounds: int = 3,
+    cycles: int = 2,
+    dry_run: bool = True,
+    ablation: str = "Bc",
+    max_mutations: int = 0,
+    force_bcw: bool = False,
+    skip_doctor: bool = False,
+) -> list[str]:
+    args = [
+        "soak",
+        "--rounds",
+        str(int(rounds)),
+        "--cycles",
+        str(int(cycles)),
+        "--ablation",
+        str(ablation or "Bc"),
+    ]
+    if dry_run:
+        args.append("--dry-run")
+    else:
+        args.append("--live")
+    if max_mutations and int(max_mutations) > 0:
+        args.extend(["--max-mutations", str(int(max_mutations))])
+    if force_bcw:
+        args.append("--force-bcw")
+    if skip_doctor:
+        args.append("--skip-doctor")
+    return _seo_argv(args)
+
+
 def build_weights_holdout_argv(
     *,
     weights: str = "latest",
@@ -259,6 +291,7 @@ def parse_cli_params(argv: list[str]) -> dict[str, Any]:
         "--label": "label",
         "--weights": "weights",
         "--seeds": "seeds",
+        "--rounds": "rounds",
     }
     bool_flags = {
         **bool_flags,
@@ -266,6 +299,8 @@ def parse_cli_params(argv: list[str]) -> dict[str, Any]:
         "--force-bcw": ("force_bcw", True),
         "--keep-if-beats-b0": ("keep_if_beats_b0", True),
         "--always-keep": ("keep_if_beats_b0", False),
+        "--skip-doctor": ("skip_doctor", True),
+        "--live": ("dry_run", False),
     }
     unknown: list[str] = []
     while i < len(rest):
@@ -290,6 +325,7 @@ def parse_cli_params(argv: list[str]) -> dict[str, Any]:
                 "lineages",
                 "mut_per_lineage",
                 "cycles_per_lineage",
+                "rounds",
             ):
                 try:
                     params[key] = int(raw)

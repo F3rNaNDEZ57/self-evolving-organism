@@ -408,8 +408,8 @@ def page_run(artifacts: Path, db: Path) -> None:
     if busy:
         st.warning(f"Job running: `{busy_id}` — wait or kill below.")
 
-    tab_mut, tab_evo, tab_ab, tab_w, tab_d = st.tabs(
-        ["Mutate", "Evolve", "Ablate", "Weights", "Docker"]
+    tab_mut, tab_evo, tab_ab, tab_w, tab_soak, tab_d = st.tabs(
+        ["Mutate", "Evolve", "Ablate", "Weights", "Soak", "Docker"]
     )
 
     with tab_mut:
@@ -827,6 +827,58 @@ def page_run(artifacts: Path, db: Path) -> None:
             except Exception as e:
                 st.error(str(e))
 
+    with tab_soak:
+        st.caption(
+            "Doctor-gated evolve rounds. Dry-run default (harness health). "
+            "Live uses free NIM — long soaks can run many minutes."
+        )
+        soak_dry = st.checkbox("Dry-run (no NIM)", value=True, key="soak_dry")
+        soak_rounds = st.number_input(
+            "Rounds", min_value=1, max_value=50, value=3, key="soak_rounds"
+        )
+        soak_cycles = st.number_input(
+            "Eval cycles / round", min_value=1, max_value=20, value=2, key="soak_cycles"
+        )
+        soak_mut = st.number_input(
+            "Max mutations / round (0=same as cycles)",
+            min_value=0,
+            max_value=20,
+            value=0,
+            key="soak_mut",
+        )
+        soak_abl = st.selectbox("Ablation", ["Bc", "Bcw"], index=0, key="soak_abl")
+        soak_force = st.checkbox(
+            "Force Bcw (ignore weights safety rail)",
+            value=False,
+            key="soak_force_bcw",
+        )
+        if not soak_dry:
+            st.warning("Live soak will call free NIM each mutation trigger.")
+        if st.button(
+            "Start soak",
+            type="primary",
+            disabled=busy,
+            key="soak_go",
+        ):
+            try:
+                rec = jobmod.start_job(
+                    artifacts,
+                    kind="soak",
+                    argv=jobmod.build_soak_argv(
+                        rounds=int(soak_rounds),
+                        cycles=int(soak_cycles),
+                        dry_run=bool(soak_dry),
+                        ablation=str(soak_abl),
+                        max_mutations=int(soak_mut),
+                        force_bcw=bool(soak_force),
+                    ),
+                    note=f"ui soak {'dry' if soak_dry else 'LIVE'} r={int(soak_rounds)}",
+                )
+                st.success(f"Started {rec.job_id}")
+                st.rerun()
+            except Exception as e:
+                st.error(str(e))
+
     # --- Launch plan: live form values (not the selected past job) ---
     st.markdown("---")
     st.markdown("### Launch plan (current form)")
@@ -887,6 +939,12 @@ def page_run(artifacts: Path, db: Path) -> None:
     ab_dry = bool(ss.get("ab_dry", True))
     ab_m = int(ss.get("ab_m", 3))
     w_p = int(ss.get("w_p", 2))
+    soak_dry = bool(ss.get("soak_dry", True))
+    soak_rounds = int(ss.get("soak_rounds", 3))
+    soak_cycles = int(ss.get("soak_cycles", 2))
+    soak_mut = int(ss.get("soak_mut", 0))
+    soak_abl = str(ss.get("soak_abl", "Bc"))
+    soak_force = bool(ss.get("soak_force_bcw", False))
 
     launch_rows = [
         {
@@ -962,6 +1020,24 @@ def page_run(artifacts: Path, db: Path) -> None:
             ),
         },
         {
+            "tab": "Soak",
+            "mode": "dry-run" if soak_dry else "LIVE",
+            "parameters": (
+                f"rounds={soak_rounds}, cycles={soak_cycles}, "
+                f"max_mut={soak_mut}, ablation={soak_abl}, force_bcw={soak_force}"
+            ),
+            "argv_preview": " ".join(
+                jobmod.build_soak_argv(
+                    rounds=soak_rounds,
+                    cycles=soak_cycles,
+                    dry_run=soak_dry,
+                    ablation=soak_abl,
+                    max_mutations=soak_mut,
+                    force_bcw=soak_force,
+                )[3:]
+            ),
+        },
+        {
             "tab": "Docker",
             "mode": "smoke",
             "parameters": "(no options)",
@@ -998,6 +1074,14 @@ def page_run(artifacts: Path, db: Path) -> None:
                         dry_run=ab_dry or ab_q, max_mutations=ab_m, quick=ab_q
                     ),
                     "Weights": jobmod.build_weights_train_argv(passes=w_p),
+                    "Soak": jobmod.build_soak_argv(
+                        rounds=soak_rounds,
+                        cycles=soak_cycles,
+                        dry_run=soak_dry,
+                        ablation=soak_abl,
+                        max_mutations=soak_mut,
+                        force_bcw=soak_force,
+                    ),
                     "Docker": jobmod.build_docker_smoke_argv(),
                 }[row["tab"]]
             )

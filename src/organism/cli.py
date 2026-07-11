@@ -1526,18 +1526,35 @@ def soak_cmd(
     rounds: int = typer.Option(3, help="Number of evolve rounds"),
     cycles: int = typer.Option(2, help="Eval cycles per evolve round"),
     dry_run: bool = typer.Option(True, "--dry-run/--live", help="Dry mutations (default)"),
+    ablation: str = typer.Option("Bc", help="Bc or Bcw (safety rail may downgrade)"),
+    max_mutations: int = typer.Option(
+        0,
+        "--max-mutations",
+        help="Max mutations per evolve round (0 = same as cycles)",
+    ),
+    force_bcw: bool = typer.Option(
+        False,
+        "--force-bcw",
+        help="Allow Bcw even when weights diagnose is negative",
+    ),
     skip_doctor: bool = typer.Option(False, "--skip-doctor"),
 ) -> None:
-    """Phase 6: short soak — doctor gate + repeated dry evolve rounds."""
+    """Phase 6: soak — doctor gate + repeated evolve rounds (dry default, --live for NIM)."""
     from organism.soak import run_soak
 
     exp, world, fit, wcfg = _load_cfgs()
     artifacts = resolve_path(exp.get("paths", {}).get("artifacts_dir", "artifacts"))
     db = resolve_path(exp.get("paths", {}).get("db_path", "artifacts/seo.sqlite"))
     store = Store(db)
+    mode = "LIVE" if not dry_run else "dry"
     console.print(
-        f"[cyan]Soak[/cyan] rounds={rounds} cycles/round={cycles} dry_run={dry_run}"
+        f"[cyan]Soak[/cyan] mode={mode} rounds={rounds} cycles/round={cycles} "
+        f"ablation={ablation} max_mut/round={max_mutations or cycles}"
     )
+    if not dry_run:
+        console.print(
+            "[yellow]Live soak uses free NIM — costs tokens; Ctrl+C to stop between rounds[/yellow]"
+        )
     report = run_soak(
         exp=exp,
         world=world,
@@ -1548,6 +1565,9 @@ def soak_cmd(
         rounds=rounds,
         evolve_cycles=cycles,
         dry_run=dry_run,
+        ablation=ablation,
+        max_mutations_per_round=max_mutations,
+        force_bcw=force_bcw,
         skip_doctor=skip_doctor,
     )
     store.close()
@@ -1556,10 +1576,24 @@ def soak_cmd(
     table.add_column("value")
     table.add_row("ok", str(report.ok))
     table.add_row("doctor_ok", str(report.doctor_ok))
+    table.add_row("dry_run", str(report.dry_run))
+    table.add_row(
+        "ablation",
+        f"{report.ablation_requested} → {report.ablation_effective}",
+    )
     table.add_row("rounds", str(report.rounds))
-    table.add_row("mutations", f"acc={report.total_mutations_accepted}/att={report.total_mutations_attempted}")
+    table.add_row(
+        "mutations",
+        f"acc={report.total_mutations_accepted}/att={report.total_mutations_attempted}",
+    )
+    table.add_row(
+        "fitness first→last/best",
+        f"{report.fitness_first} → {report.fitness_last} / best={report.fitness_best}",
+    )
     table.add_row("errors", str(len(report.errors)))
     console.print(table)
+    if report.ablation_requested != report.ablation_effective:
+        console.print(f"[dim]Safety: {report.safety_reason}[/dim]")
     for e in report.errors[:5]:
         console.print(f"[yellow]{e}[/yellow]")
     console.print("[dim]Report: artifacts/last_soak_report.json[/dim]")
