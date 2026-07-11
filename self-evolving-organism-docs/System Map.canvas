@@ -3,7 +3,7 @@
 		{
 			"id": "title",
 			"type": "text",
-			"text": "# Self-Evolving Organism — Dashboard\nPhase 0–1 OK · Phase 2: mutate · ablate · weights · **evolve** OK\nGitNexus refreshed (1132 nodes / 97 flows) · origin on GitHub",
+			"text": "# Self-Evolving Organism — Dashboard\nPhase 0–1 OK · **Phase 2 COMPLETE** (mutate · ablate · weights · evolve · Docker eval)\nOrigin: github.com/F3rNaNDEZ57/self-evolving-organism",
 			"x": 0,
 			"y": 0,
 			"width": 2000,
@@ -23,7 +23,7 @@
 		{
 			"id": "status",
 			"type": "text",
-			"text": "**Verified:** gitnexus analyze up-to-date · pytest 11p · seo evolve schedule triggers · weights checkpoints · Docker PASS",
+			"text": "**Verified:** pytest 13p · seo docker-build · docker-eval isolated · mutate/ablate/weights/evolve · GitNexus refresh after push",
 			"x": 0,
 			"y": 270,
 			"width": 2000,
@@ -170,7 +170,7 @@
 		{
 			"id": "n-next",
 			"type": "text",
-			"text": "**Next**\n\n• Docker-isolated episode eval (optional)\n• Live: seo evolve --live / seo ablate --live\n• Phase 3: free NIM critic pool\nCLI: seo evolve --cycles 5 --dry-run --every 8",
+			"text": "**Next**\n\n• Phase 3: free NIM critic pool\n• Optional Runs/ lab write-ups\n• Live long ablations / evolve\nCLI: seo docker-eval --seeds 0,1",
 			"x": 40,
 			"y": 800,
 			"width": 1200,
@@ -180,7 +180,7 @@
 		{
 			"id": "n-cli",
 			"type": "text",
-			"text": "**CLI today**\nseo init | demo | eval\nseo mutate [--dry-run]\nseo ablate --quick\nseo weights train|list|show\nseo evolve --cycles N\nseo pins | docker-smoke",
+			"text": "**CLI**\nseo init|demo|eval\nseo mutate|ablate|evolve\nseo weights train|list|show\nseo docker-build|smoke|eval\nseo pins",
 			"x": 1320,
 			"y": 800,
 			"width": 640,
@@ -260,7 +260,7 @@
 		{
 			"id": "n-sandbox",
 			"type": "text",
-			"text": "**Sandbox (D9)**\nDocker --network none · AST import jail\nseo docker-smoke → PASS",
+			"text": "**Sandbox (D9) — EPISODE ISOLATION LIVE**\nimage seo-sandbox:py312 (numpy)\n--network none --memory 512m\nseo docker-build | docker-eval | eval --docker\nCandidates isolated; parent host by default",
 			"x": 740,
 			"y": 1240,
 			"width": 520,
@@ -300,7 +300,7 @@
 		{
 			"id": "n-phases",
 			"type": "text",
-			"text": "**Phases**\n0 OK freeze\n1 OK research + NIM + Docker\n2 OK mutate · ablate · weights · evolve\n3 TODO free critic pool\n4 TODO observer UI\n5 TODO population\n6 TODO hardening",
+			"text": "**Phases**\n0 OK freeze\n1 OK research + NIM + Docker\n2 OK full paper-organism loop\n3 TODO free critic pool\n4 TODO observer UI\n5 TODO population\n6 TODO hardening",
 			"x": 1440,
 			"y": 1100,
 			"width": 520,
