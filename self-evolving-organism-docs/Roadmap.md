@@ -436,10 +436,10 @@ Detail: [[Research Brief#Sandbox and safety]]
 
 ## Immediate next steps
 
-1. Keep live evolve under **Bc** (weights holdout still negative)
-2. `seo doctor` / `seo soak` before long runs; `seo package` after suites
-3. Weights only if holdout Δ > 0; else stay code-path
-4. Optional multi-hour live soak when operator has wall time
+1. Live soak ×10 done (acc=0) — consider multi-lineage live or richer mutation memory
+2. Keep **Bc** (weights holdout still negative)
+3. `seo doctor` before long runs; `seo package` / `seo runs export` after suites
+4. Weights only if holdout Δ > 0
 
 ---
 

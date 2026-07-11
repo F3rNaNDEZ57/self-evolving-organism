@@ -108,6 +108,21 @@ Confirmed end-to-end: doctor · soak · seed p8 train (discarded) · diagnose Fa
 
 Active genome unchanged: `g_0a2b03eafe` @ ~28.13. See [[Runs/2026-07-11-seed-vs-active-weights-ab]].
 
+## Live soak ×10 (2026-07-11 · `soak_1783791309`)
+
+```powershell
+seo soak --live --rounds 10 --cycles 2 --max-mutations 2 --ablation Bc
+```
+
+| Metric | Result |
+|--------|--------|
+| ok / doctor | True / True |
+| mutations | **acc=0 / att=10** |
+| fitness | 28.13 steady |
+| genome | `g_0a2b03eafe` |
+
+Note: [[Runs/2026-07-11-soak-soak-1783791309]]. Plateau under free NIM is expected with a strong parent; harness + safety rails held.
+
 ## See also
 
 - [[Roadmap]]

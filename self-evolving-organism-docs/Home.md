@@ -101,9 +101,10 @@ cssclasses:
 | Ops | `seo doctor` · `seo soak` · `seo package` · `seo runs export` |
 | Git remote | https://github.com/F3rNaNDEZ57/self-evolving-organism |
 | Secrets | `.env` only (gitignored) |
-| Next | Keep **Bc** evolve · multi-hour soak optional · weights only if Δ>0 |
-| Lab | [[Runs/2026-07-11-seed-vs-active-weights-ab]] · live ops suite 2026-07-11 |
+| Next | Plateau under free NIM · try multi-lineage live or richer lessons · weights only if Δ>0 |
+| Lab | [[Runs/2026-07-11-soak-soak-1783791309]] live r=10 · [[Runs/2026-07-11-seed-vs-active-weights-ab]] |
 | Active | `g_0a2b03eafe` · fit **28.13** · weights diagnose **False** |
+| Live soak | **acc=0/att=10** · ok · genome unchanged (2026-07-11) |
 
 ---
 
