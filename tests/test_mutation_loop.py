@@ -56,6 +56,7 @@ def test_dry_run_mutation_cycle(tmp_path: Path):
         ablation="Bc",
         parent_genome_id="g_parent",
         dry_run=True,
+        force_host_eval=True,  # unit tests: no Docker dependency
     )
     store.close()
     assert result.decision in ("accepted", "rejected", "failed")

@@ -72,6 +72,12 @@ def test_run_evolve_dry(tmp_path: Path):
     cfg.mutate_every_episodes = 2
     cfg.max_mutations = 2
 
+    # Host eval for unit tests (Docker optional integration covered separately)
+    from organism.sandbox import SandboxConfig
+
+    # Patch mutation cycles used inside evolve to force host via monkeypatch of run_mutation_cycle kwargs:
+    # evolve uses run_mutation_cycle without force_host; override sandbox via config host mode.
+    exp["sandbox"] = {"mode": "host", "episode_isolation": False, "require_docker": False}
     report = run_evolve(
         exp=exp,
         world=world,
