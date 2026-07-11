@@ -44,6 +44,13 @@ genomic:
   max_mutations: 30
   max_patch_lines: 80
 
+# Phase 3 free-NIM critic (static precheck + nemotron critic pin)
+critic:
+  enabled: true
+  # model: null → use config/nim.pinned.yaml models.critic
+  # fail_open on NIM errors is handled in critic.review_proposal (static-only approve)
+  max_combined_lines: 500
+
 # Continuous evolution loop (seo evolve)
 evolve:
   mutate_every_episodes: 10   # schedule: fire after this many seed-episodes
