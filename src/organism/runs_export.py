@@ -18,7 +18,14 @@ from typing import Any, Literal
 from organism.config import ROOT
 
 ReportKind = Literal[
-    "auto", "evolve", "ablate", "mutation", "population", "weights_holdout"
+    "auto",
+    "evolve",
+    "ablate",
+    "mutation",
+    "population",
+    "weights_holdout",
+    "diagnose",
+    "soak",
 ]
 
 KIND_FILES: dict[str, str] = {
@@ -27,7 +34,11 @@ KIND_FILES: dict[str, str] = {
     "ablate": "last_ablation_report.json",
     "mutation": "last_mutation_result.json",
     "weights_holdout": "last_weights_holdout.json",
+    "diagnose": "last_weights_diagnose.json",
+    "soak": "last_soak_report.json",
 }
+
+_KNOWN_KINDS = "auto|evolve|ablate|mutation|weights_holdout|diagnose|soak"
 
 
 @dataclass
@@ -59,19 +70,16 @@ def load_report(artifacts_dir: Path, kind: str) -> tuple[str, dict[str, Any], Pa
     if k == "auto":
         # Prefer newest among available last_* reports
         candidates: list[tuple[float, str, Path]] = []
-        for name, fname in (
-            ("evolve", "last_evolve_report.json"),
-            ("ablate", "last_ablation_report.json"),
-            ("mutation", "last_mutation_result.json"),
-            ("weights_holdout", "last_weights_holdout.json"),
-        ):
+        for name, fname in KIND_FILES.items():
+            if name == "population":
+                continue  # same file as evolve
             p = artifacts_dir / fname
             if p.exists():
                 candidates.append((p.stat().st_mtime, name, p))
         if not candidates:
             raise FileNotFoundError(
                 f"No last_* reports under {artifacts_dir} "
-                "(run evolve / ablate / mutate first)"
+                "(run evolve / ablate / mutate / weights / soak first)"
             )
         candidates.sort(key=lambda x: x[0], reverse=True)
         _, k, path = candidates[0]
@@ -80,7 +88,7 @@ def load_report(artifacts_dir: Path, kind: str) -> tuple[str, dict[str, Any], Pa
             k = "evolve"
         fname = KIND_FILES.get(k)
         if not fname:
-            raise ValueError(f"unknown kind {kind!r}; use auto|evolve|ablate|mutation")
+            raise ValueError(f"unknown kind {kind!r}; use {_KNOWN_KINDS}")
         path = artifacts_dir / fname
         if not path.exists():
             raise FileNotFoundError(f"missing report: {path}")
@@ -414,6 +422,135 @@ def render_weights_holdout_note(
     return "weights_holdout", slug, "\n".join(lines)
 
 
+def render_diagnose_note(
+    data: dict[str, Any],
+    *,
+    source: Path,
+    day: str,
+    title: str | None = None,
+) -> tuple[str, str, str]:
+    run_id = str(data.get("run_id") or "wd")
+    slug = _slugify(f"{day}-weights-diagnose-{run_id}")
+    ttl = title or f"Weights diagnose {run_id}"
+    prefer = data.get("recommend_use_weights")
+    lines = [
+        "---",
+        f"title: {ttl}",
+        "tags:",
+        "  - run",
+        "  - weights",
+        "  - diagnose",
+        f"run_id: {run_id}",
+        f"status: complete",
+        f"updated: {day}",
+        f"source: {source.as_posix()}",
+        "---",
+        "",
+        f"# {ttl}",
+        "",
+        "## Recommendation",
+        "",
+        f"| Field | Value |",
+        f"|-------|-------|",
+        f"| genome | `{data.get('genome_id')}` |",
+        f"| checkpoint | `{data.get('checkpoint_path')}` |",
+        f"| recommend_use_weights | **{prefer}** |",
+        f"| recommend_retrain | {data.get('recommend_retrain')} |",
+        f"| B0 train / Bw train | {_fmt_f(data.get('b0_train'))} / "
+        f"{_fmt_f(data.get('bw_train'))} |",
+        f"| B0 holdout / Bw holdout | {_fmt_f(data.get('b0_holdout'))} / "
+        f"{_fmt_f(data.get('bw_holdout'))} |",
+        f"| delta train | {_fmt_f(data.get('delta_train'))} |",
+        f"| delta holdout | {_fmt_f(data.get('delta_holdout'))} |",
+        "",
+        f"**Text:** {data.get('recommendation') or '—'}",
+        "",
+        "## Operator notes",
+        "",
+        "_If recommend_use_weights is false, mutate/evolve Bcw is downgraded to Bc "
+        "unless `--force-bcw`._",
+        "",
+        f"- Source: `{source}`",
+        "",
+        "→ [[Runs/README|Runs]] · [[Phase 6 Hardening]]",
+        "",
+    ]
+    return "diagnose", slug, "\n".join(lines)
+
+
+def render_soak_note(
+    data: dict[str, Any],
+    *,
+    source: Path,
+    day: str,
+    title: str | None = None,
+) -> tuple[str, str, str]:
+    run_id = str(data.get("run_id") or "soak")
+    slug = _slugify(f"{day}-soak-{run_id}")
+    ttl = title or f"Soak {run_id}"
+    rounds = data.get("round_reports") or []
+    lines = [
+        "---",
+        f"title: {ttl}",
+        "tags:",
+        "  - run",
+        "  - phase/6",
+        "  - soak",
+        f"run_id: {run_id}",
+        f"status: complete",
+        f"updated: {day}",
+        f"source: {source.as_posix()}",
+        "---",
+        "",
+        f"# {ttl}",
+        "",
+        "## Summary",
+        "",
+        f"| Field | Value |",
+        f"|-------|-------|",
+        f"| ok | **{data.get('ok')}** |",
+        f"| doctor_ok | {data.get('doctor_ok')} |",
+        f"| rounds | {data.get('rounds')} |",
+        f"| evolve_cycles | {data.get('evolve_cycles')} |",
+        f"| mutations | acc={data.get('total_mutations_accepted')} / "
+        f"att={data.get('total_mutations_attempted')} |",
+        "",
+    ]
+    if isinstance(rounds, list) and rounds:
+        lines += [
+            "## Rounds",
+            "",
+            "| round | evolve_id | fitness_last | mut att | mut acc | genome |",
+            "|------:|-----------|--------------|--------:|--------:|--------|",
+        ]
+        for r in rounds:
+            if not isinstance(r, dict):
+                continue
+            lines.append(
+                f"| {r.get('round')} | `{r.get('run_id')}` | "
+                f"{_fmt_f(r.get('fitness_last'))} | {r.get('mutations_attempted')} | "
+                f"{r.get('mutations_accepted')} | `{r.get('final_genome')}` |"
+            )
+        lines.append("")
+    errs = data.get("errors") or []
+    if errs:
+        lines += ["## Errors", ""]
+        for e in errs:
+            lines.append(f"- {e}")
+        lines.append("")
+    lines += [
+        "## Operator notes",
+        "",
+        "_Dry soak validates harness health; 0 accepts is normal without live NIM._",
+        "",
+        f"- Source: `{source}`",
+        "",
+        "→ [[Runs/README|Runs]] · [[Phase 6 Hardening]]",
+        "",
+    ]
+    return "soak", slug, "\n".join(lines)
+
+
 def render_note(
     kind: str,
     data: dict[str, Any],
@@ -431,6 +568,10 @@ def render_note(
         return render_mutation_note(data, source=source, day=day, title=title)
     if kind == "weights_holdout":
         return render_weights_holdout_note(data, source=source, day=day, title=title)
+    if kind == "diagnose":
+        return render_diagnose_note(data, source=source, day=day, title=title)
+    if kind == "soak":
+        return render_soak_note(data, source=source, day=day, title=title)
     raise ValueError(f"cannot render kind={kind}")
 
 

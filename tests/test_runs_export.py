@@ -125,3 +125,64 @@ def test_export_ablate_and_mutation(tmp_path: Path):
     k, data, _ = load_report(art, "auto")
     assert k in ("ablate", "mutation", "evolve", "population")
     assert data
+
+
+def test_export_diagnose_and_soak(tmp_path: Path):
+    art = tmp_path / "artifacts"
+    art.mkdir()
+    (art / "last_weights_diagnose.json").write_text(
+        json.dumps(
+            {
+                "run_id": "wd_test",
+                "genome_id": "g_x",
+                "checkpoint_path": "/w.npz",
+                "b0_train": 10.0,
+                "bw_train": 8.0,
+                "b0_holdout": 9.0,
+                "bw_holdout": 7.0,
+                "delta_train": -2.0,
+                "delta_holdout": -2.0,
+                "recommend_use_weights": False,
+                "recommend_retrain": True,
+                "recommendation": "DO NOT prefer weights",
+            }
+        ),
+        encoding="utf-8",
+    )
+    (art / "last_soak_report.json").write_text(
+        json.dumps(
+            {
+                "run_id": "soak_t",
+                "ok": True,
+                "doctor_ok": True,
+                "rounds": 2,
+                "evolve_cycles": 1,
+                "total_mutations_attempted": 2,
+                "total_mutations_accepted": 0,
+                "round_reports": [
+                    {
+                        "round": 1,
+                        "run_id": "evo_1",
+                        "fitness_last": 1.5,
+                        "mutations_attempted": 1,
+                        "mutations_accepted": 0,
+                        "final_genome": "g_a",
+                    }
+                ],
+                "errors": [],
+            }
+        ),
+        encoding="utf-8",
+    )
+    vault = tmp_path / "Runs"
+    vault.mkdir()
+    d = export_run_note(art, kind="diagnose", vault_runs=vault, update_index=False)
+    text_d = d.path.read_text(encoding="utf-8")
+    assert "recommend_use_weights" in text_d
+    assert "DO NOT prefer" in text_d
+    assert d.kind == "diagnose"
+    s = export_run_note(art, kind="soak", vault_runs=vault, update_index=False)
+    text_s = s.path.read_text(encoding="utf-8")
+    assert "soak_t" in text_s
+    assert "doctor_ok" in text_s
+    assert s.kind == "soak"

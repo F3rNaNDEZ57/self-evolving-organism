@@ -351,13 +351,17 @@ Build a system of **self-evolving digital organisms** that:
 - [x] Soak harness + reproduce package (`feat/phase6-soak-package`)
 - [x] Weights train/holdout **`--on-seed`** experiment path (`feat/weights-train-seed`)
 
+**Scaffold + rails (continued)**
+
+- [x] Seed vs active weight A/B lab note + export `diagnose`/`soak`
+
 **Candidates (next)**
 
 - Multi-hour live soak (operator)
 - Stronger isolation defaults
 - Kernel regression gate (optional CI)
 - Optional public research notes
-- Seed vs active weight A/B lab notes
+- Live evolve under Bc-only (weights still lag)
 
 ---
 

@@ -238,7 +238,7 @@
 		{
 			"id": "n-next",
 			"type": "text",
-			"text": "**Next**\n\n1. seo doctor / soak before long live runs\n2. Bc default (diagnose) + best-of Bcw\n3. Seed weight A/B via --on-seed\n4. Live multi-hour soak + lab notes\n\n**CLI:** doctor \u00b7 soak \u00b7 package \u00b7 weights --on-seed\n**Phase 6:** safety + soak + seed train on master",
+			"text": "**Next**\n\n1. Live evolve under Bc (weights lag confirmed)\n2. Optional longer seed train (p>=8)\n3. Multi-hour live soak when ready\n\n**Done:** seed vs active A/B note · diagnose/soak export\n**CLI:** doctor \u00b7 soak \u00b7 package \u00b7 weights --on-seed\n**Safety:** Bcw\u2192Bc when diagnose negative",
 			"x": 50,
 			"y": 1660,
 			"width": 1750,
@@ -248,7 +248,7 @@
 		{
 			"id": "n-cli",
 			"type": "text",
-			"text": "**CLI**\n\nseo doctor \u00b7 soak \u00b7 package\nseo ui \u00b7 runs export\nseo weights holdout|diagnose|--on-seed\nseo mutate [--force-bcw] \u00b7 evolve\nseo watch --multi \u00b7 elite *\nseo ablate | pins",
+			"text": "**CLI**\n\nseo doctor \u00b7 soak \u00b7 package\nseo runs export --kind diagnose|soak\nseo weights holdout|diagnose|--on-seed\nseo mutate [--force-bcw] \u00b7 evolve\nseo watch --multi \u00b7 elite *\nseo ablate | pins",
 			"x": 1860,
 			"y": 1660,
 			"width": 880,

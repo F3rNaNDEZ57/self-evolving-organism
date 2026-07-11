@@ -83,6 +83,8 @@ seo weights holdout --on-seed --passes 2
 ### Science extensions (open)
 
 - [x] Seed-only weight train/holdout experiment path
+- [x] Seed vs active weights A/B lab note ([[Runs/2026-07-11-seed-vs-active-weights-ab]])
+- [x] Runs export for `diagnose` + `soak`
 - [ ] Task curriculum / open-ended survival
 - [ ] Hybrid body (sim + limited tools) — only if freeze allows
 - [ ] Public research note packaging

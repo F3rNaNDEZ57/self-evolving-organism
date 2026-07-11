@@ -49,6 +49,8 @@ seo runs export --kind evolve
 seo runs export --kind ablate
 seo runs export --kind mutation
 seo runs export --kind weights_holdout
+seo runs export --kind diagnose
+seo runs export --kind soak
 # UI: Overview → Export lab note
 ```
 
@@ -62,4 +64,9 @@ Writes `self-evolving-organism-docs/Runs/YYYY-MM-DD-….md` and appends this ind
 | 2026-07-11 | [[2026-07-11-soft-critic-delta-success]] | soft critic + sequential Bcw | **δ = +4.44 · success=True** |
 | 2026-07-11 | [[2026-07-11-evolve-evo-7881f184b0]] | evolve dry-run export demo | auto-export from last_evolve_report |
 | 2026-07-11 | [[2026-07-11-bw-holdout-wh-1783787663]] | weights_holdout | auto-export: 2026-07-11-bw-holdout-wh-1783787663 |
+| 2026-07-11 | [[2026-07-11-bw-holdout-wh-1783789773]] | seed holdout | Bw−B0=**−2.51** · discarded |
+| 2026-07-11 | [[2026-07-11-mutate-m-9b1d76cd30]] | mutation Bc (safety) | rejected 22.19 < 28.13 |
+| 2026-07-11 | [[2026-07-11-seed-vs-active-weights-ab]] | seed vs active A/B | both Bw lag; prefer **Bc** |
+| 2026-07-11 | [[2026-07-11-weights-diagnose-wd-1783790309]] | diagnose | auto-export: 2026-07-11-weights-diagnose-wd-178379030 |
+| 2026-07-11 | [[2026-07-11-soak-soak-1783789768]] | soak | auto-export: 2026-07-11-soak-soak-1783789768 |
 

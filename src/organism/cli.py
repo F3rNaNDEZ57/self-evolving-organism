@@ -380,7 +380,10 @@ app.add_typer(runs_app, name="runs")
 def runs_export_cmd(
     kind: str = typer.Option(
         "auto",
-        help="auto | evolve | ablate | mutation (auto = newest last_* report)",
+        help=(
+            "auto | evolve | ablate | mutation | weights_holdout | diagnose | soak "
+            "(auto = newest last_* report)"
+        ),
     ),
     title: str = typer.Option("", help="Optional note title"),
     slug: str = typer.Option("", help="Optional filename slug"),
