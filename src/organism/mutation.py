@@ -297,6 +297,8 @@ def propose_policy_patch(
         "Improve survival and food collection. Return ONLY complete JSON "
         "(rationale + files) with full sources for changed modules only.\n"
         "Prefer a single small change to heuristics.py if possible.\n"
+        "If past lessons say low_value on food-direction tweaks, change a "
+        "DIFFERENT behavior (energy/rest/forage/walls), not the same function.\n"
         "Keep Policy interface; only use real Observation fields (tick not ticks).\n"
         f"Recent episode summaries: {json.dumps(episode_summaries[:8])}\n\n"
         + "\n\n".join(sources)

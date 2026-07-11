@@ -653,8 +653,13 @@ def run_evolve_population(
         mut_attempted += 1
         slot.mutations_attempted += 1
 
-        # Optional re-select parent into this slot from global pool
-        if (cfg.select or "active").lower() != "active":
+        # Optional re-select parent from global pool — single-lineage only.
+        # Multi-lineage must mutate THIS slot's genome; global fitness_rank would
+        # overwrite every slot with the champion and erase diversity.
+        if (
+            int(cfg.max_lineages or 1) <= 1
+            and (cfg.select or "active").lower() != "active"
+        ):
             sel = select_and_resolve(
                 artifacts_dir,
                 store,
@@ -676,6 +681,23 @@ def run_evolve_population(
                         fitness=sel.fitness,
                         genome_id=parent_id,
                         reason=f"slot={slot.slot_id} {sel.policy}: {sel.reason}",
+                    )
+                )
+            )
+        else:
+            events.append(
+                asdict(
+                    EvolveEvent(
+                        kind="select",
+                        episode_index=episodes_run,
+                        fitness=slot.fitness,
+                        genome_id=parent_id,
+                        reason=(
+                            f"slot={slot.slot_id} hold_lineage "
+                            f"(multi-lineage preserves slot parent)"
+                            if int(cfg.max_lineages or 1) > 1
+                            else f"slot={slot.slot_id} active"
+                        ),
                     )
                 )
             )

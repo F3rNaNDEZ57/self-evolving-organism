@@ -6,6 +6,7 @@ Not the organism brain — operator-side resource accounting for evolve.
 
 from __future__ import annotations
 
+import hashlib
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Literal
@@ -13,7 +14,7 @@ from typing import Any, Literal
 import numpy as np
 
 from organism.persistence import Store
-from organism.selection import gather_candidates
+from organism.selection import Candidate, gather_candidates
 
 Schedule = Literal["round_robin", "fitness_rank"]
 
@@ -74,6 +75,8 @@ class LineageSlot:
     mutations_failed: int = 0
     exhausted: bool = False
     exhaust_reason: str = ""
+    content_key: str = ""
+    source: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -82,6 +85,55 @@ class LineageSlot:
 def _path_ok(path: str | Path) -> bool:
     p = Path(path)
     return p.exists() and (p / "policy.py").exists()
+
+
+def genome_content_key(path: str | Path) -> str:
+    """
+    Hash whitelist sources so clone genomes with identical code collapse
+    into one content class for diversity-aware slot fill.
+    """
+    p = Path(path)
+    h = hashlib.sha256()
+    for name in ("heuristics.py", "policy.py", "memory_hooks.py"):
+        fp = p / name
+        if fp.exists():
+            try:
+                h.update(name.encode("utf-8"))
+                h.update(fp.read_bytes())
+            except OSError:
+                continue
+    return h.hexdigest()[:20]
+
+
+def _seed_candidate(exp: dict[str, Any], store: Store | None) -> Candidate | None:
+    """Optional seed genome as exploration parent (often different code)."""
+    from organism.config import resolve_path
+
+    seed_rel = (exp.get("paths") or {}).get("seed_genome", "genomes/seed")
+    try:
+        seed_path = resolve_path(seed_rel)
+    except Exception:
+        seed_path = Path(str(seed_rel))
+    if not _path_ok(seed_path):
+        return None
+    fit = None
+    if store is not None:
+        try:
+            row = store.conn.execute(
+                "SELECT fitness FROM evaluations WHERE genome_id=? "
+                "ORDER BY created_at DESC LIMIT 1",
+                ("g_seed",),
+            ).fetchone()
+            if row is not None and row["fitness"] is not None:
+                fit = float(row["fitness"])
+        except Exception:
+            fit = None
+    return Candidate(
+        genome_id="g_seed",
+        path=str(seed_path),
+        fitness=fit,
+        source="seed",
+    )
 
 
 def open_lineage_slots(
@@ -93,8 +145,11 @@ def open_lineage_slots(
     seed: int = 0,
 ) -> list[LineageSlot]:
     """
-    Seed up to max_lineages slots from elites + active + recent DB.
-    Prefer higher fitness first; fill uniquely.
+    Seed up to max_lineages slots with **content-diverse** parents.
+
+    Prefer higher fitness, but skip genomes whose whitelist code hash already
+    filled a slot. Always try to include seed as an exploration arm when under
+    filled. Does not clone the champion into empty slots.
     """
     n = max(1, int(budgets.max_lineages))
     cands = gather_candidates(
@@ -104,10 +159,14 @@ def open_lineage_slots(
         include_active=True,
         include_elites=True,
         include_db=True,
-        db_limit=50,
+        db_limit=80,
     )
+    seed_c = _seed_candidate(exp, store)
+    if seed_c is not None:
+        cands = list(cands) + [seed_c]
+
     # unique by genome_id, path must resolve
-    by_id: dict[str, Any] = {}
+    by_id: dict[str, Candidate] = {}
     for c in cands:
         if c.genome_id in by_id:
             continue
@@ -115,28 +174,57 @@ def open_lineage_slots(
             continue
         by_id[c.genome_id] = c
 
-    ordered = sorted(
-        by_id.values(),
-        key=lambda c: (
-            c.fitness is not None,
-            float(c.fitness) if c.fitness is not None else float("-inf"),
-        ),
-        reverse=True,
-    )
+    source_rank = {"active": 0, "elite": 1, "db": 2, "seed": 3}
+
+    def _rank_key(c: Candidate) -> tuple:
+        fit = float(c.fitness) if c.fitness is not None else float("-inf")
+        # higher fitness first; then prefer active/elite over seed/db
+        return (c.fitness is not None, fit, -source_rank.get(c.source, 9))
+
+    ordered = sorted(by_id.values(), key=_rank_key, reverse=True)
 
     slots: list[LineageSlot] = []
-    for i, c in enumerate(ordered[:n]):
+    seen_content: set[str] = set()
+
+    def _try_add(c: Candidate) -> bool:
+        if len(slots) >= n:
+            return False
+        key = genome_content_key(c.path)
+        if key in seen_content:
+            return False
+        seen_content.add(key)
         slots.append(
             LineageSlot(
-                slot_id=i,
+                slot_id=len(slots),
                 genome_id=c.genome_id,
                 path=c.path,
                 fitness=c.fitness,
+                content_key=key,
+                source=c.source,
             )
         )
+        return True
 
-    # If fewer candidates than max_lineages, duplicate best with same path
-    # is wrong scientifically — just run with what we have.
+    # Pass 1: fitness-ordered unique content
+    for c in ordered:
+        _try_add(c)
+        if len(slots) >= n:
+            break
+
+    # Pass 2: force seed exploration arm if still room and not already present
+    if len(slots) < n and seed_c is not None and _path_ok(seed_c.path):
+        if seed_c.genome_id not in {s.genome_id for s in slots}:
+            _try_add(seed_c)
+
+    # Pass 3: remaining unique content regardless of fitness order gaps
+    if len(slots) < n:
+        for c in ordered:
+            if c.genome_id in {s.genome_id for s in slots}:
+                continue
+            _try_add(c)
+            if len(slots) >= n:
+                break
+
     if not slots:
         # last resort: active via selection
         from organism.selection import select_and_resolve
@@ -150,6 +238,8 @@ def open_lineage_slots(
                 genome_id=sel.genome_id,
                 path=sel.path,
                 fitness=sel.fitness,
+                content_key=genome_content_key(sel.path),
+                source="active",
             )
         )
     return slots

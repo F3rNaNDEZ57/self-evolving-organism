@@ -65,6 +65,40 @@ def retrieve_mutation_lessons(
     return lessons[:k]
 
 
+def _theme_hints(lessons: list[dict[str, Any]]) -> list[str]:
+    """Detect repeated failure themes so the coder tries a different lever."""
+    blob = " ".join(
+        f"{L.get('reason') or ''} {L.get('rationale') or ''} {L.get('critic_code') or ''}"
+        for L in lessons
+    ).lower()
+    hints: list[str] = []
+    if any(
+        k in blob
+        for k in (
+            "nearest_food",
+            "food selection",
+            "food_direction",
+            "low_value",
+        )
+    ):
+        hints.append(
+            "Do NOT re-tweak nearest_food_direction / food-distance heuristics "
+            "(repeated low_value). Try energy management, rest/forage timing, "
+            "wall avoidance, or timeout survival instead."
+        )
+    if "energy" in blob and "low_value" in blob:
+        hints.append(
+            "Prior energy tweaks were rejected — if touching energy, make a "
+            "clearly different rule (threshold or action switch), not a micro-edit."
+        )
+    if not hints:
+        hints.append(
+            "Propose a *different failure mode* than the rejects above "
+            "(energy / walls / timeout / forage timing) — not the same function again."
+        )
+    return hints
+
+
 def format_lessons_for_prompt(lessons: list[dict[str, Any]]) -> str:
     if not lessons:
         return ""
@@ -74,6 +108,8 @@ def format_lessons_for_prompt(lessons: list[dict[str, Any]]) -> str:
         "Policy.__init__(use_weights=False, weight_cfg=None, explore=0.1, train=False).",
         "random.choice(seq) has NO weights= keyword.",
     ]
+    for h in _theme_hints(lessons):
+        lines.append(f"DIVERSITY: {h}")
     for i, L in enumerate(lessons, 1):
         lines.append(
             f"{i}. [{L.get('decision')}] critic={L.get('critic_code') or '-'} "

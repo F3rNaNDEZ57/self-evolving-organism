@@ -118,6 +118,20 @@ seo evolve --dry-run --lineages 3 --cycles 4
 seo runs export --kind evolve
 ```
 
+## Multi-lineage diversity (2026-07-12)
+
+| Behavior | Detail |
+|----------|--------|
+| Slot fill | Content-hash unique parents (clones of same code collapse) |
+| Seed arm | `g_seed` included as exploration parent when underfilled |
+| Mutate parent | Multi-lineage **holds slot genome** (no global fitness_rank overwrite) |
+| Lessons | Coder prompt steers off repeated `low_value` food-direction tweaks |
+
+```powershell
+seo evolve --live --cycles 8 --lineages 3 --select fitness_rank --ablation Bc --max-mutations 6
+# --select applies only on single-lineage; multi-lineage preserves per-slot parents
+```
+
 ## Not yet (later Phase 5)
 
 - [ ] Hard resource isolation between lineages (Docker-per-lineage)

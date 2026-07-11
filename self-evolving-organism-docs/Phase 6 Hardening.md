@@ -137,6 +137,17 @@ seo evolve --live --cycles 8 --lineages 3 --select fitness_rank --ablation Bc --
 
 Note: [[Runs/2026-07-12-population-evo-f3f53426e0]]. Need parent diversity, not more identical slots.
 
+## Fix: diversify multi-lineage parents (`feat/diversify-lineage-parents`)
+
+| Bug | Fix |
+|-----|-----|
+| `--select fitness_rank` overwrote every slot with the champion before mutate | Multi-lineage **holds slot parent** |
+| Cloned / identical code filled multiple slots | Fill by **content hash** uniqueness |
+| No exploration arm | Include **seed** genome when underfilled |
+| Coder re-tried food-direction | Lessons + propose prompt **DIVERSITY** steer |
+
+See [[Phase 5 Population]].
+
 ## See also
 
 - [[Roadmap]]

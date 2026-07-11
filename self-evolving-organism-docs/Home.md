@@ -101,7 +101,7 @@ cssclasses:
 | Ops | `seo doctor` · `seo soak` · `seo package` · `seo runs export` |
 | Git remote | https://github.com/F3rNaNDEZ57/self-evolving-organism |
 | Secrets | `.env` only (gitignored) |
-| Next | Diversify lineage parents / proposals (multi-lineage cloned same champ) · weights only if Δ>0 |
+| Next | Re-run multi-lineage live with content-diverse slots · weights only if Δ>0 |
 | Lab | [[Runs/2026-07-12-population-evo-f3f53426e0]] · [[Runs/2026-07-11-soak-soak-1783791309]] |
 | Active | `g_0a2b03eafe` · fit **28.13** · weights diagnose **False** |
 | Live soak | **acc=0/att=10** · ok (2026-07-11) |

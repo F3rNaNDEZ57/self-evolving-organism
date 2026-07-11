@@ -436,7 +436,7 @@ Detail: [[Research Brief#Sandbox and safety]]
 
 ## Immediate next steps
 
-1. Multi-lineage live done (acc=0, critic low_value) — diversify slot parents / proposal modes
+1. Multi-lineage diversity fix landed — re-run live 3-slot under Bc
 2. Keep **Bc** (weights holdout still negative)
 3. `seo doctor` before long runs; `seo package` / `seo runs export` after suites
 4. Weights only if holdout Δ > 0
