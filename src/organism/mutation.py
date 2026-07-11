@@ -22,32 +22,35 @@ from organism.weights import WeightConfig
 from organism.world import WorldConfig
 
 MUTATION_SYSTEM = """You are the mutation coder for a self-evolving digital organism on a 24x24 grid.
+You are part of a closed-loop improver: you SEE past accepts/rejects with fitness deltas and MUST learn from them.
+
 You may ONLY change whitelist modules: policy.py, heuristics.py, memory_hooks.py.
 
 Rules:
-- Improve food collection and survival (beat the parent fitness bar).
-- Prefer changing ENERGY management, REST vs move tradeoffs, WALL avoidance, or TIMEOUT survival.
-- Avoid micro-tweaks to nearest_food_direction / should_forage unless clearly novel.
+- Beat the parent fitness bar (ε-accept). Cosmetic or identical files fail.
+- Prefer ENERGY management, REST vs move tradeoffs, or TIMEOUT survival (not food micro-tweaks).
+- Avoid re-editing nearest_food_direction / should_forage when history flags low_value.
+- Observation fields ONLY: tick, energy, energy_max, x, y, local_food, vision, last_reward, alive.
+  Never invent position, local_walls, health, grid, ticks.
 - Do NOT import os, sys, subprocess, socket, pathlib, shutil, or use eval/exec/open.
-- Allowed: random, math, typing, numpy, organism.schemas, organism.weights, and sibling modules.
-- policy.py MUST define class Policy with methods: reset(seed), act(observation), on_step_result(result).
-- Keep total changes small (prefer under 80 new/changed lines of logic).
+- Allowed: random, math, typing, numpy, organism.schemas, organism.weights, sibling modules.
+- policy.py MUST define class Policy with: reset(seed), act(observation), on_step_result(result).
+- Keep changes small (prefer under 80 new/changed lines of logic).
 
-Respond with ONLY a JSON object (no markdown fences) of this shape:
+Respond with ONLY a JSON object (no markdown fences):
 {
-  "rationale": "one short paragraph naming the failure mode you target (energy|rest|walls|timeout|food)",
+  "rationale": "cite which history lesson you learn from + failure mode (energy|rest|timeout|food)",
   "files": {
-    "heuristics.py": "full file source if changed, else omit key",
-    "policy.py": "full file source if changed, else omit key",
-    "memory_hooks.py": "full file source if changed, else omit key"
+    "heuristics.py": "FULL file source if changed",
+    "policy.py": "FULL file source if changed",
+    "memory_hooks.py": "FULL file source if changed"
   }
 }
-Rules for the response:
-- Include at least one file key under "files" with COMPLETE file source (not a diff, not empty).
-- Prefer changing ONLY ONE file (heuristics.py is best when possible).
-- Keep each file under ~120 lines so the JSON finishes completely.
-- Close all braces/quotes — truncated or empty files = failed mutation.
-- Never return prose without JSON; never return {"files": {}} empty.
+Response rules:
+- At least one file key; COMPLETE sources (not diffs, not empty, not parent clones).
+- Prefer ONLY heuristics.py when possible.
+- Keep each file under ~120 lines; close all braces/quotes.
+- Never prose-only; never {"files": {}}.
 """
 
 
@@ -369,16 +372,14 @@ def propose_policy_patch(
         f"{fit_line}"
         f"{distill_line}"
         f"{lessons_line}"
-        "Improve survival and food collection. Return ONLY complete JSON "
+        "You have mutation HISTORY above — use accepts as patterns and rejects as hard constraints.\n"
+        "Improve survival vs parent fitness. Return ONLY complete JSON "
         "(rationale + files) with FULL file sources for every changed module.\n"
-        "Target a real failure mode: energy / rest-vs-move / walls / timeout survival.\n"
+        "Target energy / rest-vs-move / timeout survival first (food micro-tweaks last).\n"
         "Prefer a single small change to heuristics.py if possible.\n"
-        "If past lessons say low_value on food-direction tweaks, change a "
-        "DIFFERENT behavior (energy/rest/walls), not the same function.\n"
-        "Do NOT rewrite policy.py unless required; prefer heuristics.py only.\n"
-        "Do NOT re-edit nearest_food_direction / should_forage when lessons forbid it.\n"
+        "If history forbids food-direction edits, change a DIFFERENT behavior.\n"
+        "Do NOT invent Observation fields; do NOT rewrite policy.py unless required.\n"
         "Do NOT return empty files, diffs, or identical parent sources.\n"
-        "Keep Policy interface; only use real Observation fields (tick not ticks).\n"
         f"Recent episode summaries: {json.dumps(episode_summaries[:8])}\n\n"
         + "\n\n".join(sources)
     )
@@ -679,7 +680,9 @@ def run_mutation_cycle(
     from organism.router import FreeNimRouter
     from organism.summarizer import distill_episodes
 
-    lessons = retrieve_mutation_lessons(store, k=5, parent_genome_id=parent_genome_id)
+    lessons = retrieve_mutation_lessons(
+        store, k=12, parent_genome_id=parent_genome_id
+    )
     lessons_text = format_lessons_for_prompt(lessons)
     if lessons:
         store.log_event(

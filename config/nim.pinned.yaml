@@ -1,14 +1,20 @@
-# Verified against live GET /v1/models on 2026-07-11 (121 models returned).
+# Verified against live GET /v1/models + chat smoke 2026-07-12.
 # Secrets live in repo-root .env — do not put API keys here.
+#
+# R&D pin upgrade (feat/llm-history-prompt-pins):
+#   coder_primary  → z-ai/glm-5.2          (agentic/coding free endpoint, ~3s smoke)
+#   coder_fallback → deepseek-ai/deepseek-v4-pro  (stronger parse/quality retry)
+#   critic         → openai/gpt-oss-120b   (stronger schema/safety review)
+#   summarizer     → meta/llama-3.1-8b-instruct (cheap distill; keep)
 
 base_url: https://integrate.api.nvidia.com/v1
 free_only: true
 max_rpm: 40
 
 models:
-  coder_primary: deepseek-ai/deepseek-v4-flash
-  coder_fallback: nvidia/nemotron-3-nano-30b-a3b
-  critic: nvidia/nemotron-3-nano-30b-a3b
+  coder_primary: z-ai/glm-5.2
+  coder_fallback: deepseek-ai/deepseek-v4-pro
+  critic: openai/gpt-oss-120b
   summarizer: meta/llama-3.1-8b-instruct
 
 # Session budgets (also overridable via experiment_v0.prereg pool.budget)
@@ -18,28 +24,37 @@ budget:
   max_calls_session: 200
   max_mutations: 30
 
-# Also confirmed present on this account (aliases / alternates)
+# Confirmed present on this account (aliases / alternates)
 alternates:
   coder:
+    - deepseek-ai/deepseek-v4-flash
+    - deepseek-ai/deepseek-v4-pro
     - z-ai/glm-5.2
+    - minimaxai/minimax-m3
     - minimaxai/minimax-m2.7
     - mistralai/mistral-nemotron
-    - deepseek-ai/deepseek-v4-pro
+    - openai/gpt-oss-120b
   critic:
+    - openai/gpt-oss-120b
     - openai/gpt-oss-20b
+    - nvidia/nemotron-3-nano-30b-a3b
     - meta/llama-3.1-8b-instruct
   summarizer:
+    - meta/llama-3.1-8b-instruct
     - google/gemma-2-2b-it
     - meta/llama-3.2-3b-instruct
 
 verification:
-  date: "2026-07-11"
+  date: "2026-07-12"
   models_endpoint: GET https://integrate.api.nvidia.com/v1/models
   models_count: 121
   chat_smoke:
-    deepseek-ai/deepseek-v4-flash: ok
-    nvidia/nemotron-3-nano-30b-a3b: ok
-    meta/llama-3.1-8b-instruct: ok
+    z-ai/glm-5.2: ok
+    deepseek-ai/deepseek-v4-pro: ok
+    openai/gpt-oss-120b: ok
+    minimaxai/minimax-m3: ok
+    meta/llama-3.1-8b-instruct: prior_ok
+    moonshotai/kimi-k2.6: fail_404_account
   docker_smoke:
     image: python:3.12-slim
     flags: "--network none --memory 512m --cpus 1"

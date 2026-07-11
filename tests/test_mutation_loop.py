@@ -55,6 +55,46 @@ def test_proposal_quality_gate_empty_and_noop(tmp_path: Path):
     assert ok3
 
 
+def test_mutation_history_format_includes_accepts(tmp_path: Path):
+    from organism.mutation_memory import format_lessons_for_prompt, retrieve_mutation_lessons
+
+    store = Store(tmp_path / "h.sqlite")
+    store.insert_mutation(
+        "m_acc1",
+        "g_p",
+        "g_c",
+        "accepted",
+        "fitness ok",
+        {
+            "rationale": "energy threshold rest",
+            "parent_fitness": 20.0,
+            "candidate_fitness": 22.5,
+            "files_changed": ["heuristics.py"],
+            "critic": {"code": "approve"},
+        },
+    )
+    store.insert_mutation(
+        "m_rej1",
+        "g_p",
+        "g_x",
+        "rejected",
+        "low_value nearest_food",
+        {
+            "rationale": "nearest_food_direction tweak",
+            "parent_fitness": 20.0,
+            "candidate_fitness": 18.0,
+            "critic": {"code": "low_value"},
+        },
+    )
+    lessons = retrieve_mutation_lessons(store, k=6, parent_genome_id="g_p")
+    text = format_lessons_for_prompt(lessons)
+    store.close()
+    assert "SELF-IMPROVEMENT HISTORY" in text
+    assert "accepted" in text.lower() or "WORKED" in text
+    assert "DIVERSITY" in text
+    assert "nearest_food" in text.lower() or "food" in text.lower()
+
+
 def test_quality_gate_skips_critic_on_empty_proposal(tmp_path: Path):
     world = WorldConfig(height=12, width=12, T=40, food_density=0.08)
     fit = FitnessConfig(T=40, energy_max=100, epsilon_accept=0.0, lambda_std=0.0)

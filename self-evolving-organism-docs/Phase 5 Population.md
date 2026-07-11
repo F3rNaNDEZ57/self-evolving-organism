@@ -168,6 +168,17 @@ Note: [[Runs/2026-07-12-population-evo-6a1f0edb0a]]. Food-repeat spam reduced; f
 
 Note: [[Runs/2026-07-12-population-evo-e7bd5a260f]]. Diversity + quality rails → free NIM beat old champion on a non-active lineage.
 
+## Free NIM upgrade + self-improve history (2026-07-12)
+
+| Item | Value |
+|------|--------|
+| Coder | `z-ai/glm-5.2` (fallback `deepseek-v4-pro`) |
+| Critic | `openai/gpt-oss-120b` |
+| History | Accepts + rejects with **Δ fitness**, diversity themes, `k=12` |
+| Prompt | Closed-loop: learn from history, full file bodies only |
+
+See [[NIM Pin Log]]. Env `NIM_CODER_*` overrides yaml if set.
+
 ## Proposal quality gate (2026-07-12 · `feat/proposal-quality`)
 
 | Gate | Behavior |

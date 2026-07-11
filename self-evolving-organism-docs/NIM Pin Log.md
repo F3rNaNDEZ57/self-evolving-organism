@@ -8,13 +8,13 @@ aliases:
   - Model pins
   - Free NIM ids
 status: verified
-updated: 2026-07-11
+updated: 2026-07-12
 ---
 
 # NIM Pin Log
 
 > [!success] Verified live
-> `GET /v1/models` + chat smoke + Docker smoke completed **2026-07-11**.
+> `GET /v1/models` + chat smoke **2026-07-12** (121 models). Pins upgraded for coding quality.
 >
 > Full package: [[Phase 1 Research Package]] · Secrets: repo-root `.env` (gitignored)
 
@@ -31,37 +31,59 @@ updated: 2026-07-11
 
 ---
 
-## Pinned model IDs (exact API strings)
+## Pinned model IDs (exact API strings) — 2026-07-12 R&D
 
-| Role | `model` id | Chat smoke |
-|------|------------|------------|
-| **Coder primary** | `deepseek-ai/deepseek-v4-flash` | OK |
-| **Coder fallback** | `nvidia/nemotron-3-nano-30b-a3b` | OK |
-| **Critic** | `nvidia/nemotron-3-nano-30b-a3b` | OK |
-| **Summarizer** | `meta/llama-3.1-8b-instruct` | OK |
+| Role | `model` id | Chat smoke | Notes |
+|------|------------|------------|-------|
+| **Coder primary** | `z-ai/glm-5.2` | OK ~3.5s | Agentic/coding free endpoint |
+| **Coder fallback** | `deepseek-ai/deepseek-v4-pro` | OK ~37s | Parse/quality retry (slower, stronger) |
+| **Critic** | `openai/gpt-oss-120b` | OK ~1s | Stronger schema/safety |
+| **Summarizer** | `meta/llama-3.1-8b-instruct` | OK | Cheap distill |
+
+### Previous pins (still available)
+
+| Role | Prior id |
+|------|----------|
+| Coder | `deepseek-ai/deepseek-v4-flash` |
+| Critic/fallback | `nvidia/nemotron-3-nano-30b-a3b` |
 
 ### Confirmed present (alternates)
 
 | Role | IDs on this account |
 |------|---------------------|
-| Coder alts | `z-ai/glm-5.2`, `minimaxai/minimax-m2.7`, `mistralai/mistral-nemotron`, `deepseek-ai/deepseek-v4-pro` |
-| Critic alts | `openai/gpt-oss-20b`, `meta/llama-3.1-8b-instruct` |
-| Summarizer alts | `google/gemma-2-2b-it`, `meta/llama-3.2-3b-instruct` |
+| Coder alts | `deepseek-v4-flash`, `deepseek-v4-pro`, `minimax-m3`, `minimax-m2.7`, `mistral-nemotron`, `gpt-oss-120b` |
+| Critic alts | `gpt-oss-20b`, `nemotron-3-nano-30b-a3b`, `llama-3.1-8b-instruct` |
+| Summarizer alts | `gemma-2-2b-it`, `llama-3.2-3b-instruct` |
+| Failed smoke | `moonshotai/kimi-k2.6` (404 for this account) |
 
 ### Prior short-name → verified id
 
 | Prior note | Verified API id |
 |------------|-----------------|
 | `deepseek-v4-flash` | `deepseek-ai/deepseek-v4-flash` |
+| `deepseek-v4-pro` | `deepseek-ai/deepseek-v4-pro` |
 | `nemotron-3-nano-30b-a3b` | `nvidia/nemotron-3-nano-30b-a3b` |
 | `llama-3.1-8b-instruct` | `meta/llama-3.1-8b-instruct` |
 | `gpt-oss-20b` | `openai/gpt-oss-20b` |
+| `gpt-oss-120b` | `openai/gpt-oss-120b` |
 | `glm-5.2` | `z-ai/glm-5.2` |
 | `minimax-m2.7` | `minimaxai/minimax-m2.7` |
+| `minimax-m3` | `minimaxai/minimax-m3` |
 | `mistral-nemotron` | `mistralai/mistral-nemotron` |
-| `gemma-2-2b-it` | `google/gemma-2-2b-it` |
 
 Repo machine config (no secrets): `config/nim.pinned.yaml`
+
+---
+
+## Mutation self-improvement history (2026-07-12)
+
+Coder/critic prompts inject **SQLite mutation memory**:
+
+- Recent **accepts** with fitness Δ (what worked)
+- Same-parent + global **rejects** (what failed)
+- DIVERSITY themes (food-tweak ban, forbidden Observation fields, empty-body ban)
+
+Code: `src/organism/mutation_memory.py` · used by `propose_policy_patch` with `k=12`.
 
 ---
 
@@ -77,18 +99,3 @@ Repo machine config (no secrets): `config/nim.pinned.yaml`
 | Overall | **`smoke_pass`** |
 
 Matches Phase 1 recommendation: container jail with no network.
-
----
-
-## Security notes
-
-> [!danger] API key hygiene
-> - Key lives only in repo-root **`.env`** (listed in `.gitignore`).
-> - **Never** paste keys into Obsidian notes, git commits, or chat if avoidable.
-> - If this key was shared in chat/logs, **rotate it** at [build.nvidia.com](https://build.nvidia.com/settings/api-keys) after pinning.
-
----
-
-## See also
-
-[[Phase 1 Research Package]] · [[Open Decisions]] · [[Home]] · [[Artifact Management]]
