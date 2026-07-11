@@ -124,6 +124,19 @@ def eval_cmd(
         wpath = resolve_checkpoint_path(artifacts, weights)
         if ablation == "B0":
             ablation = "Bw"
+    # Bw without a checkpoint trains within a single episode and discards weights —
+    # not a learning measurement (suite uses train→checkpoint→eval).
+    if ablation == "Bw" and not wpath:
+        console.print(
+            "[red]seo eval --ablation Bw requires --weights[/red] "
+            "(latest|best|path). Train first: seo weights train"
+        )
+        raise typer.Exit(2)
+    if ablation == "Bcw" and not wpath:
+        console.print(
+            "[yellow]Note:[/yellow] Bcw without --weights trains within-episode only; "
+            "prefer --weights after seo weights train for a real measurement."
+        )
     train = ablation in ("Bw", "Bcw") and not wpath
     sb = SandboxConfig.from_exp(exp)
     mode = "docker" if docker or (sb.episode_isolation and not host) else "host"

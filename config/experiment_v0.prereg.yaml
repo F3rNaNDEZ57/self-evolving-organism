@@ -48,7 +48,7 @@ genomic:
 critic:
   enabled: true
   # model: null → use config/nim.pinned.yaml models.critic
-  # fail_open on NIM errors is handled in critic.review_proposal (static-only approve)
+  fail_open: true   # on NIM error after static pass: approve@0.3 (false → reject)
   max_combined_lines: 500
 
 # Continuous evolution loop (seo evolve)
@@ -70,19 +70,23 @@ sandbox:
   network: none
   memory: 512m
   cpus: "1"
+  pids_limit: 64
   require_docker: true
   episode_isolation: true   # run candidate (and optional parent) evals in Docker
   parent_isolation: false   # keep parent eval on host for speed; set true for full parity
+
 
 ablation: B0  # B0 | Bw | Bc | Bcw
 
 # Suite runner defaults (seo ablate)
 ablation_suite:
   max_mutations: 3          # pre-reg allows up to 30; 3 is practical default
-  train_passes: 2           # Bw weight training passes over train seeds
+  train_passes: 2           # Bw weight training passes over train seeds (aligned with Bcw)
+  repeats: 1                # K independent arm trajectories (mean±std on δ); use 3+ for claim
   quick:
     train_seeds: [0, 1, 2]
     holdout_seeds: [100, 101, 102]
     max_mutations: 1
     train_passes: 1
     dry_run: true
+    repeats: 1

@@ -5,6 +5,7 @@ from __future__ import annotations
 import importlib.util
 import shutil
 import sys
+import threading
 from pathlib import Path
 from types import ModuleType
 from typing import Any, Callable
@@ -12,8 +13,10 @@ from typing import Any, Callable
 from organism.schemas import Action, Observation, StepResult
 from organism.weights import WeightConfig
 
-
 WHITELIST = ("policy.py", "heuristics.py", "memory_hooks.py")
+
+# Serialize bare-name rebinding across concurrent loads in one process
+_LOAD_LOCK = threading.RLock()
 
 
 def copy_genome(src: Path, dest: Path) -> None:
@@ -31,48 +34,64 @@ def _load_module(path: Path, name: str) -> ModuleType:
         raise ImportError(f"Cannot load {path}")
     mod = importlib.util.module_from_spec(spec)
     sys.modules[name] = mod
-    # Caller manages sys.path for sibling imports
     assert spec.loader is not None
     spec.loader.exec_module(mod)
     return mod
 
 
 def load_policy_class(genome_dir: Path) -> type:
-    """Load Policy from genome_dir. Uses unique module names then aliases short names."""
+    """
+    Load Policy from genome_dir using unique module names.
+    Bare names (policy/heuristics/memory_hooks) are aliased only during load
+    and cleaned up afterward to prevent cross-genome contamination.
+    """
     import uuid
 
-    genome_dir = Path(genome_dir)
+    genome_dir = Path(genome_dir).resolve()
     uid = uuid.uuid4().hex[:8]
     short_names = ("heuristics", "memory_hooks", "policy")
+    unique_keys = [f"seo_genome_{uid}_{n}" for n in short_names]
+    gdir = str(genome_dir)
     loaded: dict[str, ModuleType] = {}
-    gdir = str(genome_dir.resolve())
-    sys.path.insert(0, gdir)
-    try:
-        for mod_name, file_name in (
-            ("heuristics", "heuristics.py"),
-            ("memory_hooks", "memory_hooks.py"),
-            ("policy", "policy.py"),
-        ):
-            path = genome_dir / file_name
-            if not path.exists():
-                raise FileNotFoundError(path)
-            unique = f"seo_genome_{uid}_{mod_name}"
-            mod = _load_module(path, unique)
-            loaded[mod_name] = mod
-            sys.modules[mod_name] = mod  # bare imports inside genome
-        policy_mod = loaded["policy"]
-        if not hasattr(policy_mod, "Policy"):
-            raise AttributeError(f"{genome_dir}/policy.py must define class Policy")
-        return policy_mod.Policy
-    finally:
-        if sys.path and sys.path[0] == gdir:
-            sys.path.pop(0)
-        # leave unique modules; clear short aliases so next load can rebind
-        for sn in short_names:
-            if sn in sys.modules and getattr(sys.modules[sn], "__file__", "").startswith(gdir):
-                # only delete if it points at this genome dir
-                pass
 
+    with _LOAD_LOCK:
+        sys.path.insert(0, gdir)
+        try:
+            for mod_name, file_name in (
+                ("heuristics", "heuristics.py"),
+                ("memory_hooks", "memory_hooks.py"),
+                ("policy", "policy.py"),
+            ):
+                path = genome_dir / file_name
+                if not path.exists():
+                    raise FileNotFoundError(path)
+                unique = f"seo_genome_{uid}_{mod_name}"
+                mod = _load_module(path, unique)
+                loaded[mod_name] = mod
+                sys.modules[mod_name] = mod  # bare imports inside genome
+            policy_mod = loaded["policy"]
+            if not hasattr(policy_mod, "Policy"):
+                raise AttributeError(f"{genome_dir}/policy.py must define class Policy")
+            return policy_mod.Policy
+        finally:
+            if sys.path and sys.path[0] == gdir:
+                sys.path.pop(0)
+            # Drop short aliases that point at this genome (prevent contamination)
+            for sn in short_names:
+                mod = sys.modules.get(sn)
+                if mod is None:
+                    continue
+                mf = getattr(mod, "__file__", None) or ""
+                try:
+                    if mf and str(Path(mf).resolve()).startswith(gdir):
+                        del sys.modules[sn]
+                except Exception:
+                    # if resolve fails, still clear if unique name matches
+                    if any(sys.modules.get(k) is mod for k in unique_keys):
+                        del sys.modules[sn]
+            # Drop unique modules — Policy class remains usable via reference
+            for k in unique_keys:
+                sys.modules.pop(k, None)
 
 
 def make_policy_factory(
@@ -102,7 +121,6 @@ def make_policy_factory(
         if wpath is not None and use_weights and hasattr(pol, "load_weights"):
             pol.load_weights(wpath)
         elif wpath is not None and use_weights:
-            # seed Policy without load_weights helper: set after first reset via scorer load
             pol._pending_weight_path = str(wpath)  # type: ignore[attr-defined]
         return pol
 
