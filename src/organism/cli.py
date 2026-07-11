@@ -15,7 +15,14 @@ from organism.config import ROOT, experiment_config, nim_config, resolve_path
 from organism.evaluator import FitnessConfig, evaluate, run_episode
 from organism.genome_loader import copy_genome, make_policy_factory
 from organism.persistence import Store
-from organism.sandbox import SandboxConfig, docker_available, smoke_network_block
+from organism.sandbox import (
+    SandboxConfig,
+    build_sandbox_image,
+    docker_available,
+    evaluate_genome,
+    image_exists,
+    smoke_network_block,
+)
 from organism.weights import WeightConfig
 from organism.world import WorldConfig
 
@@ -89,12 +96,26 @@ def eval_cmd(
     holdout: bool = typer.Option(False, help="Use holdout seeds instead of train"),
     genome_id: str = typer.Option("g_seed", help="Genome id for DB logging"),
     weights: str = typer.Option("", help="Checkpoint path/id/latest/best for Bw/Bcw"),
+    docker: bool = typer.Option(False, "--docker", help="Force Docker episode isolation"),
+    host: bool = typer.Option(False, "--host", help="Force host-side evaluation"),
 ) -> None:
     """Multi-seed evaluation (frozen fitness)."""
     exp, world, fit, wcfg = _load_cfgs()
     eval_cfg = exp.get("eval", {})
     seeds = list(eval_cfg.get("holdout_seeds" if holdout else "train_seeds", list(range(8))))
     genome = resolve_path(exp.get("paths", {}).get("seed_genome", "genomes/seed"))
+    # prefer active genome if present
+    from organism.mutation import resolve_parent_genome
+
+    try:
+        active_path, active_id = resolve_parent_genome(exp)
+        if (active_path / "policy.py").exists():
+            genome = active_path
+            if genome_id == "g_seed":
+                genome_id = active_id
+    except Exception:
+        pass
+
     wpath = None
     if weights:
         from organism.checkpoints import resolve_checkpoint_path
@@ -104,19 +125,25 @@ def eval_cmd(
         if ablation == "B0":
             ablation = "Bw"
     train = ablation in ("Bw", "Bcw") and not wpath
-    factory = make_policy_factory(
-        genome,
-        ablation=ablation,
-        weight_cfg=wcfg,
-        weight_path=wpath,
-        force_train=train,
-    )
-
+    sb = SandboxConfig.from_exp(exp)
+    mode = "docker" if docker or (sb.episode_isolation and not host) else "host"
     console.print(
         f"[cyan]Evaluating[/cyan] ablation={ablation} seeds={seeds} "
-        f"train_weights={train} weights={wpath or '—'}"
+        f"train_weights={train} weights={wpath or '—'} isolation={mode}"
     )
-    result = evaluate(factory, world, fit, seeds, train_weights=train)
+    result = evaluate_genome(
+        genome,
+        world=world,
+        fit=fit,
+        wcfg=wcfg,
+        seeds=seeds,
+        ablation=ablation,
+        sandbox=sb,
+        train_weights=train,
+        weight_path=wpath,
+        force_host=host,
+        force_docker=docker,
+    )
 
     db = resolve_path(exp.get("paths", {}).get("db_path", "artifacts/seo.sqlite"))
     store = Store(db)
@@ -176,6 +203,23 @@ def pins() -> None:
     console.print(table)
 
 
+@app.command("docker-build")
+def docker_build(
+    image: str = typer.Option("seo-sandbox:py312", help="Image tag"),
+) -> None:
+    """Build local sandbox image (python + numpy) for episode isolation."""
+    if not docker_available():
+        console.print("[red]Docker not available[/red]")
+        raise typer.Exit(1)
+    console.print(f"[cyan]Building[/cyan] {image} from Dockerfile.sandbox …")
+    result = build_sandbox_image(image=image)
+    if result["ok"]:
+        console.print(f"[green]OK[/green] image={image}")
+    else:
+        console.print(result.get("stderr_tail", "")[-1500:])
+        raise typer.Exit(1)
+
+
 @app.command()
 def docker_smoke() -> None:
     """Re-run Docker --network none smoke test."""
@@ -183,18 +227,47 @@ def docker_smoke() -> None:
         console.print("[red]Docker not available[/red]")
         raise typer.Exit(1)
     exp, _, _, _ = _load_cfgs()
-    sb = exp.get("sandbox", {})
-    cfg = SandboxConfig(
-        mode=sb.get("mode", "docker"),
-        image=sb.get("image", "python:3.12-slim"),
-        network=sb.get("network", "none"),
-        memory=exp.get("eval", {}).get("container_memory", "512m"),
-        cpus=str(exp.get("eval", {}).get("container_cpus", "1")),
-    )
+    cfg = SandboxConfig.from_exp(exp)
     result = smoke_network_block(cfg)
     console.print_json(data=result)
     if not result["ok"]:
         raise typer.Exit(1)
+
+
+@app.command("docker-eval")
+def docker_eval(
+    seeds: str = typer.Option("0,1", help="Comma-separated seeds"),
+    ablation: str = typer.Option("Bc", help="B0|Bw|Bc|Bcw"),
+) -> None:
+    """Evaluate active/seed genome inside Docker (network-none)."""
+    exp, world, fit, wcfg = _load_cfgs()
+    from organism.mutation import resolve_parent_genome
+
+    genome, gid = resolve_parent_genome(exp)
+    seed_list = [int(s.strip()) for s in seeds.split(",") if s.strip()]
+    sb = SandboxConfig.from_exp(exp)
+    console.print(f"[cyan]Docker eval[/cyan] genome={genome} seeds={seed_list} image={sb.image}")
+    result = evaluate_genome(
+        genome,
+        world=world,
+        fit=fit,
+        wcfg=wcfg,
+        seeds=seed_list,
+        ablation=ablation,
+        sandbox=sb,
+        train_weights=False,
+        force_docker=True,
+    )
+    console.print_json(
+        data={
+            "genome_id": gid,
+            "fitness": result.fitness,
+            "mean_score": result.mean_score,
+            "std_score": result.std_score,
+            "seeds": result.seeds,
+            "isolated": True,
+        }
+    )
 
 
 @app.command()
