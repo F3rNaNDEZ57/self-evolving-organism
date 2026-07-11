@@ -273,16 +273,18 @@ Build a system of **self-evolving digital organisms** that:
 
 **Minimum surfaces**
 
-- [ ] Population / organism list
-- [ ] Lineage tree
-- [ ] Mutation inspector (diff, scores, cost)
-- [ ] Event timeline
-- [ ] Kill switch / pause / freeze mutations
+- [x] Population / organism list (`seo ui` → Genomes)
+- [x] Lineage tree (`seo ui` → Lineage)
+- [x] Mutation inspector (scores, critic, tokens, sources)
+- [x] Event timeline
+- [x] Kill switch / pause / freeze (`artifacts/control.json`)
 
 **Exit criteria**
 
-- Operator can explain *why* fitness moved without only raw logs
-- UI stays read-mostly — not the organism brain
+- Operator can explain *why* fitness moved without only raw logs — **scaffold yes**
+- UI stays read-mostly — not the organism brain — **yes**
+
+**Launch:** `pip install -e ".[ui]"` · `seo ui` · [[Phase 4 Observer UI]]
 
 ---
 
@@ -389,7 +391,7 @@ Detail: [[Research Brief#Sandbox and safety]]
 | 1 | Research package | Matrix + NIM pins + Docker + pre-reg | ✅ |
 | 2 | Paper organism | Bcw vs B0 under sandbox | ✅ runner · ✅ δ success (sequential dual) |
 | 3 | Free LLM pool + critic | Multi-model quality on free NIM | ✅ **soft critic · δ success** |
-| 4 | Observer UI | Legible lineage & mutations | ⬜ |
+| 4 | Observer UI | Legible lineage & mutations | 🔧 **scaffold live** |
 | 5 | Population | Multi-organism selection | ⬜ |
 | 6 | Hardening | Research-grade isolation & experiments | ⬜ |
 
@@ -397,9 +399,9 @@ Detail: [[Research Brief#Sandbox and safety]]
 
 ## Immediate next steps
 
-1. Merge `feat/soft-critic-delta` → master
-2. Phase 4 observer UI (lineage / mutation inspector)
-3. Optional: close weight gap (Bw still below pure code holdout)
+1. Phase 4 polish (auto-refresh, charts) as needed
+2. Optional: close weight gap (Bw still below pure code holdout)
+3. Phase 5 population when ready
 
 ---
 

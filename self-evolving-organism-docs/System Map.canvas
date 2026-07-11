@@ -3,7 +3,7 @@
 		{
 			"id": "title",
 			"type": "text",
-			"text": "# Self-Evolving Organism — Dashboard\n\nPhase 0–3 · δ SUCCESS (+4.44) · soft critic · branch feat/soft-critic-delta\nOrigin: github.com/F3rNaNDEZ57/self-evolving-organism",
+			"text": "# Self-Evolving Organism — Dashboard\n\nPhase 0–4 · δ SUCCESS · observer UI (seo ui) · soft critic\nOrigin: github.com/F3rNaNDEZ57/self-evolving-organism",
 			"x": 0,
 			"y": 0,
 			"width": 2800,
@@ -23,14 +23,13 @@
 		{
 			"id": "status",
 			"type": "text",
-			"text": "**Verified:** δ=+4.44 success · abl_de9d2391b0 · soft_pass · Bc 3/8 accepts · sequential Bcw",
+			"text": "**Verified:** δ=+4.44 · seo ui Streamlit · pause/freeze · genomes/lineage/mutations",
 			"x": 0,
 			"y": 270,
 			"width": 2800,
 			"height": 70,
 			"color": "5"
 		},
-
 		{
 			"id": "grp-docs",
 			"type": "group",
@@ -41,23 +40,141 @@
 			"label": "1 · Vault notes (click to open)",
 			"color": "6"
 		},
-		{"id": "f-home", "type": "file", "file": "Home.md", "x": 50, "y": 470, "width": 280, "height": 90},
-		{"id": "f-roadmap", "type": "file", "file": "Roadmap.md", "x": 360, "y": 470, "width": 280, "height": 90},
-		{"id": "f-phase2", "type": "file", "file": "Phase 2 Scaffold.md", "x": 670, "y": 470, "width": 280, "height": 90},
-		{"id": "f-phase3", "type": "file", "file": "Phase 3 Critic.md", "x": 980, "y": 470, "width": 280, "height": 90},
-		{"id": "f-hard", "type": "file", "file": "Phase 2 Hardening.md", "x": 1290, "y": 470, "width": 280, "height": 90},
-		{"id": "f-run", "type": "file", "file": "Runs/2026-07-11-live-ablation-weight-fix.md", "x": 1600, "y": 470, "width": 320, "height": 90},
-		{"id": "f-brief", "type": "file", "file": "Research Brief.md", "x": 1950, "y": 470, "width": 280, "height": 90},
-		{"id": "f-decisions", "type": "file", "file": "Open Decisions.md", "x": 2260, "y": 470, "width": 280, "height": 90},
-
-		{"id": "f-rules", "type": "file", "file": "Working Rules.md", "x": 50, "y": 590, "width": 280, "height": 90},
-		{"id": "f-overview", "type": "file", "file": "Project Overview.md", "x": 360, "y": 590, "width": 280, "height": 90},
-		{"id": "f-nim", "type": "file", "file": "NIM Pin Log.md", "x": 670, "y": 590, "width": 280, "height": 90},
-		{"id": "f-gitnexus", "type": "file", "file": "GitNexus.md", "x": 980, "y": 590, "width": 280, "height": 90},
-		{"id": "f-artifacts", "type": "file", "file": "Artifact Management.md", "x": 1290, "y": 590, "width": 280, "height": 90},
-		{"id": "f-glossary", "type": "file", "file": "Glossary.md", "x": 1600, "y": 590, "width": 280, "height": 90},
-		{"id": "f-refs", "type": "file", "file": "References.md", "x": 1950, "y": 590, "width": 280, "height": 90},
-
+		{
+			"id": "f-home",
+			"type": "file",
+			"file": "Home.md",
+			"x": 50,
+			"y": 470,
+			"width": 280,
+			"height": 90
+		},
+		{
+			"id": "f-roadmap",
+			"type": "file",
+			"file": "Roadmap.md",
+			"x": 360,
+			"y": 470,
+			"width": 280,
+			"height": 90
+		},
+		{
+			"id": "f-phase2",
+			"type": "file",
+			"file": "Phase 2 Scaffold.md",
+			"x": 670,
+			"y": 470,
+			"width": 280,
+			"height": 90
+		},
+		{
+			"id": "f-phase3",
+			"type": "file",
+			"file": "Phase 3 Critic.md",
+			"x": 980,
+			"y": 470,
+			"width": 280,
+			"height": 90
+		},
+		{
+			"id": "f-hard",
+			"type": "file",
+			"file": "Phase 2 Hardening.md",
+			"x": 1290,
+			"y": 470,
+			"width": 280,
+			"height": 90
+		},
+		{
+			"id": "f-run",
+			"type": "file",
+			"file": "Runs/2026-07-11-live-ablation-weight-fix.md",
+			"x": 1600,
+			"y": 470,
+			"width": 320,
+			"height": 90
+		},
+		{
+			"id": "f-brief",
+			"type": "file",
+			"file": "Research Brief.md",
+			"x": 1950,
+			"y": 470,
+			"width": 280,
+			"height": 90
+		},
+		{
+			"id": "f-decisions",
+			"type": "file",
+			"file": "Open Decisions.md",
+			"x": 2260,
+			"y": 470,
+			"width": 280,
+			"height": 90
+		},
+		{
+			"id": "f-rules",
+			"type": "file",
+			"file": "Working Rules.md",
+			"x": 50,
+			"y": 590,
+			"width": 280,
+			"height": 90
+		},
+		{
+			"id": "f-overview",
+			"type": "file",
+			"file": "Project Overview.md",
+			"x": 360,
+			"y": 590,
+			"width": 280,
+			"height": 90
+		},
+		{
+			"id": "f-nim",
+			"type": "file",
+			"file": "NIM Pin Log.md",
+			"x": 670,
+			"y": 590,
+			"width": 280,
+			"height": 90
+		},
+		{
+			"id": "f-gitnexus",
+			"type": "file",
+			"file": "GitNexus.md",
+			"x": 980,
+			"y": 590,
+			"width": 280,
+			"height": 90
+		},
+		{
+			"id": "f-artifacts",
+			"type": "file",
+			"file": "Artifact Management.md",
+			"x": 1290,
+			"y": 590,
+			"width": 280,
+			"height": 90
+		},
+		{
+			"id": "f-glossary",
+			"type": "file",
+			"file": "Glossary.md",
+			"x": 1600,
+			"y": 590,
+			"width": 280,
+			"height": 90
+		},
+		{
+			"id": "f-refs",
+			"type": "file",
+			"file": "References.md",
+			"x": 1950,
+			"y": 590,
+			"width": 280,
+			"height": 90
+		},
 		{
 			"id": "grp-checks",
 			"type": "group",
@@ -101,14 +218,13 @@
 		{
 			"id": "chk-p4",
 			"type": "text",
-			"text": "**Phase 4 — Observer UI**\n\n☐ Population / organism list\n☐ Lineage tree\n☐ Mutation inspector\n☐ Event timeline\n☐ Kill switch / pause / freeze\n\n**Phase 5–6**\n\n☐ Multi-organism population\n☐ Research-grade hardening\n☐ Longer experiments",
+			"text": "**Phase 4 — Observer UI**\n\n☑ Population / organism list\n☑ Lineage tree\n☑ Mutation inspector\n☑ Event timeline\n☑ Kill switch / pause / freeze\n\n**Phase 5–6**\n\n☐ Multi-organism population\n☐ Research-grade hardening\n☐ Longer experiments",
 			"x": 2140,
 			"y": 880,
 			"width": 600,
 			"height": 560,
 			"color": "1"
 		},
-
 		{
 			"id": "grp-next",
 			"type": "group",
@@ -122,7 +238,7 @@
 		{
 			"id": "n-next",
 			"type": "text",
-			"text": "**Next**\n\n1. Merge feat/soft-critic-delta → master\n2. Phase 4 observer UI\n3. Optional: weight path catch-up vs pure code\n\n**Latest science:** soft-critic live · Bc holdout 15.39 · sequential Bcw δ=+4.44 · success=True",
+			"text": "**Next**\n\n1. seo ui — open observer dashboard\n2. Optional Phase 4 polish / charts\n3. Phase 5 population when ready\n\n**Latest:** Phase 4 scaffold · δ=+4.44 · soft critic · sequential Bcw",
 			"x": 50,
 			"y": 1660,
 			"width": 1750,
@@ -132,14 +248,13 @@
 		{
 			"id": "n-cli",
 			"type": "text",
-			"text": "**CLI**\n\nseo mutate | metrics | critic-ab\nseo ablate --live | evolve --live\nseo weights train | eval --weights\nseo docker-build | smoke | pins",
+			"text": "**CLI**\n\nseo ui  ← Phase 4 observer\nseo mutate | metrics | critic-ab\nseo ablate --live | evolve --live\nseo weights | docker-* | pins",
 			"x": 1860,
 			"y": 1660,
 			"width": 880,
 			"height": 160,
 			"color": "5"
 		},
-
 		{
 			"id": "grp-org",
 			"type": "group",
@@ -190,7 +305,6 @@
 			"height": 260,
 			"color": "3"
 		},
-
 		{
 			"id": "grp-kernel",
 			"type": "group",
@@ -241,7 +355,6 @@
 			"height": 180,
 			"color": "2"
 		},
-
 		{
 			"id": "grp-science",
 			"type": "group",
@@ -282,7 +395,6 @@
 			"height": 120,
 			"color": "4"
 		},
-
 		{
 			"id": "grp-loops",
 			"type": "group",
@@ -313,7 +425,6 @@
 			"height": 180,
 			"color": "2"
 		},
-
 		{
 			"id": "grp-storage",
 			"type": "group",
@@ -353,18 +464,96 @@
 			"width": 400,
 			"height": 180,
 			"color": "6"
+		},
+		{
+			"id": "f-phase4",
+			"type": "file",
+			"file": "Phase 4 Observer UI.md",
+			"x": 2260,
+			"y": 590,
+			"width": 280,
+			"height": 90
 		}
 	],
 	"edges": [
-		{"id": "e1", "fromNode": "n-body", "fromSide": "right", "toNode": "n-world", "toSide": "left", "label": "act / sense"},
-		{"id": "e2", "fromNode": "n-genome", "fromSide": "right", "toNode": "n-sandbox", "toSide": "left", "label": "runs"},
-		{"id": "e3", "fromNode": "n-llm", "fromSide": "bottom", "toNode": "n-mut", "toSide": "top", "label": "patch"},
-		{"id": "e4", "fromNode": "n-mut", "fromSide": "left", "toNode": "n-genome", "toSide": "right", "label": "rewrite"},
-		{"id": "e5", "fromNode": "n-fast", "fromSide": "top", "toNode": "n-weights", "toSide": "bottom", "label": "train"},
-		{"id": "e6", "fromNode": "n-weights", "fromSide": "right", "toNode": "n-disk", "toSide": "left", "label": "npz"},
-		{"id": "e7", "fromNode": "n-sqlite", "fromSide": "right", "toNode": "n-disk", "toSide": "left"},
-		{"id": "e8", "fromNode": "n-disk", "fromSide": "right", "toNode": "n-obsidian", "toSide": "left", "label": "notes"},
-		{"id": "e9", "fromNode": "n-memory", "fromSide": "right", "toNode": "n-mut", "toSide": "left", "label": "lessons"},
-		{"id": "e10", "fromNode": "n-world", "fromSide": "bottom", "toNode": "n-mut", "toSide": "top", "label": "fitness"}
+		{
+			"id": "e1",
+			"fromNode": "n-body",
+			"fromSide": "right",
+			"toNode": "n-world",
+			"toSide": "left",
+			"label": "act / sense"
+		},
+		{
+			"id": "e2",
+			"fromNode": "n-genome",
+			"fromSide": "right",
+			"toNode": "n-sandbox",
+			"toSide": "left",
+			"label": "runs"
+		},
+		{
+			"id": "e3",
+			"fromNode": "n-llm",
+			"fromSide": "bottom",
+			"toNode": "n-mut",
+			"toSide": "top",
+			"label": "patch"
+		},
+		{
+			"id": "e4",
+			"fromNode": "n-mut",
+			"fromSide": "left",
+			"toNode": "n-genome",
+			"toSide": "right",
+			"label": "rewrite"
+		},
+		{
+			"id": "e5",
+			"fromNode": "n-fast",
+			"fromSide": "top",
+			"toNode": "n-weights",
+			"toSide": "bottom",
+			"label": "train"
+		},
+		{
+			"id": "e6",
+			"fromNode": "n-weights",
+			"fromSide": "right",
+			"toNode": "n-disk",
+			"toSide": "left",
+			"label": "npz"
+		},
+		{
+			"id": "e7",
+			"fromNode": "n-sqlite",
+			"fromSide": "right",
+			"toNode": "n-disk",
+			"toSide": "left"
+		},
+		{
+			"id": "e8",
+			"fromNode": "n-disk",
+			"fromSide": "right",
+			"toNode": "n-obsidian",
+			"toSide": "left",
+			"label": "notes"
+		},
+		{
+			"id": "e9",
+			"fromNode": "n-memory",
+			"fromSide": "right",
+			"toNode": "n-mut",
+			"toSide": "left",
+			"label": "lessons"
+		},
+		{
+			"id": "e10",
+			"fromNode": "n-world",
+			"fromSide": "bottom",
+			"toNode": "n-mut",
+			"toSide": "top",
+			"label": "fitness"
+		}
 	]
 }

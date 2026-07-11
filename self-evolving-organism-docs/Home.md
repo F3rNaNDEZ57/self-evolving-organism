@@ -89,16 +89,16 @@ cssclasses:
 
 | Field | Value |
 |-------|-------|
-| Stage | **δ SUCCESS** on branch `feat/soft-critic-delta` |
-| Code | soft-threshold critic · sequential Bcw · code-only mut fitness |
-| Science | **Bcw − B0 = +4.44** · thr 0.30 · `abl_de9d2391b0` success=True |
-| Live path | soft critic suite `abl_5fb2945679` · Bc 3/8 accepts · holdout 15.39 |
+| Stage | **Phase 4 observer UI live** (`seo ui`) · δ success on master |
+| Code | soft critic · sequential Bcw · Streamlit observer · pause/freeze |
+| Science | **Bcw − B0 = +4.44** · thr 0.30 · success=True |
+| UI | genomes · lineage · mutations · timeline · control · [[Phase 4 Observer UI]] |
 | Critic | hard schema · soft_pass other@conf&lt;0.6 · mutation memory |
-| Weights | BC bootstrap · keep-best · Bw holdout ~8.45 (still &lt; code path) |
+| Weights | BC bootstrap · keep-best · Bw holdout ~8.45 |
 | Runs | [[Runs/2026-07-11-soft-critic-delta-success]] · [[Runs/2026-07-11-live-ablation-weight-fix]] |
 | Git remote | https://github.com/F3rNaNDEZ57/self-evolving-organism |
 | Secrets | `.env` only (gitignored) |
-| Next | Merge PR · Phase 4 UI · optional weight catch-up |
+| Next | UI polish · optional weight catch-up · Phase 5 population |
 
 ---
 
