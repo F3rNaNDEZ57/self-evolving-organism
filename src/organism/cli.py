@@ -361,6 +361,70 @@ def weights_show(
 
 
 @app.command()
+def evolve(
+    cycles: int = typer.Option(5, help="Number of multi-seed eval cycles"),
+    ablation: str = typer.Option("Bc", help="Bc or Bcw"),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Offline mutations (no NIM)"),
+    live: bool = typer.Option(False, "--live", help="Use free NIM for mutations"),
+    max_mutations: int = typer.Option(None, help="Cap mutations this run"),
+    every: int = typer.Option(None, help="Override schedule: mutate every N seed-episodes"),
+    plateau: int = typer.Option(None, help="Override plateau window (seed-episodes)"),
+) -> None:
+    """Run continuous evolution with schedule + plateau mutation triggers."""
+    from organism.evolve import EvolveConfig, run_evolve
+
+    exp, world, fit, wcfg = _load_cfgs()
+    artifacts = resolve_path(exp.get("paths", {}).get("artifacts_dir", "artifacts"))
+    db = resolve_path(exp.get("paths", {}).get("db_path", "artifacts/seo.sqlite"))
+    use_dry = True if dry_run or not live else False
+    cfg = EvolveConfig.from_exp(exp, dry_run=use_dry, ablation=ablation)
+    if max_mutations is not None:
+        cfg.max_mutations = max_mutations
+    if every is not None:
+        cfg.mutate_every_episodes = every
+    if plateau is not None:
+        cfg.plateau_episodes = plateau
+
+    store = Store(db)
+    console.print(
+        f"[cyan]Evolve[/cyan] cycles={cycles} ablation={ablation} dry_run={cfg.dry_run} "
+        f"every={cfg.mutate_every_episodes} plateau={cfg.plateau_episodes} max_mut={cfg.max_mutations}"
+    )
+    report = run_evolve(
+        exp=exp,
+        world=world,
+        fit=fit,
+        wcfg=wcfg,
+        store=store,
+        artifacts_dir=artifacts,
+        max_eval_cycles=cycles,
+        cfg=cfg,
+    )
+    store.close()
+
+    table = Table(title=f"Evolve {report.run_id}")
+    table.add_column("field")
+    table.add_column("value")
+    table.add_row("episodes_run", str(report.episodes_run))
+    table.add_row(
+        "mutations",
+        f"acc={report.mutations_accepted} rej={report.mutations_rejected} "
+        f"fail={report.mutations_failed} / att={report.mutations_attempted}",
+    )
+    table.add_row("start_genome", report.start_genome_id)
+    table.add_row("final_genome", report.final_genome_id)
+    if report.fitness_history:
+        table.add_row("fitness_first", f"{report.fitness_history[0]:.4f}")
+        table.add_row("fitness_last", f"{report.fitness_history[-1]:.4f}")
+        table.add_row("fitness_best", f"{max(report.fitness_history):.4f}")
+    table.add_row("triggers", ", ".join(
+        e["kind"] for e in report.events if e["kind"].startswith("mutate_")
+    ) or "—")
+    console.print(table)
+    console.print("[dim]Report: artifacts/last_evolve_report.json[/dim]")
+
+
+@app.command()
 def ablate(
     quick: bool = typer.Option(False, "--quick", help="Small seed sets + 1 dry-run mutation"),
     dry_run: bool = typer.Option(False, "--dry-run", help="Force dry-run mutations (no NIM)"),
