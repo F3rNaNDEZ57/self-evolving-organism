@@ -1,7 +1,10 @@
 # self-evolving-organism
 
+[![GitHub](https://img.shields.io/badge/github-F3rNaNDEZ57%2Fself-evolving-organism-blue)](https://github.com/F3rNaNDEZ57/self-evolving-organism)
+
 Phase 2 **paper organism**: simulated grid body, lifetime weight learning, sandboxed genome mutation via **free NVIDIA NIM**, lineage in SQLite + artifacts.
 
+**Remote:** `https://github.com/F3rNaNDEZ57/self-evolving-organism.git`  
 Research vault / dashboard: `self-evolving-organism-docs/` (open **System Map** canvas).
 
 ## Status
