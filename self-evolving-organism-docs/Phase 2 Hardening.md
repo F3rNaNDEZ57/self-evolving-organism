@@ -42,8 +42,22 @@ Applied from the Phase 2 hardening review (tiered). Frozen guardrails preserved.
 
 | Check | Result |
 |-------|--------|
-| pytest | **42 passed** |
+| pytest | **49 passed** |
 | Docker adversarial | network blocked · ro root · hardened eval |
+
+## Post-ablation fixes (2026-07-11)
+
+Live `abl_01d836c6d5` showed holdout **Bw ≈ 0.5 vs B0 ≈ 11** (weights replaced heuristics with random thrash).
+
+| Fix | Effect (host holdout re-measure) |
+|-----|----------------------------------|
+| Heuristic BC bootstrap + engineered food features | boot-only ~8.9 |
+| REINFORCE return-to-go + **keep-best** snapshot | no longer destroys BC |
+| `explore_eval=0` | fair frozen policy eval |
+| Schema AST: `obs.ticks`, `random.choice(weights=)` | catch live crash modes |
+| SQL mutation memory → prompts | avoid repeat failures |
+
+**After fix:** B0 holdout ~10.95 · Bw holdout ~**8.88** · Δ ≈ **−2.1** (still below B0, not catastrophic).
 
 ## Rebuild sandbox image
 
