@@ -360,6 +360,81 @@ def mutate_propose(
 weights_app = typer.Typer(help="Weight checkpoint management")
 app.add_typer(weights_app, name="weights")
 
+elite_app = typer.Typer(help="Phase 5 elite archive (promote / demote / list)")
+app.add_typer(elite_app, name="elite")
+
+
+@elite_app.command("list")
+def elite_list() -> None:
+    """List genomes in the elite archive."""
+    from organism.elites import list_elites
+
+    exp, _, _, _ = _load_cfgs()
+    artifacts = resolve_path(exp.get("paths", {}).get("artifacts_dir", "artifacts"))
+    elites = list_elites(artifacts)
+    if not elites:
+        console.print("[dim]No elites yet. Promote with: seo elite promote <genome_id>[/dim]")
+        return
+    table = Table(title="Elite archive")
+    table.add_column("genome_id")
+    table.add_column("fitness")
+    table.add_column("path_ok")
+    table.add_column("note")
+    table.add_column("path")
+    for e in elites:
+        fit = e.get("fitness")
+        table.add_row(
+            str(e.get("genome_id")),
+            "-" if fit is None else f"{float(fit):.4f}",
+            "yes" if e.get("path_ok") else "NO",
+            str(e.get("note") or "")[:40],
+            str(e.get("path") or "")[:60],
+        )
+    console.print(table)
+    console.print(f"[dim]Registry: {artifacts / 'elites' / 'registry.json'}[/dim]")
+
+
+@elite_app.command("promote")
+def elite_promote(
+    genome_id: str = typer.Argument(..., help="Genome id to promote"),
+    note: str = typer.Option("", help="Operator note"),
+) -> None:
+    """Add a genome to the elite archive (does not change active pointer)."""
+    from organism.elites import promote_elite
+
+    exp, _, _, _ = _load_cfgs()
+    artifacts = resolve_path(exp.get("paths", {}).get("artifacts_dir", "artifacts"))
+    db = resolve_path(exp.get("paths", {}).get("db_path", "artifacts/seo.sqlite"))
+    store = Store(db)
+    try:
+        entry = promote_elite(artifacts, store, genome_id, note=note)
+    except Exception as e:
+        store.close()
+        console.print(f"[red]{e}[/red]")
+        raise typer.Exit(2)
+    store.close()
+    console.print(f"[green]Promoted elite[/green] {entry.get('genome_id')} path={entry.get('path')}")
+
+
+@elite_app.command("demote")
+def elite_demote(
+    genome_id: str = typer.Argument(..., help="Genome id to remove from elites"),
+) -> None:
+    """Remove a genome from the elite archive."""
+    from organism.elites import demote_elite
+
+    exp, _, _, _ = _load_cfgs()
+    artifacts = resolve_path(exp.get("paths", {}).get("artifacts_dir", "artifacts"))
+    db = resolve_path(exp.get("paths", {}).get("db_path", "artifacts/seo.sqlite"))
+    store = Store(db)
+    ok = demote_elite(artifacts, store, genome_id)
+    store.close()
+    if ok:
+        console.print(f"[yellow]Demoted[/yellow] {genome_id}")
+    else:
+        console.print(f"[dim]Not in elite archive: {genome_id}[/dim]")
+        raise typer.Exit(1)
+
 
 @weights_app.command("train")
 def weights_train(
@@ -662,9 +737,6 @@ def mutate(
         console.print("[yellow]Note:[/yellow] using heuristics path; prefer Bc/Bcw for genomic loop")
 
     exp, world, fit, wcfg = _load_cfgs()
-    parent_dir, gid = resolve_parent_genome(exp)
-    if parent_id:
-        gid = parent_id
     artifacts = resolve_path(exp.get("paths", {}).get("artifacts_dir", "artifacts"))
     db = resolve_path(exp.get("paths", {}).get("db_path", "artifacts/seo.sqlite"))
     from organism.observer.control import mutations_allowed
@@ -679,12 +751,20 @@ def mutate(
     # CLI flag wins over yaml
     use_critic = critic
 
-    # ensure parent row exists
     store = Store(db)
     try:
+        parent_dir, gid = resolve_parent_genome(exp, parent_id=parent_id, store=store)
+    except FileNotFoundError as e:
+        store.close()
+        console.print(f"[red]Parent genome not found:[/red] {e}")
+        raise typer.Exit(2)
+    # ensure parent row exists (do not force status=active over elite)
+    try:
+        existing = store.get_genome(gid)
         store.insert_genome(
             genome_id=gid,
-            status="active",
+            parent_id=(existing or {}).get("parent_id"),
+            status=(existing or {}).get("status") or "active",
             ablation=ablation,
             artifact_path=str(parent_dir),
         )

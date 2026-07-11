@@ -3,7 +3,7 @@
 		{
 			"id": "title",
 			"type": "text",
-			"text": "# Self-Evolving Organism — Dashboard\n\nPhase 0–4 COMPLETE · δ SUCCESS · run-from-UI on master\nOrigin: github.com/F3rNaNDEZ57/self-evolving-organism",
+			"text": "# Self-Evolving Organism — Dashboard\n\nPhase 0–4 complete · Phase 5 elite scaffold · δ SUCCESS\nOrigin: github.com/F3rNaNDEZ57/self-evolving-organism",
 			"x": 0,
 			"y": 0,
 			"width": 2800,
@@ -218,7 +218,7 @@
 		{
 			"id": "chk-p4",
 			"type": "text",
-			"text": "**Phase 4 — Observer UI**\n\n☑ Population / organism list\n☑ Lineage tree\n☑ Mutation inspector\n☑ Event timeline\n☑ Kill switch / pause / freeze\n☑ Run-from-UI job console (4.1–4.4)\n☑ Live logs · launch plan · final snapshot\n☑ Windows-safe job encoding\n☑ Watch live video stream + GIF loop\n\n**Phase 5–6**\n\n☐ Multi-organism population\n☐ Research-grade hardening\n☐ Longer experiments",
+			"text": "**Phase 4 — Observer UI**\n\n☑ Population / organism list\n☑ Lineage tree\n☑ Mutation inspector\n☑ Event timeline\n☑ Kill switch / pause / freeze\n☑ Run-from-UI job console (4.1–4.4)\n☑ Live logs · launch plan · final snapshot\n☑ Windows-safe job encoding\n☑ Watch live video stream + GIF loop\n\n**Phase 5–6**\n\n☑ Elite archive + parent picker\n☐ Auto selection policy\n☐ Multi-organism budgets\n☐ Multi-agent same map\n☐ Research-grade hardening",
 			"x": 2140,
 			"y": 880,
 			"width": 600,
@@ -238,7 +238,7 @@
 		{
 			"id": "n-next",
 			"type": "text",
-			"text": "**Next**\n\n1. Phase 5 population when ready\n2. Optional: close Bw holdout gap\n3. Multi-agent on one map (later)\n\n**UI:** seo ui → Watch live video · Run console\n**CLI:** seo watch --gif …\n**Phase 4:** run-from-UI + watch merged master",
+			"text": "**Next**\n\n1. Auto selection over elites\n2. Optional: close Bw holdout gap\n3. Multi-organism budgets / multi-agent map\n\n**UI:** Genomes promote · Run parent picker · Watch\n**CLI:** seo elite promote/list · mutate --parent-id\n**Phase 5:** elite scaffold on master",
 			"x": 50,
 			"y": 1660,
 			"width": 1750,
@@ -248,7 +248,7 @@
 		{
 			"id": "n-cli",
 			"type": "text",
-			"text": "**CLI**\n\nseo ui  ← Watch live + Run console\nseo watch  ← episode GIF\nseo mutate | evolve | ablate\nseo metrics | weights | docker-*\nseo pins",
+			"text": "**CLI**\n\nseo ui  ← Watch + Run + elites\nseo elite list|promote|demote\nseo mutate --parent-id …\nseo watch  ← episode GIF\nseo evolve | ablate | weights | pins",
 			"x": 1860,
 			"y": 1660,
 			"width": 880,

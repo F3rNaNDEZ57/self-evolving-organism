@@ -85,11 +85,14 @@ def page_overview(artifacts: Path, db: Path) -> None:
         store.close()
 
 
-def page_genomes(db: Path) -> None:
+def page_genomes(artifacts: Path, db: Path) -> None:
     st.subheader("Population / genomes")
+    from organism.elites import demote_elite, is_elite, list_elites, promote_elite
+
     store = open_store(db)
     try:
         rows = list_genomes(store, limit=300)
+        elite_ids = {str(e.get("genome_id")) for e in list_elites(artifacts)}
         if not rows:
             st.info("No genomes in DB yet. Run `seo init` / mutate / ablate.")
             return
@@ -99,6 +102,7 @@ def page_genomes(db: Path) -> None:
                 "id": r.get("id"),
                 "parent": r.get("parent_id") or "—",
                 "status": r.get("status"),
+                "elite": "yes" if str(r.get("id")) in elite_ids else "",
                 "ablation": r.get("ablation"),
                 "last_fitness": r.get("last_fitness"),
                 "created": fmt_ts(r.get("created_at")),
@@ -107,8 +111,52 @@ def page_genomes(db: Path) -> None:
             for r in rows
         ]
         st.dataframe(display, use_container_width=True, hide_index=True)
-        gid = st.selectbox("Inspect genome sources", [r["id"] for r in rows])
+
+        st.markdown("#### Elite archive (Phase 5)")
+        elites = list_elites(artifacts)
+        if elites:
+            st.dataframe(
+                [
+                    {
+                        "genome_id": e.get("genome_id"),
+                        "fitness": e.get("fitness"),
+                        "path_ok": e.get("path_ok"),
+                        "note": e.get("note"),
+                        "path": e.get("path"),
+                    }
+                    for e in elites
+                ],
+                use_container_width=True,
+                hide_index=True,
+            )
+        else:
+            st.caption("No elites yet — promote a genome below.")
+
+        gid = st.selectbox("Inspect / promote genome", [r["id"] for r in rows], key="gen_pick")
         chosen = next(r for r in rows if r["id"] == gid)
+        note = st.text_input("Elite note", value="", key="gen_elite_note")
+        c1, c2 = st.columns(2)
+        with c1:
+            if st.button("Promote to elite", type="primary", key="gen_promote"):
+                try:
+                    fit = chosen.get("last_fitness")
+                    entry = promote_elite(
+                        artifacts,
+                        store,
+                        str(gid),
+                        note=note,
+                        fitness=float(fit) if isinstance(fit, (int, float)) else None,
+                    )
+                    st.success(f"Elite: {entry.get('genome_id')}")
+                    st.rerun()
+                except Exception as e:
+                    st.error(str(e))
+        with c2:
+            if is_elite(artifacts, str(gid)) and st.button("Demote elite", key="gen_demote"):
+                demote_elite(artifacts, store, str(gid))
+                st.warning(f"Demoted {gid}")
+                st.rerun()
+
         src = genome_sources(chosen.get("artifact_path"))
         if src:
             for name, text in src.items():
@@ -345,9 +393,55 @@ def page_run(artifacts: Path, db: Path) -> None:
     )
 
     with tab_mut:
+        from organism.elites import list_elites
+        from organism.mutation import resolve_parent_genome
+
         dry = st.checkbox("Dry-run (no NIM)", value=True, key="mut_dry")
         abl = st.selectbox("Ablation", ["Bc", "Bcw"], key="mut_abl")
         crit = st.checkbox("Critic", value=True, key="mut_crit")
+        # Parent: active default, or elite / recent genome
+        try:
+            exp = experiment_config()
+            active_path, active_id = resolve_parent_genome(exp)
+        except Exception:
+            active_id, active_path = "active", Path(".")
+        parent_choices: list[tuple[str, str]] = [
+            (f"active · {active_id}", ""),  # empty parent_id → CLI uses active
+        ]
+        for e in list_elites(artifacts):
+            gid = str(e.get("genome_id") or "")
+            if not gid:
+                continue
+            fit = e.get("fitness")
+            fit_s = f"{float(fit):.3f}" if isinstance(fit, (int, float)) else "?"
+            label = f"elite · {gid} · fit={fit_s}"
+            parent_choices.append((label, gid))
+        store_g = open_store(db)
+        try:
+            for r in list_genomes(store_g, limit=40):
+                gid = str(r.get("id") or "")
+                if not gid or any(gid == p[1] for p in parent_choices):
+                    continue
+                if gid == active_id:
+                    continue
+                parent_choices.append(
+                    (f"genome · {gid} · {r.get('status') or '?'}", gid)
+                )
+        finally:
+            store_g.close()
+        parent_i = st.selectbox(
+            "Parent genome",
+            range(len(parent_choices)),
+            format_func=lambda i: parent_choices[i][0],
+            key="mut_parent",
+            help="Phase 5: mutate from active, an elite, or any known genome",
+        )
+        parent_id = parent_choices[parent_i][1]
+        if parent_id:
+            st.caption(f"Will pass `--parent-id {parent_id}`")
+        else:
+            st.caption(f"Uses active parent `{active_id}`")
+
         if st.button("Start mutate", type="primary", disabled=busy, key="mut_go"):
             if not dry and not st.session_state.get("mut_live_ok"):
                 st.session_state["mut_live_ok"] = False
@@ -356,21 +450,30 @@ def page_run(artifacts: Path, db: Path) -> None:
                     st.session_state["pending_live_mutate"] = {
                         "ablation": abl,
                         "critic": crit,
+                        "parent_id": parent_id,
                     }
                 else:
                     rec = jobmod.start_job(
                         artifacts,
                         kind="mutate",
                         argv=jobmod.build_mutate_argv(
-                            dry_run=True, ablation=abl, critic=crit
+                            dry_run=True,
+                            ablation=abl,
+                            critic=crit,
+                            parent_id=parent_id,
                         ),
-                        note="ui mutate dry-run",
+                        note=f"ui mutate dry-run parent={parent_id or active_id}",
                     )
                     store = open_store(db)
                     try:
                         store.log_event(
                             "operator_job_start",
-                            {"job_id": rec.job_id, "kind": rec.kind, "argv": rec.argv},
+                            {
+                                "job_id": rec.job_id,
+                                "kind": rec.kind,
+                                "argv": rec.argv,
+                                "parent_id": parent_id or active_id,
+                            },
                         )
                     finally:
                         store.close()
@@ -392,6 +495,7 @@ def page_run(artifacts: Path, db: Path) -> None:
                                 dry_run=False,
                                 ablation=p["ablation"],
                                 critic=p["critic"],
+                                parent_id=p.get("parent_id") or "",
                             ),
                             note="ui mutate LIVE",
                         )
@@ -551,6 +655,31 @@ def page_run(artifacts: Path, db: Path) -> None:
     mut_dry = bool(ss.get("mut_dry", True))
     mut_abl = str(ss.get("mut_abl", "Bc"))
     mut_crit = bool(ss.get("mut_crit", True))
+    # Rebuild parent_id list in the same order as the Mutate tab selectbox
+    mut_parent_id = ""
+    try:
+        from organism.elites import list_elites
+        from organism.mutation import resolve_parent_genome as rpg2
+
+        _, aid2 = rpg2(experiment_config())
+        pcs: list[str] = [""]  # index 0 = active
+        for e in list_elites(artifacts):
+            gid = str(e.get("genome_id") or "")
+            if gid:
+                pcs.append(gid)
+        store_lp = open_store(db)
+        try:
+            for r in list_genomes(store_lp, limit=40):
+                gid = str(r.get("id") or "")
+                if gid and gid not in pcs and gid != aid2:
+                    pcs.append(gid)
+        finally:
+            store_lp.close()
+        idx = int(ss.get("mut_parent", 0) or 0)
+        if 0 <= idx < len(pcs):
+            mut_parent_id = pcs[idx]
+    except Exception:
+        mut_parent_id = ""
     evo_dry = bool(ss.get("evo_dry", True))
     evo_c = int(ss.get("evo_c", 5))
     evo_m = int(ss.get("evo_m", 5))
@@ -563,10 +692,16 @@ def page_run(artifacts: Path, db: Path) -> None:
         {
             "tab": "Mutate",
             "mode": "dry-run" if mut_dry else "LIVE",
-            "parameters": f"ablation={mut_abl}, critic={mut_crit}",
+            "parameters": (
+                f"ablation={mut_abl}, critic={mut_crit}, "
+                f"parent={mut_parent_id or 'active'}"
+            ),
             "argv_preview": " ".join(
                 jobmod.build_mutate_argv(
-                    dry_run=mut_dry, ablation=mut_abl, critic=mut_crit
+                    dry_run=mut_dry,
+                    ablation=mut_abl,
+                    critic=mut_crit,
+                    parent_id=mut_parent_id,
                 )[3:]  # drop python -m organism.cli
             ),
         },
@@ -617,7 +752,10 @@ def page_run(artifacts: Path, db: Path) -> None:
             full = " ".join(
                 {
                     "Mutate": jobmod.build_mutate_argv(
-                        dry_run=mut_dry, ablation=mut_abl, critic=mut_crit
+                        dry_run=mut_dry,
+                        ablation=mut_abl,
+                        critic=mut_crit,
+                        parent_id=mut_parent_id,
                     ),
                     "Evolve": jobmod.build_evolve_argv(
                         dry_run=evo_dry, cycles=evo_c, max_mutations=evo_m
@@ -1310,7 +1448,7 @@ def main() -> None:
     elif page == "Run":
         page_run(artifacts, db)
     elif page == "Genomes":
-        page_genomes(db)
+        page_genomes(artifacts, db)
     elif page == "Lineage":
         page_lineage(db)
     elif page == "Mutations":

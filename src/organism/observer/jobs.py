@@ -84,7 +84,13 @@ def _seo_argv(extra: list[str]) -> list[str]:
     return [sys.executable, "-m", "organism.cli", *extra]
 
 
-def build_mutate_argv(*, dry_run: bool, ablation: str = "Bc", critic: bool = True) -> list[str]:
+def build_mutate_argv(
+    *,
+    dry_run: bool,
+    ablation: str = "Bc",
+    critic: bool = True,
+    parent_id: str = "",
+) -> list[str]:
     args = ["mutate", "--ablation", ablation]
     if dry_run:
         args.append("--dry-run")
@@ -92,6 +98,8 @@ def build_mutate_argv(*, dry_run: bool, ablation: str = "Bc", critic: bool = Tru
         args.append("--critic")
     else:
         args.append("--no-critic")
+    if parent_id:
+        args.extend(["--parent-id", str(parent_id)])
     return _seo_argv(args)
 
 

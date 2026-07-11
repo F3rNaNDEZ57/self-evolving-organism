@@ -66,6 +66,7 @@ cssclasses:
 
 ### Lab notebooks (empty until experiments)
 
+- [[Phase 5 Population]] — elite archive + mutate parent picker
 - [[Runs/README|Runs/]] — experiment write-ups
 - [[Mutations/README|Mutations/]] — patch post-mortems
 - [[Lineage/README|Lineage/]] — lineage narratives
@@ -89,16 +90,16 @@ cssclasses:
 
 | Field | Value |
 |-------|-------|
-| Stage | **Phase 4 complete** · observer + run-from-UI on `master` |
-| Code | soft critic · sequential Bcw · Streamlit · `artifacts/jobs/` |
+| Stage | **Phase 5 scaffold** · elite archive + parent picker |
+| Code | soft critic · Streamlit · jobs · elites · Watch |
 | Science | **Bcw − B0 = +4.44** · thr 0.30 · success=True |
-| UI | [[Phase 4 Observer UI]] · **Watch** live grid video · Launch plan · live logs |
+| UI | [[Phase 4 Observer UI]] · [[Phase 5 Population]] · Watch · Run parent picker |
 | Critic | hard schema · soft_pass other@conf&lt;0.6 · mutation memory |
 | Weights | BC bootstrap · keep-best · Bw holdout ~8.45 |
 | Runs | [[Runs/2026-07-11-soft-critic-delta-success]] · [[Runs/2026-07-11-live-ablation-weight-fix]] |
 | Git remote | https://github.com/F3rNaNDEZ57/self-evolving-organism |
 | Secrets | `.env` only (gitignored) |
-| Next | Phase 5 population · optional Bw gap · multi-agent on one map |
+| Next | Auto selection policy · multi-organism budgets · optional Bw gap |
 
 ---
 

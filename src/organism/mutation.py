@@ -882,9 +882,24 @@ def run_mutation_cycle(
     )
 
 
-def resolve_parent_genome(exp: dict[str, Any]) -> tuple[Path, str]:
-    """Return (path, genome_id) for current active or seed genome."""
+def resolve_parent_genome(
+    exp: dict[str, Any],
+    parent_id: str = "",
+    store: Any = None,
+) -> tuple[Path, str]:
+    """
+    Return (path, genome_id) for mutation parent.
+
+    Order when parent_id set: elite registry → SQLite artifact_path → genomes/{id}.
+    Default: active_genome.json → genomes/active → seed.
+    """
     artifacts = resolve_path(exp.get("paths", {}).get("artifacts_dir", "artifacts"))
+    pid = (parent_id or "").strip()
+    if pid:
+        from organism.elites import resolve_genome_dir
+
+        return resolve_genome_dir(artifacts, pid, store=store)
+
     active_json = artifacts / "active_genome.json"
     if active_json.exists():
         data = json.loads(active_json.read_text(encoding="utf-8"))
