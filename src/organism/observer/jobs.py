@@ -301,7 +301,13 @@ def start_job(
             stderr=subprocess.STDOUT,
             stdin=subprocess.DEVNULL,
             creationflags=creationflags,
-            env={**os.environ, "PYTHONUNBUFFERED": "1"},
+            env={
+                **os.environ,
+                "PYTHONUNBUFFERED": "1",
+                # Windows default cp1252 breaks Rich + ε/δ/— in mutation reasons
+                "PYTHONUTF8": "1",
+                "PYTHONIOENCODING": "utf-8",
+            },
         )
     except Exception as e:
         log_f.write(f"\n# failed to start: {e}\n")

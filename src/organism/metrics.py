@@ -177,7 +177,7 @@ def run_critic_ab(
         static_rejects=static_rejects,
         evals_saved=critic_rejects,
         critic_reject_rate=(critic_rejects / n) if n else 0.0,
-        notes="dry_run critic A/B — live NIM critic may differ",
+        notes="dry_run critic A/B - live NIM critic may differ",
         taxonomy=taxonomy,
         created_at=time.time(),
     )

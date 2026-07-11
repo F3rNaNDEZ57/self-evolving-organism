@@ -76,7 +76,7 @@ def format_lessons_for_prompt(lessons: list[dict[str, Any]]) -> str:
     ]
     for i, L in enumerate(lessons, 1):
         lines.append(
-            f"{i}. [{L.get('decision')}] critic={L.get('critic_code') or '—'} "
+            f"{i}. [{L.get('decision')}] critic={L.get('critic_code') or '-'} "
             f"| {(L.get('reason') or '')[:120]}"
         )
         if L.get("rationale"):

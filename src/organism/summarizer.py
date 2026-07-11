@@ -39,7 +39,7 @@ def distill_episodes_offline(episode_summaries: list[dict[str, Any]]) -> dict[st
         f"energy_deaths={energy_deaths}/{len(deaths)}",
     ]
     if mean_food < 1:
-        bullets.append("rarely collecting food — strengthen forage / chase")
+        bullets.append("rarely collecting food - strengthen forage / chase")
     failure_modes = []
     if energy_deaths:
         failure_modes.append("energy")

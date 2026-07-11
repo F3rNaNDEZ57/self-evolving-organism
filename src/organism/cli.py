@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import shutil
+import sys
 from pathlib import Path
 from typing import Optional
 
@@ -26,8 +27,30 @@ from organism.sandbox import (
 from organism.weights import WeightConfig
 from organism.world import WorldConfig
 
+
+def _configure_stdio_utf8() -> None:
+    """Avoid UnicodeEncodeError on Windows cp1252 when jobs redirect logs."""
+    for stream in (sys.stdout, sys.stderr):
+        reconf = getattr(stream, "reconfigure", None)
+        if callable(reconf):
+            try:
+                reconf(encoding="utf-8", errors="replace")
+            except Exception:
+                pass
+
+
+def _make_console() -> Console:
+    # legacy_windows uses Win32 charmap (cp1252) and crashes on ε/δ/— in redirected jobs
+    _configure_stdio_utf8()
+    return Console(
+        force_terminal=sys.stdout.isatty() if hasattr(sys.stdout, "isatty") else False,
+        legacy_windows=False,
+        soft_wrap=True,
+    )
+
+
 app = typer.Typer(add_completion=False, no_args_is_help=True, help="self-evolving-organism Phase 2 CLI")
-console = Console()
+console = _make_console()
 
 
 def _load_cfgs():
@@ -146,7 +169,7 @@ def eval_cmd(
     mode = "docker" if docker or (sb.episode_isolation and not host) else "host"
     console.print(
         f"[cyan]Evaluating[/cyan] ablation={ablation} seeds={seeds} "
-        f"train_weights={train} weights={wpath or '—'} isolation={mode}"
+        f"train_weights={train} weights={wpath or '-'} isolation={mode}"
     )
     result = evaluate_genome(
         genome,
@@ -222,7 +245,7 @@ def pins() -> None:
     console.print(table)
     try:
         r = FreeNimRouter(cfg)
-        rt = Table(title="Router roles → free models")
+        rt = Table(title="Router roles -> free models")
         rt.add_column("role")
         rt.add_column("model")
         for role, model in r.pins().items():
@@ -241,7 +264,7 @@ def docker_build(
     if not docker_available():
         console.print("[red]Docker not available[/red]")
         raise typer.Exit(1)
-    console.print(f"[cyan]Building[/cyan] {image} from Dockerfile.sandbox …")
+    console.print(f"[cyan]Building[/cyan] {image} from Dockerfile.sandbox ...")
     result = build_sandbox_image(image=image)
     if result["ok"]:
         console.print(f"[green]OK[/green] image={image}")
@@ -324,14 +347,14 @@ def mutate_propose(
             "ticks": ep.ticks_survived,
             "death": ep.death_reason,
         })
-    console.print("[cyan]Requesting mutation proposal from NIM…[/cyan]")
+    console.print("[cyan]Requesting mutation proposal from NIM...[/cyan]")
     out = propose_policy_patch(genome, summaries)
     out_path = resolve_path("artifacts") / "last_mutation_proposal.json"
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(json.dumps(out, indent=2), encoding="utf-8")
     console.print(f"[green]Wrote[/green] {out_path}")
     console.print(f"files parsed: {list((out.get('files') or {}).keys())}")
-    console.print(out["proposal"][:1500] + ("…" if len(out["proposal"]) > 1500 else ""))
+    console.print(out["proposal"][:1500] + ("..." if len(out["proposal"]) > 1500 else ""))
 
 
 weights_app = typer.Typer(help="Weight checkpoint management")
@@ -392,7 +415,7 @@ def weights_train(
     table.add_column("field")
     table.add_column("value")
     table.add_row("path", meta.path)
-    table.add_row("sha256", meta.sha256[:16] + "…")
+    table.add_row("sha256", meta.sha256[:16] + "...")
     table.add_row("feature_dim", str(meta.feature_dim))
     table.add_row("episodes_trained", str(meta.episodes_trained))
     table.add_row(
@@ -424,13 +447,13 @@ def weights_list(
         table.add_row(
             m.checkpoint_id,
             m.genome_id,
-            "—" if m.train_fitness is None else f"{m.train_fitness:.3f}",
+            "-" if m.train_fitness is None else f"{m.train_fitness:.3f}",
             str(m.episodes_trained),
             m.label[:24],
         )
     console.print(table)
     if not metas:
-        console.print("[dim]No checkpoints yet — run: seo weights train[/dim]")
+        console.print("[dim]No checkpoints yet - run: seo weights train[/dim]")
     try:
         store = Store(db)
         rows = store.list_weight_checkpoints(limit=limit)
@@ -484,7 +507,7 @@ def evolve(
     ok, why = mutations_allowed(artifacts)
     if not ok:
         console.print(f"[red]Blocked by operator control:[/red] {why}")
-        console.print("[dim]Clear via seo ui → Control, or delete artifacts/control.json[/dim]")
+        console.print("[dim]Clear via seo ui -> Control, or delete artifacts/control.json[/dim]")
         raise typer.Exit(3)
     use_dry = True if dry_run or not live else False
     cfg = EvolveConfig.from_exp(exp, dry_run=use_dry, ablation=ablation)
@@ -529,7 +552,7 @@ def evolve(
         table.add_row("fitness_best", f"{max(report.fitness_history):.4f}")
     table.add_row("triggers", ", ".join(
         e["kind"] for e in report.events if e["kind"].startswith("mutate_")
-    ) or "—")
+    ) or "-")
     console.print(table)
     console.print("[dim]Report: artifacts/last_evolve_report.json[/dim]")
 
@@ -607,8 +630,8 @@ def ablate(
     ok = report.success
     color = "green" if ok else "yellow"
     console.print(
-        f"[{color}]holdout Bcw − B0 = {delta:.4f}[/{color}]  "
-        f"(δ success threshold = {thr:.4f})  "
+        f"[{color}]holdout Bcw - B0 = {delta:.4f}[/{color}]  "
+        f"(delta success threshold = {thr:.4f})  "
         f"success={ok}"
     )
     for k, v in report.comparisons.items():
@@ -649,7 +672,7 @@ def mutate(
     ok, why = mutations_allowed(artifacts)
     if not ok:
         console.print(f"[red]Blocked by operator control:[/red] {why}")
-        console.print("[dim]Clear via seo ui → Control, or delete artifacts/control.json[/dim]")
+        console.print("[dim]Clear via seo ui -> Control, or delete artifacts/control.json[/dim]")
         raise typer.Exit(3)
     seeds = list(exp.get("eval", {}).get("train_seeds", list(range(8))))
     critic_cfg = dict(exp.get("critic") or {})
@@ -700,7 +723,7 @@ def mutate(
         "n/a" if result.candidate_fitness is None else f"{result.candidate_fitness:.4f}",
     )
     table.add_row("epsilon", f"{result.epsilon:.4f}")
-    table.add_row("files", ", ".join(result.files_changed) or "—")
+    table.add_row("files", ", ".join(result.files_changed) or "-")
     table.add_row("model", result.model)
     table.add_row(
         "critic",
@@ -713,7 +736,7 @@ def mutate(
                 else ""
             )
         )
-        or "—",
+        or "-",
     )
     table.add_row("candidate_id", result.candidate_genome_id)
     table.add_row("candidate_path", result.candidate_path)
@@ -760,7 +783,7 @@ def metrics_cmd(
     table.add_row("tokens_total", str(m.tokens_total))
     table.add_row(
         "tokens_per_accepted_gain",
-        "—" if m.tokens_per_accepted_gain is None else f"{m.tokens_per_accepted_gain:.1f}",
+        "-" if m.tokens_per_accepted_gain is None else f"{m.tokens_per_accepted_gain:.1f}",
     )
     table.add_row("by_role_tokens", json.dumps(m.by_role_tokens))
     table.add_row("by_critic_code", json.dumps(m.by_critic_code))
@@ -870,7 +893,7 @@ def ui_cmd(
         import streamlit  # noqa: F401
     except ImportError:
         console.print(
-            "[red]streamlit not installed[/red] — run: pip install -e \".[ui]\""
+            '[red]streamlit not installed[/red] - run: pip install -e ".[ui]"'
         )
         raise typer.Exit(2)
 
@@ -886,7 +909,7 @@ def ui_cmd(
         "--server.headless",
         "true" if not browser else "false",
     ]
-    console.print(f"[cyan]Observer UI[/cyan] {app_path} · http://localhost:{port}")
+    console.print(f"[cyan]Observer UI[/cyan] {app_path} | http://localhost:{port}")
     raise SystemExit(subprocess.call(cmd))
 
 

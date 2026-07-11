@@ -43,7 +43,7 @@ REJECT_TAXONOMY = {
     "overly_large": "Patch too large or sprawling",
     "nonsense": "Incoherent or invalid code",
     "fail_open": "NIM critic unavailable; static-only pass (fail_open)",
-    "soft_pass": "Soft reject overridden — low-confidence non-hard code; allow eval",
+    "soft_pass": "Soft reject overridden - low-confidence non-hard code; allow eval",
     "other": "Rejected for other review reasons",
 }
 

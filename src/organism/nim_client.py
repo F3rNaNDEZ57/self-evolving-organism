@@ -35,7 +35,7 @@ class NimClient:
         self.cfg = cfg or nim_config()
         key = self.cfg.get("api_key") or ""
         if not key:
-            raise RuntimeError("NVIDIA_API_KEY missing — set in .env")
+            raise RuntimeError("NVIDIA_API_KEY missing - set in .env")
         self.client = OpenAI(base_url=self.cfg["base_url"], api_key=key)
         self.max_rpm = int(self.cfg.get("max_rpm", 40))
         self._last_call = 0.0

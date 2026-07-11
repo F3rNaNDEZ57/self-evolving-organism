@@ -768,7 +768,7 @@ def run_mutation_cycle(
     if cand_eval.fitness >= threshold:
         decision = "accepted"
         reason = (
-            f"fitness {cand_eval.fitness:.4f} >= parent {parent_eval.fitness:.4f} + ε {epsilon}"
+            f"fitness {cand_eval.fitness:.4f} >= parent {parent_eval.fitness:.4f} + eps {epsilon}"
         )
         store.set_genome_status(parent_genome_id, "archived")
         store.set_genome_status(cand_id, "active")
@@ -795,7 +795,7 @@ def run_mutation_cycle(
     else:
         decision = "rejected"
         reason = (
-            f"fitness {cand_eval.fitness:.4f} < parent {parent_eval.fitness:.4f} + ε {epsilon}"
+            f"fitness {cand_eval.fitness:.4f} < parent {parent_eval.fitness:.4f} + eps {epsilon}"
         )
         store.set_genome_status(cand_id, "rejected")
 
