@@ -89,15 +89,15 @@ cssclasses:
 
 | Field | Value |
 |-------|-------|
-| Stage | **Phase 2: mutate · ablate · weight checkpoints** |
-| Code | `seo eval` · `seo mutate` · `seo ablate` · **`seo weights`** |
-| Checkpoints | `artifacts/weights/*.npz` + sidecar JSON · list/show/latest/best |
-| GitNexus | Indexed · [[GitNexus]] |
+| Stage | **Phase 2: mutate · ablate · weights · evolve loop** |
+| Code | `seo eval` · `seo mutate` · `seo ablate` · `seo weights` · **`seo evolve`** |
+| Evolve | Schedule + plateau triggers · `artifacts/last_evolve_report.json` |
+| Checkpoints | `artifacts/weights/*.npz` + sidecar JSON |
+| GitNexus | Re-indexed (1132 nodes / 97 flows) · [[GitNexus]] |
 | Git remote | `origin` → https://github.com/F3rNaNDEZ57/self-evolving-organism.git |
-| History | **55** granular commits on `master` (pushed to origin) |
-| Secrets | `.env` only (gitignored) — never committed |
+| Secrets | `.env` only (gitignored) |
 | Containment | AST jail + Docker smoke **PASS** |
-| Next | Live ablations · plateau auto-mutate · optional Docker episode eval |
+| Next | Docker episode isolation · live evolve/ablate runs · Phase 3 critic |
 
 ---
 
