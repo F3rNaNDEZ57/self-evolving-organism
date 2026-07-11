@@ -40,7 +40,12 @@ Respond with ONLY a JSON object (no markdown fences) of this shape:
     "memory_hooks.py": "full file source if changed, else omit key"
   }
 }
-Include at least one file. Provide COMPLETE file contents for each included key (not a diff).
+Rules for the response:
+- Include at least one file key under "files".
+- Provide COMPLETE file contents for each included key (not a diff).
+- Prefer changing ONLY ONE file (heuristics.py is best when possible).
+- Keep each file under ~120 lines so the JSON finishes completely.
+- Close all braces/quotes — truncated JSON is a failed mutation.
 """
 
 
@@ -73,46 +78,131 @@ def _uid(prefix: str = "m") -> str:
     return f"{prefix}_{uuid.uuid4().hex[:10]}"
 
 
+def _files_from_mapping(files: Any) -> dict[str, str]:
+    out: dict[str, str] = {}
+    if not isinstance(files, dict):
+        return out
+    for k, v in files.items():
+        name = Path(str(k)).name
+        if name in WHITELIST and isinstance(v, str) and v.strip():
+            # Models sometimes double-escape newlines
+            src = v.replace("\r\n", "\n")
+            if "\\n" in src and "\n" not in src.strip()[:80]:
+                try:
+                    src = src.encode("utf-8").decode("unicode_escape")
+                except Exception:
+                    src = src.replace("\\n", "\n").replace("\\t", "\t")
+            out[name] = src
+    return out
+
+
+def _decode_json_string_body(raw: str) -> str:
+    """Decode a JSON string body (may be truncated)."""
+    try:
+        return json.loads(f'"{raw}"')
+    except Exception:
+        try:
+            return raw.encode("utf-8").decode("unicode_escape")
+        except Exception:
+            return raw.replace("\\n", "\n").replace("\\t", "\t").replace('\\"', '"')
+
+
+def _extract_files_from_truncated_json(text: str) -> dict[str, str]:
+    """
+    Recover whitelist file bodies when the model truncates mid-JSON.
+    Looks for "policy.py": "...." patterns with JSON escapes.
+    """
+    out: dict[str, str] = {}
+    for base in ("policy", "heuristics", "memory_hooks"):
+        name = f"{base}.py"
+        m = re.search(rf'"{re.escape(name)}"\s*:\s*"', text)
+        if not m:
+            # also allow unquoted-ish markdown leftovers
+            m2 = re.search(
+                rf'"{re.escape(base)}\.py"\s*:\s*"""([\s\S]*?)"""',
+                text,
+            )
+            if m2 and m2.group(1).strip():
+                out[name] = m2.group(1).strip() + "\n"
+            continue
+        i = m.end()
+        chars: list[str] = []
+        while i < len(text):
+            c = text[i]
+            if c == "\\" and i + 1 < len(text):
+                chars.append(text[i : i + 2])
+                i += 2
+                continue
+            if c == '"':
+                break
+            chars.append(c)
+            i += 1
+        raw = "".join(chars)
+        if not raw.strip():
+            continue
+        body = _decode_json_string_body(raw)
+        # Accept only if it looks like Python source for our genome
+        if len(body.strip()) < 20:
+            continue
+        if name == "policy.py" and "class Policy" not in body and "def act" not in body:
+            # truncated too early — still keep if has imports (retry will fix)
+            if "import" not in body and "def " not in body:
+                continue
+        out[name] = body if body.endswith("\n") else body + "\n"
+    return out
+
+
 def extract_files_from_proposal(text: str) -> dict[str, str]:
     """Parse LLM proposal into {filename: source}."""
-    text = text.strip()
-    # Strip markdown fences wrapping whole JSON
+    text = (text or "").strip()
+    if not text:
+        return {}
+    # Strip markdown fences wrapping whole JSON only (not per-file code fences)
     fence = re.match(r"^```(?:json)?\s*([\s\S]*?)```\s*$", text)
     if fence:
         text = fence.group(1).strip()
+    elif text.lstrip().startswith("```json"):
+        # unclosed ```json ... — drop the opener only
+        text = re.sub(r"^```json\s*", "", text.lstrip())
 
-    # Prefer JSON
+    # Prefer full JSON
     try:
         data = json.loads(text)
-        files = data.get("files") or {}
-        out = {}
-        for k, v in files.items():
-            name = Path(str(k)).name
-            if name in WHITELIST and isinstance(v, str) and v.strip():
-                out[name] = v
+        out = _files_from_mapping(data.get("files") if isinstance(data, dict) else {})
         if out:
             return out
     except json.JSONDecodeError:
         pass
 
-    # Find JSON object substring
-    start, end = text.find("{"), text.rfind("}")
-    if start != -1 and end > start:
+    # JSON object substring / raw_decode from first brace
+    start = text.find("{")
+    if start != -1:
         try:
-            data = json.loads(text[start : end + 1])
-            files = data.get("files") or {}
-            out = {}
-            for k, v in files.items():
-                name = Path(str(k)).name
-                if name in WHITELIST and isinstance(v, str) and v.strip():
-                    out[name] = v
+            data, _ = json.JSONDecoder().raw_decode(text[start:])
+            out = _files_from_mapping(data.get("files") if isinstance(data, dict) else {})
             if out:
                 return out
         except json.JSONDecodeError:
             pass
+        end = text.rfind("}")
+        if end > start:
+            try:
+                data = json.loads(text[start : end + 1])
+                out = _files_from_mapping(
+                    data.get("files") if isinstance(data, dict) else {}
+                )
+                if out:
+                    return out
+            except json.JSONDecodeError:
+                pass
+
+    # Truncated JSON recovery (common free-NIM failure mode)
+    recovered = _extract_files_from_truncated_json(text)
+    if recovered:
+        return recovered
 
     # Markdown: ### file.py or **file.py** then ```python
-    out = {}
+    out: dict[str, str] = {}
     pattern = re.compile(
         r"(?:^|\n)(?:#{1,3}\s*|[*]{0,2})(policy|heuristics|memory_hooks)\.py(?:[*]{0,2})?\s*\n```(?:python)?\n([\s\S]*?)```",
         re.IGNORECASE,
@@ -120,6 +210,18 @@ def extract_files_from_proposal(text: str) -> dict[str, str]:
     for m in pattern.finditer(text):
         name = f"{m.group(1).lower()}.py"
         if name in WHITELIST:
+            out[name] = m.group(2).strip() + "\n"
+    if out:
+        return out
+
+    # Bare fenced blocks labeled in preceding line
+    pattern2 = re.compile(
+        r"(policy|heuristics|memory_hooks)\.py[\s\S]{0,40}```(?:python)?\n([\s\S]*?)```",
+        re.IGNORECASE,
+    )
+    for m in pattern2.finditer(text):
+        name = f"{m.group(1).lower()}.py"
+        if name in WHITELIST and m.group(2).strip():
             out[name] = m.group(2).strip() + "\n"
     return out
 
@@ -192,56 +294,57 @@ def propose_policy_patch(
         f"{fit_line}"
         f"{distill_line}"
         f"{lessons_line}"
-        "Improve survival and food collection. Return JSON with full file sources for changed modules only.\n"
+        "Improve survival and food collection. Return ONLY complete JSON "
+        "(rationale + files) with full sources for changed modules only.\n"
+        "Prefer a single small change to heuristics.py if possible.\n"
         "Keep Policy interface; only use real Observation fields (tick not ticks).\n"
         f"Recent episode summaries: {json.dumps(episode_summaries[:8])}\n\n"
         + "\n\n".join(sources)
     )
+    coder_max_tokens = 8192
     chat_usage: dict[str, Any] | None = None
-    if router is not None:
-        rtr: FreeNimRouter = router
-        chat = rtr.chat(
-            "code",
-            [
-                {"role": "system", "content": MUTATION_SYSTEM},
-                {"role": "user", "content": user},
-            ],
-            max_tokens=4096,
-            temperature=0.2,
-            fallback_role="coder_fallback",
-        )
-        text = chat.content
-        model = chat.model
-        chat_usage = chat.to_dict()
-    else:
+    text = ""
+    model = ""
+
+    def _one_chat(messages: list[dict[str, str]], *, role: str, max_tokens: int) -> Any:
+        if router is not None:
+            rtr: FreeNimRouter = router
+            return rtr.chat(
+                "code",
+                messages,
+                max_tokens=max_tokens,
+                temperature=0.2,
+                fallback_role="coder_fallback",
+            )
+        nonlocal model
         model = client.cfg["models"]["coder_primary"]
         try:
-            chat = client.chat(
-                [
-                    {"role": "system", "content": MUTATION_SYSTEM},
-                    {"role": "user", "content": user},
-                ],
+            return client.chat(
+                messages,
                 model=model,
-                max_tokens=4096,
+                max_tokens=max_tokens,
                 temperature=0.2,
-                role="coder",
+                role=role,
             )
-            text = chat.content
-            chat_usage = chat.to_dict()
         except Exception:
             model = client.cfg["models"].get("coder_fallback", model)
-            chat = client.chat(
-                [
-                    {"role": "system", "content": MUTATION_SYSTEM},
-                    {"role": "user", "content": user},
-                ],
+            return client.chat(
+                messages,
                 model=model,
-                max_tokens=4096,
+                max_tokens=max_tokens,
                 temperature=0.2,
                 role="coder_fallback",
             )
-            text = chat.content
-            chat_usage = chat.to_dict()
+
+    messages = [
+        {"role": "system", "content": MUTATION_SYSTEM},
+        {"role": "user", "content": user},
+    ]
+    chat = _one_chat(messages, role="coder", max_tokens=coder_max_tokens)
+    text = chat.content or ""
+    model = getattr(chat, "model", None) or model or ""
+    chat_usage = chat.to_dict() if hasattr(chat, "to_dict") else None
+
     if store is not None and chat_usage is not None:
         store.insert_llm_call(
             model=str(chat_usage.get("model", model)),
@@ -254,6 +357,51 @@ def propose_policy_patch(
             meta={"stage": "propose"},
         )
     files = extract_files_from_proposal(text)
+
+    # Retry once if parse failed (truncated / invalid JSON is common on free NIM)
+    if not files:
+        retry_user = (
+            "Your previous reply could not be parsed (invalid or truncated JSON).\n"
+            "Return ONLY a complete JSON object with rationale and files.\n"
+            "Change ONLY heuristics.py (full file source, under 100 lines).\n"
+            "Do not use markdown fences. Close all braces and quotes.\n\n"
+            f"Parent fitness: {parent_fitness}\n"
+            f"Episode summaries: {json.dumps(episode_summaries[:4])}\n\n"
+        )
+        heur_path = genome_dir / "heuristics.py"
+        if heur_path.exists():
+            retry_user += (
+                "### heuristics.py\n```python\n"
+                f"{heur_path.read_text(encoding='utf-8')[:4000]}\n```\n"
+            )
+        retry_messages = [
+            {"role": "system", "content": MUTATION_SYSTEM},
+            {"role": "user", "content": retry_user},
+        ]
+        try:
+            chat2 = _one_chat(retry_messages, role="coder", max_tokens=coder_max_tokens)
+            text2 = chat2.content or ""
+            model = getattr(chat2, "model", None) or model
+            usage2 = chat2.to_dict() if hasattr(chat2, "to_dict") else None
+            if store is not None and usage2 is not None:
+                store.insert_llm_call(
+                    model=str(usage2.get("model", model)),
+                    role=str(usage2.get("role") or "coder"),
+                    mutation_id=mutation_id,
+                    tokens_in=usage2.get("tokens_in"),
+                    tokens_out=usage2.get("tokens_out"),
+                    estimated_usd=float(usage2.get("estimated_usd") or 0.0),
+                    latency_ms=float(usage2.get("latency_ms") or 0.0),
+                    meta={"stage": "propose_retry"},
+                )
+            files2 = extract_files_from_proposal(text2)
+            if files2:
+                text = text2
+                files = files2
+                chat_usage = usage2
+        except Exception:
+            pass
+
     return {
         "model": model,
         "proposal": text,
@@ -501,7 +649,11 @@ def run_mutation_cycle(
     critic_verdict: CriticVerdict | None = None
 
     if not files:
-        reason = "apply/validate failed: could not parse any whitelist files from model proposal"
+        raw_preview = str(proposal.get("proposal", ""))[:200].replace("\n", " ")
+        reason = (
+            "apply/validate failed: could not parse any whitelist files from model proposal "
+            f"(often truncated JSON; retry ran once). preview={raw_preview!r}"
+        )
         store.insert_mutation(
             mut_id,
             parent_genome_id,

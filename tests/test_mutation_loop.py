@@ -27,6 +27,45 @@ def test_extract_json_files():
     assert "x = 1" in files["heuristics.py"]
 
 
+def test_extract_truncated_json_policy():
+    # Mimic free-NIM cut-off mid file string (real production failure mode)
+    text = (
+        '{\n  "rationale": "tweak forage",\n  "files": {\n'
+        '    "policy.py": "from __future__ import annotations\\n\\n'
+        "import random\\n\\nimport numpy as np\\n"
+        "from heuristics import nearest_food_direction, should_forage\\n"
+        "from organism.schemas import Action, Observation\\n\\n"
+        "class Policy:\\n"
+        "    def reset(self, seed: int) -> None:\\n"
+        "        self.rng = random.Random(seed)\\n"
+        "    def act(self, observation: Observation):\\n"
+        "        return Action.REST\\n"
+        "    def on_step_result(self, result) -> None:\\n"
+        "        return\\n"
+        # no closing quotes / braces — truncated
+    )
+    files = extract_files_from_proposal(text)
+    assert "policy.py" in files
+    assert "class Policy" in files["policy.py"]
+    assert "def act" in files["policy.py"]
+
+
+def test_extract_markdown_fenced():
+    fence = chr(96) * 3  # ```
+    text = (
+        "\n### policy.py\n"
+        f"{fence}python\n"
+        "class Policy:\n"
+        "    def reset(self, seed): pass\n"
+        "    def act(self, o): return 0\n"
+        "    def on_step_result(self, r): pass\n"
+        f"{fence}\n"
+    )
+    files = extract_files_from_proposal(text)
+    assert "policy.py" in files
+    assert "class Policy" in files["policy.py"]
+
+
 def test_validate_forbids_os():
     bad = "import os\nclass Policy:\n    pass\n"
     errs = validate_source("policy.py", bad)
