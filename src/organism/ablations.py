@@ -174,6 +174,13 @@ def run_code_mutations(
     accepted = 0
     for i in range(max_mutations):
         attempted += 1
+        from organism.sandbox import SandboxConfig
+
+        sb = SandboxConfig(
+            mode="host" if dry_run else "docker",
+            episode_isolation=not dry_run,
+            require_docker=not dry_run,
+        )
         result = run_mutation_cycle(
             parent_dir=parent_dir,
             artifacts_dir=artifacts_dir,
@@ -186,6 +193,8 @@ def run_code_mutations(
             parent_genome_id=parent_id,
             client=client,
             dry_run=dry_run,
+            sandbox_cfg=sb,
+            force_host_eval=dry_run,
         )
         if result.decision == "accepted":
             accepted += 1

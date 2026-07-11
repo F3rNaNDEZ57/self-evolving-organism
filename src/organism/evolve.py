@@ -209,6 +209,9 @@ def run_evolve(
             continue
 
         mut_attempted += 1
+        from organism.sandbox import SandboxConfig
+
+        sb = SandboxConfig.from_exp(exp)
         mres = run_mutation_cycle(
             parent_dir=parent_dir,
             artifacts_dir=artifacts_dir,
@@ -221,6 +224,8 @@ def run_evolve(
             parent_genome_id=parent_id,
             client=client,
             dry_run=cfg.dry_run,
+            sandbox_cfg=sb,
+            force_host_eval=cfg.dry_run or sb.mode == "host" or not sb.episode_isolation,
         )
         episodes_since_mut = 0
 
