@@ -56,6 +56,10 @@ seo metrics
 seo critic-ab --n 6
 seo pins
 
+# Phase 4 observer UI (Streamlit — read-mostly operator dashboard)
+pip install -e ".[ui]"
+seo ui
+# → http://localhost:8501  genomes · lineage · mutations · timeline · pause/freeze
 
 # Full ablation suite + holdout δ (Bcw − B0)
 seo ablate --quick
