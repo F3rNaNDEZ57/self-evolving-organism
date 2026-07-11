@@ -208,8 +208,8 @@ Build a system of **self-evolving digital organisms** that:
 - [x] Mutation apply + accept/reject pipeline (`seo mutate`)
 - [x] Ablation runs B0 / Bw / Bc / Bcw + holdout δ report (`seo ablate`)
 - [x] Schedule + plateau auto-mutate (`seo evolve`)
-- [ ] How-to-run notes in vault `Runs/` (report JSON exists; human write-up optional)
-- [ ] Docker-isolated episode eval (optional hardening)
+- [x] Docker-isolated episode eval (`seo docker-build` / `docker-eval` / mutation candidates)
+- [ ] How-to-run notes in vault `Runs/` (optional)
 
 **Exit criteria**
 
