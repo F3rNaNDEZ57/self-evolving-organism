@@ -1,0 +1,39 @@
+# Verified against live GET /v1/models on 2026-07-11 (121 models returned).
+# Secrets live in repo-root .env — do not put API keys here.
+
+base_url: https://integrate.api.nvidia.com/v1
+free_only: true
+max_rpm: 40
+
+models:
+  coder_primary: deepseek-ai/deepseek-v4-flash
+  coder_fallback: nvidia/nemotron-3-nano-30b-a3b
+  critic: nvidia/nemotron-3-nano-30b-a3b
+  summarizer: meta/llama-3.1-8b-instruct
+
+# Also confirmed present on this account (aliases / alternates)
+alternates:
+  coder:
+    - z-ai/glm-5.2
+    - minimaxai/minimax-m2.7
+    - mistralai/mistral-nemotron
+    - deepseek-ai/deepseek-v4-pro
+  critic:
+    - openai/gpt-oss-20b
+    - meta/llama-3.1-8b-instruct
+  summarizer:
+    - google/gemma-2-2b-it
+    - meta/llama-3.2-3b-instruct
+
+verification:
+  date: "2026-07-11"
+  models_endpoint: GET https://integrate.api.nvidia.com/v1/models
+  models_count: 121
+  chat_smoke:
+    deepseek-ai/deepseek-v4-flash: ok
+    nvidia/nemotron-3-nano-30b-a3b: ok
+    meta/llama-3.1-8b-instruct: ok
+  docker_smoke:
+    image: python:3.12-slim
+    flags: "--network none --memory 512m --cpus 1"
+    result: "python_ok; network_blocked OSError; smoke_pass"
