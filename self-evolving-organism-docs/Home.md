@@ -93,7 +93,7 @@ cssclasses:
 | Code | `seo eval` · `seo mutate` · `seo ablate` · `seo weights` · **`seo evolve`** |
 | Evolve | Schedule + plateau triggers · `artifacts/last_evolve_report.json` |
 | Checkpoints | `artifacts/weights/*.npz` + sidecar JSON |
-| GitNexus | Re-indexed (1132 nodes / 97 flows) · [[GitNexus]] |
+| GitNexus | Re-indexed (**1247** nodes / **102** flows) · [[GitNexus]] |
 | Git remote | `origin` → https://github.com/F3rNaNDEZ57/self-evolving-organism.git |
 | Secrets | `.env` only (gitignored) |
 | Containment | AST jail + Docker smoke **PASS** |
