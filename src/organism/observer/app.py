@@ -539,8 +539,104 @@ def page_run(artifacts: Path, db: Path) -> None:
             except Exception as e:
                 st.error(str(e))
 
+    # --- Launch plan: live form values (not the selected past job) ---
+    st.markdown("---")
+    st.markdown("### Launch plan (current form)")
+    st.caption(
+        "These are the controls you set in the tabs above — what the next Start would run. "
+        "They are **not** the same as Job parameters below (that is history of a job that already ran)."
+    )
+
+    ss = st.session_state
+    mut_dry = bool(ss.get("mut_dry", True))
+    mut_abl = str(ss.get("mut_abl", "Bc"))
+    mut_crit = bool(ss.get("mut_crit", True))
+    evo_dry = bool(ss.get("evo_dry", True))
+    evo_c = int(ss.get("evo_c", 5))
+    evo_m = int(ss.get("evo_m", 5))
+    ab_q = bool(ss.get("ab_q", True))
+    ab_dry = bool(ss.get("ab_dry", True))
+    ab_m = int(ss.get("ab_m", 3))
+    w_p = int(ss.get("w_p", 2))
+
+    launch_rows = [
+        {
+            "tab": "Mutate",
+            "mode": "dry-run" if mut_dry else "LIVE",
+            "parameters": f"ablation={mut_abl}, critic={mut_crit}",
+            "argv_preview": " ".join(
+                jobmod.build_mutate_argv(
+                    dry_run=mut_dry, ablation=mut_abl, critic=mut_crit
+                )[3:]  # drop python -m organism.cli
+            ),
+        },
+        {
+            "tab": "Evolve",
+            "mode": "dry-run" if evo_dry else "LIVE",
+            "parameters": f"cycles={evo_c}, max_mutations={evo_m}",
+            "argv_preview": " ".join(
+                jobmod.build_evolve_argv(
+                    dry_run=evo_dry, cycles=evo_c, max_mutations=evo_m
+                )[3:]
+            ),
+        },
+        {
+            "tab": "Ablate",
+            "mode": (
+                "quick/dry"
+                if ab_q
+                else ("dry-run" if ab_dry else "LIVE")
+            ),
+            "parameters": f"quick={ab_q}, dry_run={ab_dry or ab_q}, max_mutations={ab_m}",
+            "argv_preview": " ".join(
+                jobmod.build_ablate_argv(
+                    dry_run=ab_dry or ab_q, max_mutations=ab_m, quick=ab_q
+                )[3:]
+            ),
+        },
+        {
+            "tab": "Weights",
+            "mode": "train",
+            "parameters": f"passes={w_p}",
+            "argv_preview": " ".join(
+                jobmod.build_weights_train_argv(passes=w_p)[3:]
+            ),
+        },
+        {
+            "tab": "Docker",
+            "mode": "smoke",
+            "parameters": "(no options)",
+            "argv_preview": " ".join(jobmod.build_docker_smoke_argv()[3:]),
+        },
+    ]
+    st.dataframe(launch_rows, use_container_width=True, hide_index=True)
+
+    with st.expander("Full command lines that Start would launch", expanded=False):
+        for row in launch_rows:
+            st.markdown(f"**{row['tab']}** ({row['mode']})")
+            full = " ".join(
+                {
+                    "Mutate": jobmod.build_mutate_argv(
+                        dry_run=mut_dry, ablation=mut_abl, critic=mut_crit
+                    ),
+                    "Evolve": jobmod.build_evolve_argv(
+                        dry_run=evo_dry, cycles=evo_c, max_mutations=evo_m
+                    ),
+                    "Ablate": jobmod.build_ablate_argv(
+                        dry_run=ab_dry or ab_q, max_mutations=ab_m, quick=ab_q
+                    ),
+                    "Weights": jobmod.build_weights_train_argv(passes=w_p),
+                    "Docker": jobmod.build_docker_smoke_argv(),
+                }[row["tab"]]
+            )
+            st.code(full, language="text")
+
     st.markdown("---")
     st.markdown("### Job status & log")
+    st.caption(
+        "History of jobs that were actually started. Pick one to inspect its "
+        "parameters, final result, and log — independent of the form above."
+    )
     jobs = jobmod.list_jobs(artifacts, limit=30)
     if not jobs:
         st.info("No jobs yet. Start one above.")
@@ -552,19 +648,25 @@ def page_run(artifacts: Path, db: Path) -> None:
             jobmod.refresh_job(artifacts, j)
     jobs = jobmod.list_jobs(artifacts, limit=30)
     labels = [f"{j.job_id} · {j.kind} · {j.status}" for j in jobs]
-    default_idx = 0
-    for i, j in enumerate(jobs):
-        if j.status in ("running", "queued"):
-            default_idx = i
-            break
-    pick = st.selectbox(
-        "Job",
-        range(len(labels)),
-        index=default_idx,
-        format_func=lambda i: labels[i],
-        key="job_pick",
+    # Keep selection stable via job_id (not list index, which shifts as jobs are added)
+    id_to_idx = {j.job_id: i for i, j in enumerate(jobs)}
+    running_id = next(
+        (j.job_id for j in jobs if j.status in ("running", "queued")), None
     )
-    rec0 = jobs[pick]
+    if "job_pick_id" not in ss or ss["job_pick_id"] not in id_to_idx:
+        ss["job_pick_id"] = running_id or jobs[0].job_id
+    # When a new job starts (busy), auto-focus it once
+    if running_id and ss.get("_job_autofocus") != running_id:
+        ss["job_pick_id"] = running_id
+        ss["_job_autofocus"] = running_id
+    pick_ids = [j.job_id for j in jobs]
+    pick_id = st.selectbox(
+        "Job",
+        pick_ids,
+        format_func=lambda jid: labels[id_to_idx[jid]],
+        key="job_pick_id",
+    )
+    rec0 = jobs[id_to_idx[pick_id]]
 
     live = st.toggle(
         "Live logs (auto-refresh while running)",
@@ -625,10 +727,17 @@ def page_run(artifacts: Path, db: Path) -> None:
                 st.metric("command", str(cli.get("command") or rec.kind))
             with p2:
                 dry = cli.get("dry_run")
-                st.metric(
-                    "mode",
-                    "dry-run" if dry is True else ("live" if dry is False else "—"),
-                )
+                if dry is True:
+                    mode_s = "dry-run"
+                elif dry is False:
+                    mode_s = "live"
+                elif rec.kind == "weights_train":
+                    mode_s = "train"
+                elif rec.kind == "docker_smoke":
+                    mode_s = "smoke"
+                else:
+                    mode_s = "n/a"
+                st.metric("mode", mode_s)
             with p3:
                 dur = detail.get("duration_s")
                 st.metric(
