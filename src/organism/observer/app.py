@@ -879,22 +879,27 @@ def page_run(artifacts: Path, db: Path) -> None:
 
 
 def page_watch(artifacts: Path, db: Path) -> None:
-    """See the organism on the grid — host episode replay (not the brain)."""
+    """See the organism on the grid — host episode live stream / video (not the brain)."""
+    import time as time_mod
+
     from organism.checkpoints import list_checkpoints, resolve_checkpoint_path
-    from organism.evaluator import FitnessConfig
+    from organism.evaluator import FitnessConfig, episode_score
     from organism.genome_loader import make_policy_factory
     from organism.replay import (
+        EpisodeReplay,
         frame_to_rgb,
+        iter_episode,
         record_episode,
         replay_to_gif,
         trail_up_to,
     )
+    from organism.schemas import EpisodeSummary
     from organism.world import WorldConfig
     from organism.weights import WeightConfig
 
     st.subheader("Watch")
     st.caption(
-        "Record a host episode and play it back on the 24x24 food grid. "
+        "Live video-style stream of the organism on the 24x24 food grid. "
         "Visualization only — same policy as eval, not the mutation brain."
     )
 
@@ -952,10 +957,18 @@ def page_watch(artifacts: Path, db: Path) -> None:
             ["Bc", "B0", "Bw", "Bcw"],
             key="watch_abl",
         )
-        seed = st.number_input("Episode seed", min_value=0, max_value=10_000, value=0, key="watch_seed")
+        seed = st.number_input(
+            "Episode seed", min_value=0, max_value=10_000, value=0, key="watch_seed"
+        )
     with c3:
         show_trail = st.checkbox("Show path trail", value=True, key="watch_trail")
         cell = st.slider("Cell size (px)", 8, 32, 18, key="watch_cell")
+        speed = st.select_slider(
+            "Video speed (ms / frame)",
+            options=[30, 50, 80, 120, 200, 350, 500],
+            value=80,
+            key="watch_speed",
+        )
         weight_ref = ""
         if ablation in ("Bw", "Bcw"):
             cps = list_checkpoints(artifacts)[:20]
@@ -965,25 +978,153 @@ def page_watch(artifacts: Path, db: Path) -> None:
                 key="watch_w",
             )
 
-    if st.button("Record episode", type="primary", key="watch_go"):
-        wpath = None
-        if ablation in ("Bw", "Bcw") and weight_ref and weight_ref != "(none)":
-            try:
-                wpath = resolve_checkpoint_path(artifacts, weight_ref)
-            except Exception as e:
-                st.error(f"weights: {e}")
-                wpath = None
+    st.markdown(
+        "**Legend:** dark=empty · green=food · yellow=agent · red=dead · blue-gray=trail"
+    )
+
+    def _resolve_weights():
+        if ablation not in ("Bw", "Bcw") or not weight_ref or weight_ref == "(none)":
+            return None
         try:
-            factory = make_policy_factory(
-                genome_path,
-                ablation=ablation,
-                weight_cfg=wcfg,
-                weight_path=wpath,
-                force_train=False,
+            return resolve_checkpoint_path(artifacts, weight_ref)
+        except Exception as e:
+            st.error(f"weights: {e}")
+            return None
+
+    def _make_policy():
+        return make_policy_factory(
+            genome_path,
+            ablation=ablation,
+            weight_cfg=wcfg,
+            weight_path=_resolve_weights(),
+            force_train=False,
+        )()
+
+    b_live, b_rec = st.columns(2)
+    live_clicked = b_live.button(
+        "Live stream (video)",
+        type="primary",
+        key="watch_live",
+        help="Run the episode now and paint each step like a video",
+    )
+    rec_clicked = b_rec.button(
+        "Record only (then scrub)",
+        key="watch_go",
+        help="Run fully first, then scrub frames / autoplay / GIF",
+    )
+
+    # --- Live stream: paint as the sim runs ---
+    if live_clicked:
+        st.session_state["watch_playing"] = False
+        stage = st.empty()
+        status = st.empty()
+        frames = []
+        trail: set[tuple[int, int]] = set()
+        death = "timeout"
+        err = ""
+        try:
+            policy = _make_policy()
+            status.info("Live streaming episode…")
+            delay = max(0.0, float(speed) / 1000.0)
+            for fr, done, death_s, err_s in iter_episode(
+                policy,
+                world,
+                seed=int(seed),
+                train_weights=False,
+                episode_timeout_s=float(fit.episode_timeout_s or 30),
+            ):
+                if done and fr.action is None and frames and death_s in (
+                    "timeout",
+                    "timeout_wall",
+                ):
+                    death = death_s
+                    err = err_s
+                    break
+                frames.append(fr)
+                if err_s:
+                    err = err_s
+                if death_s:
+                    death = death_s
+                trail.add((int(fr.x), int(fr.y)))
+                rgb = frame_to_rgb(
+                    fr, cell=int(cell), trail=trail if show_trail else None
+                )
+                with stage.container():
+                    left, right = st.columns([1.4, 1])
+                    with left:
+                        st.image(
+                            rgb,
+                            caption=f"LIVE tick={fr.tick}  {fr.action_name()}",
+                            use_container_width=False,
+                        )
+                    with right:
+                        st.metric("tick", fr.tick)
+                        st.metric("energy", f"{fr.energy:.1f} / {fr.energy_max:.0f}")
+                        st.progress(
+                            min(1.0, max(0.0, fr.energy / max(1e-6, fr.energy_max)))
+                        )
+                        st.metric("position", f"({fr.x}, {fr.y})")
+                        st.metric("action", fr.action_name())
+                        st.metric("food", fr.food_collected)
+                        st.metric("alive", "yes" if fr.alive else "no")
+                if done:
+                    break
+                time_mod.sleep(delay)
+
+            last = frames[-1] if frames else None
+            summary = EpisodeSummary(
+                seed=int(seed),
+                score=0.0,
+                food_collected=last.food_collected if last else 0,
+                ticks_survived=last.tick if last else 0,
+                final_energy=last.energy if last else 0.0,
+                invalid_actions=sum(1 for f in frames if f.invalid),
+                wall_bumps=sum(1 for f in frames if f.wall_bump),
+                death_reason=death if not err else "error",
             )
+            if not err:
+                summary.score = episode_score(summary, fit)
+            rep = EpisodeReplay(
+                frames=frames,
+                summary=summary,
+                seed=int(seed),
+                genome_id=genome_id,
+                ablation=ablation,
+                error=err,
+            )
+            st.session_state["watch_replay"] = rep
+            st.session_state["watch_frame_idx"] = max(0, len(frames) - 1)
+            st.session_state["watch_playing"] = False
+            # Build animated GIF for browser video loop
+            try:
+                gif_path = artifacts / "replays" / "_last_watch_live.gif"
+                gif_path.parent.mkdir(parents=True, exist_ok=True)
+                replay_to_gif(
+                    rep,
+                    gif_path,
+                    cell=max(8, int(cell) - 4),
+                    duration_ms=int(speed),
+                    show_trail=show_trail,
+                )
+                st.session_state["watch_gif_path"] = str(gif_path)
+            except Exception:
+                st.session_state.pop("watch_gif_path", None)
+            if err:
+                status.error(err)
+            else:
+                status.success(
+                    f"Live stream done · {len(frames)} frames · "
+                    f"food={summary.food_collected} · ticks={summary.ticks_survived} · "
+                    f"death={summary.death_reason} · score={summary.score:.3f}"
+                )
+        except Exception as e:
+            st.exception(e)
+
+    if rec_clicked:
+        try:
             with st.spinner("Recording episode on host…"):
                 rep = record_episode(
-                    factory(),
+                    _make_policy(),
                     world,
                     seed=int(seed),
                     train_weights=False,
@@ -994,7 +1135,7 @@ def page_watch(artifacts: Path, db: Path) -> None:
                 )
             st.session_state["watch_replay"] = rep
             st.session_state["watch_frame_idx"] = 0
-            st.session_state["watch_playing"] = False
+            st.session_state["watch_playing"] = True  # autoplay after record
             if rep.error:
                 st.error(rep.error)
             else:
@@ -1005,30 +1146,55 @@ def page_watch(artifacts: Path, db: Path) -> None:
                     f"death={rep.summary.death_reason} · "
                     f"score={rep.summary.score:.3f}"
                 )
+                try:
+                    gif_path = artifacts / "replays" / "_last_watch_live.gif"
+                    gif_path.parent.mkdir(parents=True, exist_ok=True)
+                    replay_to_gif(
+                        rep,
+                        gif_path,
+                        cell=max(8, int(cell) - 4),
+                        duration_ms=int(speed),
+                        show_trail=show_trail,
+                    )
+                    st.session_state["watch_gif_path"] = str(gif_path)
+                except Exception:
+                    pass
         except Exception as e:
             st.exception(e)
 
     rep = st.session_state.get("watch_replay")
     if not rep or not getattr(rep, "frames", None):
-        st.info("Record an episode to watch the organism move.")
-        st.markdown(
-            """
-**Legend**
-- **Dark** empty · **Green** food · **Yellow** agent · **Red** dead agent · **Blue-gray** trail
-"""
+        st.info(
+            "Click **Live stream (video)** to watch the organism move in real time, "
+            "or **Record only** then scrub / autoplay."
         )
         return
 
     frames = rep.frames
     n = len(frames)
-    play = st.toggle("Play", value=bool(st.session_state.get("watch_playing")), key="watch_play_tog")
-    st.session_state["watch_playing"] = play
-    speed = st.select_slider(
-        "Play speed (ms / frame)",
-        options=[50, 80, 120, 200, 350, 500],
-        value=120,
-        key="watch_speed",
+
+    # Browser-native looping GIF (closest to a video player)
+    gif_p = st.session_state.get("watch_gif_path")
+    if gif_p and Path(gif_p).exists():
+        st.markdown("#### Video loop (GIF)")
+        st.image(str(gif_p), caption="Auto-playing GIF — loops in the browser")
+        with open(gif_p, "rb") as fh:
+            st.download_button(
+                "Download GIF",
+                data=fh.read(),
+                file_name=Path(gif_p).name,
+                mime="image/gif",
+                key="watch_dl_gif",
+            )
+
+    st.markdown("#### Frame scrubber / replay")
+    play = st.toggle(
+        "Autoplay scrubber",
+        value=bool(st.session_state.get("watch_playing")),
+        key="watch_play_tog",
     )
+    st.session_state["watch_playing"] = play
+    loop = st.checkbox("Loop autoplay", value=False, key="watch_loop")
 
     run_every = timedelta(milliseconds=int(speed)) if play else None
 
@@ -1036,8 +1202,15 @@ def page_watch(artifacts: Path, db: Path) -> None:
     def _player() -> None:
         idx = int(st.session_state.get("watch_frame_idx", 0))
         if st.session_state.get("watch_playing") and n > 0:
-            idx = (idx + 1) % n
-            st.session_state["watch_frame_idx"] = idx
+            nxt = idx + 1
+            if nxt >= n:
+                if loop:
+                    nxt = 0
+                else:
+                    nxt = n - 1
+                    st.session_state["watch_playing"] = False
+            st.session_state["watch_frame_idx"] = nxt
+            idx = nxt
 
         idx = st.slider("Frame", 0, max(0, n - 1), idx, key="watch_slider")
         st.session_state["watch_frame_idx"] = idx
@@ -1047,7 +1220,11 @@ def page_watch(artifacts: Path, db: Path) -> None:
 
         left, right = st.columns([1.4, 1])
         with left:
-            st.image(rgb, caption=f"tick={fr.tick}  action={fr.action_name()}", use_container_width=False)
+            st.image(
+                rgb,
+                caption=f"tick={fr.tick}  action={fr.action_name()}",
+                use_container_width=False,
+            )
         with right:
             st.metric("tick", fr.tick)
             st.metric("energy", f"{fr.energy:.1f} / {fr.energy_max:.0f}")
@@ -1076,26 +1253,24 @@ def page_watch(artifacts: Path, db: Path) -> None:
     _player()
 
     st.markdown("#### Export")
-    b1, b2 = st.columns(2)
-    with b1:
-        if st.button("Save GIF to artifacts/replays/", key="watch_gif"):
-            out_dir = artifacts / "replays"
-            out_dir.mkdir(parents=True, exist_ok=True)
-            name = f"watch_{rep.genome_id}_{rep.seed}_{int(datetime.now().timestamp())}.gif"
-            path = out_dir / name
-            try:
-                replay_to_gif(
-                    rep,
-                    path,
-                    cell=max(8, int(cell) - 4),
-                    duration_ms=int(speed),
-                    show_trail=show_trail,
-                )
-                st.success(f"Wrote {path}")
-            except Exception as e:
-                st.error(str(e))
-    with b2:
-        st.caption("GIF uses Pillow. Dark=empty, green=food, yellow=agent.")
+    if st.button("Save GIF to artifacts/replays/", key="watch_gif"):
+        out_dir = artifacts / "replays"
+        out_dir.mkdir(parents=True, exist_ok=True)
+        name = f"watch_{rep.genome_id}_{rep.seed}_{int(datetime.now().timestamp())}.gif"
+        path = out_dir / name
+        try:
+            replay_to_gif(
+                rep,
+                path,
+                cell=max(8, int(cell) - 4),
+                duration_ms=int(speed),
+                show_trail=show_trail,
+            )
+            st.session_state["watch_gif_path"] = str(path)
+            st.success(f"Wrote {path}")
+            st.rerun()
+        except Exception as e:
+            st.error(str(e))
 
 
 def main() -> None:

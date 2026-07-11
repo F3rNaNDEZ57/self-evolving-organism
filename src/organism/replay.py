@@ -95,6 +95,86 @@ def _snapshot(
     )
 
 
+def iter_episode(
+    policy: PolicyProtocol,
+    world_cfg: WorldConfig,
+    seed: int,
+    *,
+    train_weights: bool = False,
+    episode_timeout_s: float | None = None,
+):
+    """
+    Yield (frame, done, death_reason_or_empty, error_or_empty) as the episode runs.
+    First yield is the post-reset frame (action=None).
+    """
+    world = GridWorld(world_cfg, seed=seed)
+    death = "timeout"
+    deadline = (
+        time.monotonic() + float(episode_timeout_s)
+        if episode_timeout_s is not None and episode_timeout_s > 0
+        else None
+    )
+    max_steps = max(1, int(world_cfg.T) + 5)
+
+    try:
+        obs = world.reset()
+        policy.reset(seed)
+        yield _snapshot(world, action=None), False, "", ""
+        steps = 0
+        while steps < max_steps:
+            if deadline is not None and time.monotonic() >= deadline:
+                death = "timeout_wall"
+                break
+            action = policy.act(obs)
+            result = world.step(action)
+            steps += 1
+            try:
+                policy.on_step_result(result)
+            except Exception:
+                pass
+            fr = _snapshot(
+                world,
+                action=int(action),
+                reward=float(result.reward),
+                wall_bump=bool(result.wall_bump),
+                invalid=bool(result.invalid_action),
+            )
+            if result.done:
+                if not result.alive or world.energy <= 0:
+                    death = "energy"
+                yield fr, True, death, ""
+                return
+            yield fr, False, "", ""
+            obs = world.observe()
+            if deadline is not None and time.monotonic() >= deadline:
+                death = "timeout_wall"
+                break
+        # timeout / wall timeout end
+        yield _snapshot(world, action=None), True, death, ""
+    except Exception as e:
+        err = f"{type(e).__name__}: {e}"
+        try:
+            yield _snapshot(world, action=None), True, "error", err
+        except Exception:
+            yield (
+                Frame(
+                    tick=0,
+                    x=0,
+                    y=0,
+                    energy=0.0,
+                    energy_max=float(world_cfg.energy_max),
+                    food=np.zeros((world_cfg.height, world_cfg.width), dtype=np.int8),
+                    action=None,
+                    reward=0.0,
+                    food_collected=0,
+                    alive=False,
+                ),
+                True,
+                "error",
+                err,
+            )
+
+
 def record_episode(
     policy: PolicyProtocol,
     world_cfg: WorldConfig,
@@ -110,74 +190,49 @@ def record_episode(
     Run one host episode and capture a Frame after reset and after each step.
     On policy crash: return frames so far with error set.
     """
-    world = GridWorld(world_cfg, seed=seed)
     frames: list[Frame] = []
     death = "timeout"
     err = ""
-    deadline = (
-        time.monotonic() + float(episode_timeout_s)
-        if episode_timeout_s is not None and episode_timeout_s > 0
-        else None
-    )
-    max_steps = max(1, int(world_cfg.T) + 5)
+    last: Frame | None = None
 
-    try:
-        obs = world.reset()
-        policy.reset(seed)
+    for fr, done, death_s, err_s in iter_episode(
+        policy,
+        world_cfg,
+        seed,
+        train_weights=train_weights,
+        episode_timeout_s=episode_timeout_s,
+    ):
+        # skip duplicate terminal snapshot with action=None after timeout
+        if done and fr.action is None and frames and death_s in ("timeout", "timeout_wall"):
+            death = death_s
+            err = err_s
+            break
+        frames.append(fr)
+        last = fr
+        if done:
+            death = death_s or death
+            err = err_s
+            break
+
+    if last is None and not frames:
+        world = GridWorld(world_cfg, seed=seed)
+        world.reset()
         frames.append(_snapshot(world, action=None))
-        steps = 0
-        while steps < max_steps:
-            if deadline is not None and time.monotonic() >= deadline:
-                death = "timeout_wall"
-                break
-            action = policy.act(obs)
-            result = world.step(action)
-            steps += 1
-            try:
-                if train_weights:
-                    policy.on_step_result(result)
-                else:
-                    policy.on_step_result(result)
-            except Exception:
-                pass
-            frames.append(
-                _snapshot(
-                    world,
-                    action=int(action),
-                    reward=float(result.reward),
-                    wall_bump=bool(result.wall_bump),
-                    invalid=bool(result.invalid_action),
-                )
-            )
-            if result.done:
-                if death == "timeout_wall":
-                    break
-                if not result.alive or world.energy <= 0:
-                    death = "energy"
-                break
-            obs = world.observe()
-            if deadline is not None and time.monotonic() >= deadline:
-                death = "timeout_wall"
-                break
-    except Exception as e:
-        err = f"{type(e).__name__}: {e}"
-        if not frames:
-            # still try empty world snapshot for UI
-            try:
-                frames.append(_snapshot(world, action=None))
-            except Exception:
-                pass
+        last = frames[0]
 
     summary = EpisodeSummary(
         seed=seed,
         score=0.0,
-        food_collected=world.food_collected if death != "timeout_wall" else 0,
-        ticks_survived=world.tick,
-        final_energy=world.energy if death != "timeout_wall" else 0.0,
-        invalid_actions=world.invalid_actions,
-        wall_bumps=world.wall_bumps,
+        food_collected=last.food_collected if death != "timeout_wall" and last else 0,
+        ticks_survived=last.tick if last else 0,
+        final_energy=last.energy if death != "timeout_wall" and last else 0.0,
+        invalid_actions=0,  # filled below from world if needed
+        wall_bumps=0,
         death_reason=death if not err else "error",
     )
+    # recover invalid/wall from frames
+    summary.invalid_actions = sum(1 for f in frames if f.invalid)
+    summary.wall_bumps = sum(1 for f in frames if f.wall_bump)
     if fit_cfg is not None and not err:
         summary.score = episode_score(summary, fit_cfg)
 
