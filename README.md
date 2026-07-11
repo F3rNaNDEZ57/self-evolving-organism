@@ -58,6 +58,10 @@ seo weights train --passes 2
 seo weights list
 seo weights show latest
 seo eval --ablation Bw --weights latest
+
+# Continuous evolution (schedule + plateau triggers)
+seo evolve --cycles 5 --dry-run --every 8 --plateau 20 --max-mutations 5
+seo evolve --cycles 10 --live --ablation Bc
 ```
 
 ## Layout
