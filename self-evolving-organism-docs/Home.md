@@ -18,7 +18,7 @@ cssclasses:
 > [!abstract] Vault hub
 > Research vault for **digital organisms** that rewrite their own code through experience + **trainable weights**, assisted by an **NVIDIA NIM free-endpoint LLM pool**, with bodies you can monitor.
 >
-> **Repo:** `self-evolving-organism` · **Phase 2 scaffold live** · 0–1 ✅  
+> **Repo:** [F3rNaNDEZ57/self-evolving-organism](https://github.com/F3rNaNDEZ57/self-evolving-organism) · **Phase 2** mutate/ablate/weights  
 > **Canvas:** [[System Map]] (dashboard)  
 > **Process:** after every task → vault + canvas ([[Working Rules]] · repo `AGENTS.md`)
 
@@ -93,7 +93,9 @@ cssclasses:
 | Code | `seo eval` · `seo mutate` · `seo ablate` · **`seo weights`** |
 | Checkpoints | `artifacts/weights/*.npz` + sidecar JSON · list/show/latest/best |
 | GitNexus | Indexed · [[GitNexus]] |
-| Secrets | `.env` only (gitignored) |
+| Git remote | `origin` → https://github.com/F3rNaNDEZ57/self-evolving-organism.git |
+| History | **53** file-by-file commits on `master` (pushed) |
+| Secrets | `.env` only (gitignored) — never committed |
 | Containment | AST jail + Docker smoke **PASS** |
 | Next | Live ablations · plateau auto-mutate · optional Docker episode eval |
 
