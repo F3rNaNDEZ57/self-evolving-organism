@@ -119,6 +119,10 @@ def build_evolve_argv(
     plateau: int = 20,
     select: str = "active",
     tournament_k: int = 3,
+    lineages: int = 1,
+    mut_per_lineage: int = 0,
+    cycles_per_lineage: int = 0,
+    lineage_schedule: str = "round_robin",
 ) -> list[str]:
     args = [
         "evolve",
@@ -136,6 +140,14 @@ def build_evolve_argv(
         str(select or "active"),
         "--tournament-k",
         str(int(tournament_k)),
+        "--lineages",
+        str(int(lineages)),
+        "--mut-per-lineage",
+        str(int(mut_per_lineage)),
+        "--cycles-per-lineage",
+        str(int(cycles_per_lineage)),
+        "--lineage-schedule",
+        str(lineage_schedule or "round_robin"),
     ]
     if dry_run:
         args.append("--dry-run")
@@ -215,6 +227,10 @@ def parse_cli_params(argv: list[str]) -> dict[str, Any]:
         "--select": "select",
         "--tournament-k": "tournament_k",
         "--policy": "policy",
+        "--lineages": "lineages",
+        "--mut-per-lineage": "mut_per_lineage",
+        "--cycles-per-lineage": "cycles_per_lineage",
+        "--lineage-schedule": "lineage_schedule",
         "--arms": "arms",
         "--genome-id": "genome_id",
         "--label": "label",
@@ -241,6 +257,9 @@ def parse_cli_params(argv: list[str]) -> dict[str, Any]:
                 "passes",
                 "seeds",
                 "tournament_k",
+                "lineages",
+                "mut_per_lineage",
+                "cycles_per_lineage",
             ):
                 try:
                     params[key] = int(raw)

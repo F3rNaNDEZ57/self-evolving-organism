@@ -77,6 +77,18 @@ evolve:
   select: active
   tournament_k: 3
   auto_elite_on_accept: false  # true when using fitness_rank/tournament via CLI defaults
+  # Phase 5 multi-lineage budgets (max_lineages>1 enables population evolve)
+  max_lineages: 1
+  lineage_schedule: round_robin   # round_robin | fitness_rank
+  max_eval_cycles_per_lineage: 0  # 0 = unlimited except global --cycles
+  max_mutations_per_lineage: 0
+  max_episodes_total: 0
+  budgets:
+    max_lineages: 1
+    schedule: round_robin
+    max_eval_cycles_per_lineage: 0
+    max_mutations_per_lineage: 0
+    max_episodes_total: 0
 
 paths:
   artifacts_dir: artifacts

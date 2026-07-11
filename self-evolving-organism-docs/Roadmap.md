@@ -316,10 +316,10 @@ Build a system of **self-evolving digital organisms** that:
 - [x] Genomes UI promote/demote · [[Phase 5 Population]]
 - [x] Auto selection: `fitness_rank` / `tournament` (`feat/phase5-auto-selection`)
 - [x] Evolve re-selects parent; auto-elite on accept when select≠active
+- [x] Multi-lineage budgets + `run_evolve_population` (`feat/phase5-lineage-budgets`)
 
 **Deliverables**
 
-- [ ] Multi-organism scheduling + budgets
 - [ ] Solo vs population experiment comparison
 - [ ] Multi-agent same-map Watch
 
@@ -408,16 +408,16 @@ Detail: [[Research Brief#Sandbox and safety]]
 | 2 | Paper organism | Bcw vs B0 under sandbox | ✅ runner · ✅ δ success (sequential dual) |
 | 3 | Free LLM pool + critic | Multi-model quality on free NIM | ✅ **soft critic · δ success** |
 | 4 | Observer UI | Legible lineage & mutations + run console | ✅ **merged** |
-| 5 | Population | Multi-organism selection | 🔧 **elites + auto select** |
+| 5 | Population | Multi-organism selection | 🔧 **elites + select + budgets** |
 | 6 | Hardening | Research-grade isolation & experiments | ⬜ |
 
 ---
 
 ## Immediate next steps
 
-1. Multi-organism budgets / concurrent lineages
+1. Multi-agent same-map Watch
 2. Optional: close weight gap (Bw still below pure code holdout)
-3. Multi-agent same-map Watch · population experiment note
+3. Solo vs population experiment write-up
 
 ---
 

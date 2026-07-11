@@ -3,7 +3,7 @@
 		{
 			"id": "title",
 			"type": "text",
-			"text": "# Self-Evolving Organism — Dashboard\n\nPhase 0–4 complete · Phase 5 elites + auto select · δ SUCCESS\nOrigin: github.com/F3rNaNDEZ57/self-evolving-organism",
+			"text": "# Self-Evolving Organism — Dashboard\n\nPhase 0–4 complete · Phase 5 elites + select + multi-lineage · δ SUCCESS\nOrigin: github.com/F3rNaNDEZ57/self-evolving-organism",
 			"x": 0,
 			"y": 0,
 			"width": 2800,
@@ -218,7 +218,7 @@
 		{
 			"id": "chk-p4",
 			"type": "text",
-			"text": "**Phase 4 — Observer UI**\n\n☑ Population / organism list\n☑ Lineage tree\n☑ Mutation inspector\n☑ Event timeline\n☑ Kill switch / pause / freeze\n☑ Run-from-UI job console (4.1–4.4)\n☑ Live logs · launch plan · final snapshot\n☑ Windows-safe job encoding\n☑ Watch live video stream + GIF loop\n\n**Phase 5–6**\n\n☑ Elite archive + parent picker\n☑ Auto selection rank / tournament\n☐ Multi-organism budgets\n☐ Multi-agent same map\n☐ Research-grade hardening",
+			"text": "**Phase 4 — Observer UI**\n\n☑ Population / organism list\n☑ Lineage tree\n☑ Mutation inspector\n☑ Event timeline\n☑ Kill switch / pause / freeze\n☑ Run-from-UI job console (4.1–4.4)\n☑ Live logs · launch plan · final snapshot\n☑ Windows-safe job encoding\n☑ Watch live video stream + GIF loop\n\n**Phase 5–6**\n\n☑ Elite archive + parent picker\n☑ Auto selection rank / tournament\n☑ Multi-lineage budgets + schedule\n☐ Multi-agent same map\n☐ Research-grade hardening",
 			"x": 2140,
 			"y": 880,
 			"width": 600,
@@ -238,7 +238,7 @@
 		{
 			"id": "n-next",
 			"type": "text",
-			"text": "**Next**\n\n1. Multi-organism budgets\n2. Optional: close Bw holdout gap\n3. Multi-agent same-map Watch\n\n**UI:** select fitness_rank/tournament · parent auto\n**CLI:** mutate/evolve --select · elite select\n**Phase 5:** elites + auto selection on master",
+			"text": "**Next**\n\n1. Multi-agent same-map Watch\n2. Optional: close Bw holdout gap\n3. Population experiment write-up\n\n**UI:** evolve lineages + schedule + caps\n**CLI:** evolve --lineages N --mut-per-lineage\n**Phase 5:** elites + select + budgets on master",
 			"x": 50,
 			"y": 1660,
 			"width": 1750,
@@ -248,7 +248,7 @@
 		{
 			"id": "n-cli",
 			"type": "text",
-			"text": "**CLI**\n\nseo ui  ← Watch + Run + elites\nseo elite list|promote|demote|select\nseo mutate --select fitness_rank\nseo evolve --select tournament\nseo watch | ablate | weights | pins",
+			"text": "**CLI**\n\nseo ui  ← Watch + Run + elites\nseo elite list|promote|demote|select\nseo mutate --select fitness_rank\nseo evolve --lineages 3 --select tournament\nseo watch | ablate | weights | pins",
 			"x": 1860,
 			"y": 1660,
 			"width": 880,

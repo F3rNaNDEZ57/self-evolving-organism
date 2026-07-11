@@ -621,6 +621,25 @@ def evolve(
         "--auto-elite/--no-auto-elite",
         help="Promote accepted children to elites (default: on when select!=active)",
     ),
+    lineages: int = typer.Option(
+        1,
+        "--lineages",
+        help="Concurrent lineage slots (1=classic single lineage; >1 multi-lineage)",
+    ),
+    mut_per_lineage: int = typer.Option(
+        0,
+        "--mut-per-lineage",
+        help="Max mutations per lineage (0=unlimited except global)",
+    ),
+    cycles_per_lineage: int = typer.Option(
+        0,
+        "--cycles-per-lineage",
+        help="Max eval cycles per lineage (0=unlimited except global)",
+    ),
+    lineage_schedule: str = typer.Option(
+        "round_robin",
+        help="Lineage pick schedule: round_robin | fitness_rank",
+    ),
 ) -> None:
     """Run continuous evolution with schedule + plateau mutation triggers."""
     from organism.evolve import EvolveConfig, run_evolve
@@ -654,12 +673,21 @@ def evolve(
         cfg.auto_elite_on_accept = sel != "active"
     else:
         cfg.auto_elite_on_accept = bool(auto_elite)
+    cfg.max_lineages = max(1, int(lineages))
+    cfg.max_mutations_per_lineage = max(0, int(mut_per_lineage))
+    cfg.max_eval_cycles_per_lineage = max(0, int(cycles_per_lineage))
+    ls = (lineage_schedule or "round_robin").strip().lower()
+    if ls not in ("round_robin", "fitness_rank"):
+        console.print("[red]lineage-schedule must be round_robin or fitness_rank[/red]")
+        raise typer.Exit(2)
+    cfg.lineage_schedule = ls
 
     store = Store(db)
     console.print(
         f"[cyan]Evolve[/cyan] cycles={cycles} ablation={ablation} dry_run={cfg.dry_run} "
         f"every={cfg.mutate_every_episodes} plateau={cfg.plateau_episodes} "
-        f"max_mut={cfg.max_mutations} select={cfg.select} k={cfg.tournament_k}"
+        f"max_mut={cfg.max_mutations} select={cfg.select} k={cfg.tournament_k} "
+        f"lineages={cfg.max_lineages} schedule={cfg.lineage_schedule}"
     )
     report = run_evolve(
         exp=exp,
@@ -682,6 +710,8 @@ def evolve(
         f"acc={report.mutations_accepted} rej={report.mutations_rejected} "
         f"fail={report.mutations_failed} / att={report.mutations_attempted}",
     )
+    table.add_row("lineages", str(report.max_lineages))
+    table.add_row("lineage_schedule", report.lineage_schedule)
     table.add_row("start_genome", report.start_genome_id)
     table.add_row("final_genome", report.final_genome_id)
     if report.fitness_history:
@@ -691,6 +721,14 @@ def evolve(
     table.add_row("triggers", ", ".join(
         e["kind"] for e in report.events if e["kind"].startswith("mutate_")
     ) or "-")
+    if report.lineages:
+        for lin in report.lineages[:8]:
+            table.add_row(
+                f"slot_{lin.get('slot_id')}",
+                f"{lin.get('genome_id')} fit={lin.get('fitness')} "
+                f"eval={lin.get('eval_cycles')} mut={lin.get('mutations_attempted')} "
+                f"exh={lin.get('exhausted')}",
+            )
     console.print(table)
     console.print("[dim]Report: artifacts/last_evolve_report.json[/dim]")
 

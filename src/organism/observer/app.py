@@ -555,6 +555,33 @@ def page_run(artifacts: Path, db: Path) -> None:
         evo_k = st.number_input(
             "Tournament k", min_value=2, max_value=10, value=3, key="evo_k"
         )
+        evo_lineages = st.number_input(
+            "Lineages (concurrent slots)",
+            min_value=1,
+            max_value=8,
+            value=1,
+            key="evo_lineages",
+            help=">1 enables multi-lineage evolve with budgets",
+        )
+        evo_mut_pl = st.number_input(
+            "Max mut / lineage (0=off)",
+            min_value=0,
+            max_value=30,
+            value=0,
+            key="evo_mut_pl",
+        )
+        evo_cyc_pl = st.number_input(
+            "Max cycles / lineage (0=off)",
+            min_value=0,
+            max_value=50,
+            value=0,
+            key="evo_cyc_pl",
+        )
+        evo_sched = st.selectbox(
+            "Lineage schedule",
+            ["round_robin", "fitness_rank"],
+            key="evo_sched",
+        )
         if st.button("Start evolve", type="primary", disabled=busy, key="evo_go"):
             if not dry_e:
                 st.session_state["pending_live_evolve"] = {
@@ -562,6 +589,10 @@ def page_run(artifacts: Path, db: Path) -> None:
                     "max_mutations": int(max_m),
                     "select": evo_select,
                     "tournament_k": int(evo_k),
+                    "lineages": int(evo_lineages),
+                    "mut_per_lineage": int(evo_mut_pl),
+                    "cycles_per_lineage": int(evo_cyc_pl),
+                    "lineage_schedule": evo_sched,
                 }
             else:
                 try:
@@ -574,8 +605,12 @@ def page_run(artifacts: Path, db: Path) -> None:
                             max_mutations=int(max_m),
                             select=evo_select,
                             tournament_k=int(evo_k),
+                            lineages=int(evo_lineages),
+                            mut_per_lineage=int(evo_mut_pl),
+                            cycles_per_lineage=int(evo_cyc_pl),
+                            lineage_schedule=evo_sched,
                         ),
-                        note=f"ui evolve dry-run select={evo_select}",
+                        note=f"ui evolve dry-run select={evo_select} L={int(evo_lineages)}",
                     )
                     st.success(f"Started {rec.job_id}")
                     st.rerun()
@@ -595,6 +630,12 @@ def page_run(artifacts: Path, db: Path) -> None:
                             max_mutations=p["max_mutations"],
                             select=p.get("select") or "active",
                             tournament_k=int(p.get("tournament_k") or 3),
+                            lineages=int(p.get("lineages") or 1),
+                            mut_per_lineage=int(p.get("mut_per_lineage") or 0),
+                            cycles_per_lineage=int(p.get("cycles_per_lineage") or 0),
+                            lineage_schedule=str(
+                                p.get("lineage_schedule") or "round_robin"
+                            ),
                         ),
                         note="ui evolve LIVE",
                     )
@@ -736,6 +777,10 @@ def page_run(artifacts: Path, db: Path) -> None:
     evo_m = int(ss.get("evo_m", 5))
     evo_select = str(ss.get("evo_select", "active"))
     evo_k = int(ss.get("evo_k", 3))
+    evo_lineages = int(ss.get("evo_lineages", 1))
+    evo_mut_pl = int(ss.get("evo_mut_pl", 0))
+    evo_cyc_pl = int(ss.get("evo_cyc_pl", 0))
+    evo_sched = str(ss.get("evo_sched", "round_robin"))
     ab_q = bool(ss.get("ab_q", True))
     ab_dry = bool(ss.get("ab_dry", True))
     ab_m = int(ss.get("ab_m", 3))
@@ -765,7 +810,8 @@ def page_run(artifacts: Path, db: Path) -> None:
             "mode": "dry-run" if evo_dry else "LIVE",
             "parameters": (
                 f"cycles={evo_c}, max_mutations={evo_m}, "
-                f"select={evo_select}, k={evo_k}"
+                f"select={evo_select}, k={evo_k}, "
+                f"lineages={evo_lineages}, sched={evo_sched}"
             ),
             "argv_preview": " ".join(
                 jobmod.build_evolve_argv(
@@ -774,6 +820,10 @@ def page_run(artifacts: Path, db: Path) -> None:
                     max_mutations=evo_m,
                     select=evo_select,
                     tournament_k=evo_k,
+                    lineages=evo_lineages,
+                    mut_per_lineage=evo_mut_pl,
+                    cycles_per_lineage=evo_cyc_pl,
+                    lineage_schedule=evo_sched,
                 )[3:]
             ),
         },
@@ -827,6 +877,10 @@ def page_run(artifacts: Path, db: Path) -> None:
                         max_mutations=evo_m,
                         select=evo_select,
                         tournament_k=evo_k,
+                        lineages=evo_lineages,
+                        mut_per_lineage=evo_mut_pl,
+                        cycles_per_lineage=evo_cyc_pl,
+                        lineage_schedule=evo_sched,
                     ),
                     "Ablate": jobmod.build_ablate_argv(
                         dry_run=ab_dry or ab_q, max_mutations=ab_m, quick=ab_q
