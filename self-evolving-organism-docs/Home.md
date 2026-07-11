@@ -90,16 +90,16 @@ cssclasses:
 
 | Field | Value |
 |-------|-------|
-| Stage | **Phase 5** · population scaffold + Runs export |
-| Code | elites · selection · lineages · multiagent · `seo runs export` |
+| Stage | **Phase 5 complete scaffold** · live mutate OK · Bw holdout tool |
+| Code | elites · select · lineages · multi Watch · runs export · weights holdout |
 | Science | **Bcw − B0 = +4.44** · thr 0.30 · success=True |
-| UI | [[Phase 4 Observer UI]] · [[Phase 5 Population]] · export lab note |
-| Critic | hard schema · soft_pass other@conf&lt;0.6 · mutation memory |
-| Weights | BC bootstrap · keep-best · Bw holdout ~8.45 |
-| Runs | [[Runs/README]] · soft-critic δ success · `seo runs export` |
+| UI | [[Phase 4 Observer UI]] · [[Phase 5 Population]] · Weights holdout |
+| Critic | hard schema · soft_pass · mutation parse retry on truncated NIM JSON |
+| Weights | train → `seo weights holdout` B0 vs Bw on holdout seeds |
+| Runs | [[Runs/README]] · `seo runs export` · mutation rejects are scientific OK |
 | Git remote | https://github.com/F3rNaNDEZ57/self-evolving-organism |
 | Secrets | `.env` only (gitignored) |
-| Next | Optional Bw gap · Phase 6 hardening when ready |
+| Next | Live Bw holdout measurements · Phase 6 when ready |
 
 ---
 

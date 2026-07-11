@@ -91,7 +91,7 @@ def page_overview(artifacts: Path, db: Path) -> None:
     )
     ek = st.selectbox(
         "Report kind",
-        ["auto", "evolve", "ablate", "mutation"],
+        ["auto", "evolve", "ablate", "mutation", "weights_holdout"],
         key="export_kind",
     )
     if st.button("Export to Runs/", type="primary", key="export_run_btn"):
@@ -730,6 +730,38 @@ def page_run(artifacts: Path, db: Path) -> None:
                 st.rerun()
             except Exception as e:
                 st.error(str(e))
+        st.markdown("##### Holdout: B0 vs Bw")
+        st.caption(
+            "Compare holdout fitness with a frozen checkpoint (real Bw measurement)."
+        )
+        wh_ref = st.selectbox(
+            "Checkpoint",
+            ["latest", "best"],
+            key="w_holdout_ref",
+        )
+        wh_passes = st.number_input(
+            "Train first (0 = use existing checkpoint)",
+            min_value=0,
+            max_value=20,
+            value=0,
+            key="w_holdout_p",
+        )
+        if st.button("Start B0 vs Bw holdout", disabled=busy, key="w_holdout_go"):
+            try:
+                rec = jobmod.start_job(
+                    artifacts,
+                    kind="weights_holdout",
+                    argv=jobmod.build_weights_holdout_argv(
+                        weights=str(wh_ref),
+                        passes=int(wh_passes),
+                        host=True,
+                    ),
+                    note=f"ui weights holdout {wh_ref} p={int(wh_passes)}",
+                )
+                st.success(f"Started {rec.job_id}")
+                st.rerun()
+            except Exception as e:
+                st.error(str(e))
 
     with tab_d:
         if st.button("Docker smoke", type="primary", disabled=busy, key="d_go"):
@@ -863,10 +895,20 @@ def page_run(artifacts: Path, db: Path) -> None:
         },
         {
             "tab": "Weights",
-            "mode": "train",
-            "parameters": f"passes={w_p}",
+            "mode": "train / holdout",
+            "parameters": (
+                f"train_passes={w_p}; holdout={ss.get('w_holdout_ref', 'latest')} "
+                f"p={ss.get('w_holdout_p', 0)}"
+            ),
             "argv_preview": " ".join(
                 jobmod.build_weights_train_argv(passes=w_p)[3:]
+            )
+            + " | "
+            + " ".join(
+                jobmod.build_weights_holdout_argv(
+                    weights=str(ss.get("w_holdout_ref", "latest")),
+                    passes=int(ss.get("w_holdout_p", 0) or 0),
+                )[3:]
             ),
         },
         {

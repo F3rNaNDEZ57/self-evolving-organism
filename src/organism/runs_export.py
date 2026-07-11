@@ -17,13 +17,16 @@ from typing import Any, Literal
 
 from organism.config import ROOT
 
-ReportKind = Literal["auto", "evolve", "ablate", "mutation", "population"]
+ReportKind = Literal[
+    "auto", "evolve", "ablate", "mutation", "population", "weights_holdout"
+]
 
 KIND_FILES: dict[str, str] = {
     "evolve": "last_evolve_report.json",
     "population": "last_evolve_report.json",
     "ablate": "last_ablation_report.json",
     "mutation": "last_mutation_result.json",
+    "weights_holdout": "last_weights_holdout.json",
 }
 
 
@@ -60,6 +63,7 @@ def load_report(artifacts_dir: Path, kind: str) -> tuple[str, dict[str, Any], Pa
             ("evolve", "last_evolve_report.json"),
             ("ablate", "last_ablation_report.json"),
             ("mutation", "last_mutation_result.json"),
+            ("weights_holdout", "last_weights_holdout.json"),
         ):
             p = artifacts_dir / fname
             if p.exists():
@@ -353,6 +357,63 @@ def render_mutation_note(
     return "mutation", slug, "\n".join(lines)
 
 
+def render_weights_holdout_note(
+    data: dict[str, Any],
+    *,
+    source: Path,
+    day: str,
+    title: str | None = None,
+) -> tuple[str, str, str]:
+    run_id = str(data.get("run_id") or "wh")
+    slug = _slugify(f"{day}-bw-holdout-{run_id}")
+    ttl = title or f"Bw holdout {run_id}"
+    b0 = data.get("b0") or {}
+    bw = data.get("bw") or {}
+    lines = [
+        "---",
+        f"title: {ttl}",
+        "tags:",
+        "  - run",
+        "  - weights",
+        "  - holdout",
+        f"run_id: {run_id}",
+        f"status: complete",
+        f"updated: {day}",
+        f"source: {source.as_posix()}",
+        "---",
+        "",
+        f"# {ttl}",
+        "",
+        "## B0 vs Bw (holdout seeds)",
+        "",
+        "| Arm | Fitness | mean | std |",
+        "|-----|---------|------|-----|",
+        f"| B0 | {_fmt_f(b0.get('fitness'))} | {_fmt_f(b0.get('mean_score'))} | "
+        f"{_fmt_f(b0.get('std_score'))} |",
+        f"| Bw | {_fmt_f(bw.get('fitness'))} | {_fmt_f(bw.get('mean_score'))} | "
+        f"{_fmt_f(bw.get('std_score'))} |",
+        "",
+        f"**Bw − B0** = {_fmt_f(data.get('delta_bw_minus_b0'))} · "
+        f"beats_b0={data.get('bw_beats_b0')}",
+        "",
+        f"- genome: `{data.get('genome_id')}`",
+        f"- checkpoint: `{data.get('checkpoint_id')}`",
+        f"- path: `{data.get('checkpoint_path')}`",
+        f"- train_passes (this run): {data.get('train_passes')}",
+        f"- seeds: {data.get('holdout_seeds')}",
+        "",
+        "## Operator notes",
+        "",
+        "_Did weights help on holdout? Next: more train passes / different genome._",
+        "",
+        f"- Source: `{source}`",
+        "",
+        "→ [[Runs/README|Runs]] · [[Phase 2 Scaffold]]",
+        "",
+    ]
+    return "weights_holdout", slug, "\n".join(lines)
+
+
 def render_note(
     kind: str,
     data: dict[str, Any],
@@ -368,6 +429,8 @@ def render_note(
         return render_ablate_note(data, source=source, day=day, title=title)
     if kind == "mutation":
         return render_mutation_note(data, source=source, day=day, title=title)
+    if kind == "weights_holdout":
+        return render_weights_holdout_note(data, source=source, day=day, title=title)
     raise ValueError(f"cannot render kind={kind}")
 
 

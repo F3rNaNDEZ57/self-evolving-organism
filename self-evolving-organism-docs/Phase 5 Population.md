@@ -72,6 +72,28 @@ seo watch --agents g_xxx,g_yyy --gif artifacts/replays/duel.gif
 # UI: seo ui → Watch → Mode multi → pick agents → Live stream
 ```
 
+## Live mutate reliability
+
+| Item | Status |
+|------|--------|
+| Truncated NIM JSON recovery + parse retry | ☑ `fix/mutation-proposal-parse` |
+| Fitness **rejected** = exit 0 (science OK) | ☑ |
+| Fitness **failed** parse = exit 1 | ☑ |
+
+Rejected patches (e.g. rest-more heuristics losing to parent ~28) are normal under free NIM.
+
+## Bw holdout tool
+
+```powershell
+seo weights train --passes 4
+seo weights holdout --weights latest          # B0 vs Bw on holdout seeds
+seo weights holdout --passes 4                # train then compare
+seo runs export --kind weights_holdout
+# UI: Run → Weights → Start B0 vs Bw holdout
+```
+
+Writes `artifacts/last_weights_holdout.json`.
+
 ## Runs export (lab notes)
 
 | Item | Status |

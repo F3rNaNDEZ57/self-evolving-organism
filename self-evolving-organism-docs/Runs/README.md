@@ -48,6 +48,7 @@ seo runs export --kind auto          # newest last_* report
 seo runs export --kind evolve
 seo runs export --kind ablate
 seo runs export --kind mutation
+seo runs export --kind weights_holdout
 # UI: Overview → Export lab note
 ```
 

@@ -3,7 +3,7 @@
 		{
 			"id": "title",
 			"type": "text",
-			"text": "# Self-Evolving Organism — Dashboard\n\nPhase 0–4 complete · Phase 5 scaffold + runs export · δ SUCCESS\nOrigin: github.com/F3rNaNDEZ57/self-evolving-organism",
+			"text": "# Self-Evolving Organism — Dashboard\n\nPhase 0–5 scaffold · live mutate · Bw holdout tool · δ SUCCESS\nOrigin: github.com/F3rNaNDEZ57/self-evolving-organism",
 			"x": 0,
 			"y": 0,
 			"width": 2800,
@@ -218,7 +218,7 @@
 		{
 			"id": "chk-p4",
 			"type": "text",
-			"text": "**Phase 4 — Observer UI**\n\n☑ Population / organism list\n☑ Lineage tree\n☑ Mutation inspector\n☑ Event timeline\n☑ Kill switch / pause / freeze\n☑ Run-from-UI job console (4.1–4.4)\n☑ Live logs · launch plan · final snapshot\n☑ Windows-safe job encoding\n☑ Watch live video stream + GIF loop\n\n**Phase 5–6**\n\n☑ Elite archive + parent picker\n☑ Auto selection rank / tournament\n☑ Multi-lineage budgets + schedule\n☑ Multi-agent same-map Watch (viz)\n☑ Runs export (seo runs export)\n☐ Research-grade hardening",
+			"text": "**Phase 4 — Observer UI**\n\n☑ Population / organism list\n☑ Lineage tree\n☑ Mutation inspector\n☑ Event timeline\n☑ Kill switch / pause / freeze\n☑ Run-from-UI job console (4.1–4.4)\n☑ Live logs · launch plan · final snapshot\n☑ Windows-safe job encoding\n☑ Watch live video stream + GIF loop\n\n**Phase 5–6**\n\n☑ Elite archive + parent picker\n☑ Auto selection rank / tournament\n☑ Multi-lineage budgets + schedule\n☑ Multi-agent same-map Watch (viz)\n☑ Runs export (seo runs export)\n☑ Mutate parse retry + Bw holdout tool\n☐ Research-grade hardening",
 			"x": 2140,
 			"y": 880,
 			"width": 600,
@@ -238,7 +238,7 @@
 		{
 			"id": "n-next",
 			"type": "text",
-			"text": "**Next**\n\n1. Optional: close Bw holdout gap\n2. Phase 6 hardening when ready\n3. Live pop experiments + runs export\n\n**UI:** Overview → Export lab note\n**CLI:** seo runs export --kind evolve\n**Phase 5:** scaffold complete on master",
+			"text": "**Next**\n\n1. Measure Bw holdout (seo weights holdout)\n2. Phase 6 hardening when ready\n3. Export live mutate / holdout runs\n\n**UI:** Weights → B0 vs Bw holdout\n**CLI:** weights holdout · runs export\n**Phase 5:** scaffold + holdout tool on master",
 			"x": 50,
 			"y": 1660,
 			"width": 1750,
@@ -248,7 +248,7 @@
 		{
 			"id": "n-cli",
 			"type": "text",
-			"text": "**CLI**\n\nseo ui  ← Watch + Run + elites\nseo runs export --kind auto\nseo elite * · mutate --select\nseo evolve --lineages 3\nseo watch --multi 3\nseo ablate | weights | pins",
+			"text": "**CLI**\n\nseo ui  ← Watch + Run + elites\nseo weights holdout --weights latest\nseo runs export --kind weights_holdout\nseo elite * · mutate --select\nseo evolve --lineages 3 · watch --multi\nseo ablate | pins",
 			"x": 1860,
 			"y": 1660,
 			"width": 880,

@@ -172,6 +172,20 @@ def build_weights_train_argv(*, passes: int = 2) -> list[str]:
     return _seo_argv(["weights", "train", "--passes", str(passes)])
 
 
+def build_weights_holdout_argv(
+    *,
+    weights: str = "latest",
+    passes: int = 0,
+    host: bool = True,
+) -> list[str]:
+    args = ["weights", "holdout", "--weights", str(weights), "--passes", str(int(passes))]
+    if host:
+        args.append("--host")
+    else:
+        args.append("--docker")
+    return _seo_argv(args)
+
+
 def build_docker_smoke_argv() -> list[str]:
     return _seo_argv(["docker-smoke"])
 
@@ -199,9 +213,9 @@ def parse_cli_params(argv: list[str]) -> dict[str, Any]:
 
     command = tokens[0]
     rest = tokens[1:]
-    # weights train → command "weights train"
-    if command == "weights" and rest and rest[0] == "train":
-        params["command"] = "weights train"
+    # weights train|holdout
+    if command == "weights" and rest and rest[0] in ("train", "holdout"):
+        params["command"] = f"weights {rest[0]}"
         rest = rest[1:]
     else:
         params["command"] = command

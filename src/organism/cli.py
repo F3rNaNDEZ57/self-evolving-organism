@@ -577,6 +577,119 @@ def weights_train(
     console.print(table)
 
 
+@weights_app.command("holdout")
+def weights_holdout_cmd(
+    weights: str = typer.Option(
+        "latest",
+        help="Checkpoint id/path/latest/best (required for real Bw measurement)",
+    ),
+    passes: int = typer.Option(
+        0,
+        help="If >0, train this many passes before holdout eval",
+    ),
+    host: bool = typer.Option(True, "--host/--docker", help="Eval isolation"),
+) -> None:
+    """
+    Compare holdout fitness: B0 (no weights) vs Bw (frozen checkpoint).
+
+    Use after `seo weights train`. Writes artifacts/last_weights_holdout.json.
+    """
+    from organism.checkpoints import resolve_checkpoint_path, train_and_checkpoint
+    from organism.mutation import resolve_parent_genome
+    from organism.weights_holdout import run_weights_holdout
+
+    exp, world, fit, wcfg = _load_cfgs()
+    artifacts = resolve_path(exp.get("paths", {}).get("artifacts_dir", "artifacts"))
+    db = resolve_path(exp.get("paths", {}).get("db_path", "artifacts/seo.sqlite"))
+    holdout = list(exp.get("eval", {}).get("holdout_seeds", list(range(8, 16))))
+    train_seeds = list(exp.get("eval", {}).get("train_seeds", list(range(8))))
+    genome_dir, gid = resolve_parent_genome(exp)
+
+    train_passes = int(passes)
+    if train_passes > 0:
+        console.print(
+            f"[cyan]Training[/cyan] genome={genome_dir} passes={train_passes} then holdout"
+        )
+        meta = train_and_checkpoint(
+            genome_dir=genome_dir,
+            world=world,
+            wcfg=wcfg,
+            train_seeds=train_seeds,
+            artifacts_dir=artifacts,
+            genome_id=gid,
+            passes=train_passes,
+            ablation="Bw",
+            label=f"{gid}-holdout-p{train_passes}",
+            fit_cfg=fit,
+            eval_seeds=train_seeds,
+        )
+        wpath = Path(meta.path)
+        cid = meta.checkpoint_id
+        store = Store(db)
+        store.insert_weight_checkpoint(
+            meta.checkpoint_id,
+            meta.genome_id,
+            meta.path,
+            meta.sha256,
+            meta.feature_dim,
+            train_fitness=meta.train_fitness,
+            holdout_fitness=meta.holdout_fitness,
+            ablation=meta.ablation,
+            episodes_trained=meta.episodes_trained,
+            label=meta.label,
+            meta=meta.to_dict(),
+        )
+        store.close()
+    else:
+        wpath = resolve_checkpoint_path(artifacts, weights)
+        cid = wpath.stem
+
+    console.print(
+        f"[cyan]Holdout compare[/cyan] genome={gid} B0 vs Bw weights={wpath} "
+        f"seeds={holdout} host={host}"
+    )
+    from organism.sandbox import SandboxConfig
+
+    sb = SandboxConfig.from_exp(exp)
+    if host:
+        sb.mode = "host"
+        sb.episode_isolation = False
+        sb.require_docker = False
+
+    report = run_weights_holdout(
+        genome_dir=genome_dir,
+        genome_id=gid,
+        world=world,
+        fit=fit,
+        wcfg=wcfg,
+        holdout_seeds=holdout,
+        artifacts_dir=artifacts,
+        weight_path=wpath,
+        checkpoint_id=cid,
+        sandbox=sb,
+        force_host=host,
+        train_passes=train_passes,
+    )
+    store = Store(db)
+    store.log_event("weights_holdout", report.to_dict())
+    store.close()
+
+    table = Table(title=f"Weights holdout {report.run_id}")
+    table.add_column("field")
+    table.add_column("value")
+    table.add_row("genome", report.genome_id)
+    table.add_row("checkpoint", report.checkpoint_id)
+    table.add_row("B0 holdout", f"{report.b0.fitness:.4f}")
+    table.add_row("Bw holdout", f"{report.bw.fitness:.4f}")
+    color = "green" if report.bw_beats_b0 else "yellow"
+    table.add_row(
+        "Bw - B0",
+        f"[{color}]{report.delta_bw_minus_b0:+.4f}[/{color}]  beats_b0={report.bw_beats_b0}",
+    )
+    console.print(table)
+    console.print("[dim]Report: artifacts/last_weights_holdout.json[/dim]")
+
+
 @weights_app.command("list")
 def weights_list(
     limit: int = typer.Option(20, help="Max rows"),

@@ -319,10 +319,13 @@ Build a system of **self-evolving digital organisms** that:
 - [x] Multi-lineage budgets + `run_evolve_population` (`feat/phase5-lineage-budgets`)
 - [x] Multi-agent same-map Watch viz (`feat/phase5-multiagent-watch`)
 - [x] Runs lab-note export (`seo runs export` · `feat/phase5-runs-export`)
+- [x] Live mutate parse harden (truncated JSON + retry)
+- [x] `seo weights holdout` B0 vs Bw holdout compare (`feat/bw-holdout-eval`)
 
 **Deliverables**
 
 - [x] Solo vs population experiment write-up path (export stubs from evolve reports)
+- [x] Operator path to measure Bw holdout gap
 
 **Exit criteria**
 
@@ -416,9 +419,9 @@ Detail: [[Research Brief#Sandbox and safety]]
 
 ## Immediate next steps
 
-1. Optional: close weight gap (Bw still below pure code holdout)
+1. Run `seo weights holdout` on active genome; log with `seo runs export`
 2. Phase 6 hardening when ready
-3. Keep exporting Runs notes after live population experiments
+3. Keep exporting Runs notes after live mutate / population experiments
 
 ---
 
