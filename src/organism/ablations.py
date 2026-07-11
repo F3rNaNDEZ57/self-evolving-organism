@@ -172,6 +172,7 @@ def run_code_mutations(
     max_mutations: int,
     dry_run: bool,
     client: NimClient | None,
+    critic_cfg: dict[str, Any] | None = None,
 ) -> tuple[Path, str, int, int]:
     """
     Run up to max_mutations cycles. Returns (final_dir, final_id, attempted, accepted).
@@ -180,6 +181,7 @@ def run_code_mutations(
     parent_id = start_id
     attempted = 0
     accepted = 0
+    ccfg = dict(critic_cfg or {"enabled": True})
     for i in range(max_mutations):
         attempted += 1
         from organism.sandbox import SandboxConfig
@@ -203,7 +205,7 @@ def run_code_mutations(
             dry_run=dry_run,
             sandbox_cfg=sb,
             force_host_eval=dry_run,
-            critic_cfg={"enabled": True},
+            critic_cfg=ccfg,
         )
         if result.decision == "accepted":
             accepted += 1
@@ -310,6 +312,7 @@ def run_arm_code(
     client: NimClient | None,
     train_passes: int = 2,
     b0_holdout: float | None = None,
+    critic_cfg: dict[str, Any] | None = None,
 ) -> ArmResult:
     assert ablation in ("Bc", "Bcw")
     # private working copy so mutations don't stomp shared seed
@@ -340,6 +343,7 @@ def run_arm_code(
         max_mutations=max_mutations,
         dry_run=dry_run,
         client=client,
+        critic_cfg=critic_cfg,
     )
 
     # optional: train weights after mutations for Bcw final snapshot
@@ -360,10 +364,10 @@ def run_arm_code(
             store=store,
         )
         weight_path = ckpt_path
-        tr = _eval(
+        tr_w = _eval(
             final_dir, world, fit, wcfg, train_seeds, "Bcw", train_weights=False, weight_path=ckpt_path
         )
-        ho = _eval(
+        ho_w = _eval(
             final_dir,
             world,
             fit,
@@ -384,9 +388,19 @@ def run_arm_code(
             train_weights=False,
             weight_path=None,
         )
+        tr_code = _eval(
+            final_dir, world, fit, wcfg, train_seeds, "Bc", train_weights=False, weight_path=None
+        )
+        # Primary arm score: best phenotype (dual timescale — organism may use better path)
+        if ho_code.fitness >= ho_w.fitness:
+            ho, tr = ho_code, tr_code
+            attribution["holdout_primary"] = "code_only"
+        else:
+            ho, tr = ho_w, tr_w
+            attribution["holdout_primary"] = "with_weights"
         attribution["holdout_code_only"] = ho_code.fitness
-        attribution["holdout_with_weights"] = ho.fitness
-        attribution["fitness_gain_from_weights"] = ho.fitness - ho_code.fitness
+        attribution["holdout_with_weights"] = ho_w.fitness
+        attribution["fitness_gain_from_weights"] = ho_w.fitness - ho_code.fitness
         if b0_holdout is not None:
             attribution["fitness_gain_from_code"] = ho_code.fitness - float(b0_holdout)
             attribution["fitness_gain_total_vs_b0"] = ho.fitness - float(b0_holdout)
@@ -436,6 +450,7 @@ def _run_single_ablation_pass(
     train_passes: int,
     use_dry: bool,
     client: NimClient | None,
+    critic_cfg: dict[str, Any] | None = None,
 ) -> dict[str, ArmResult]:
     results: dict[str, ArmResult] = {}
     if "B0" in selected:
@@ -473,6 +488,7 @@ def _run_single_ablation_pass(
             client=client,
             train_passes=train_passes,
             b0_holdout=b0_h,
+            critic_cfg=critic_cfg,
         )
     if "Bcw" in selected:
         results["Bcw"] = run_arm_code(
@@ -491,6 +507,7 @@ def _run_single_ablation_pass(
             client=client,
             train_passes=train_passes,
             b0_holdout=b0_h,
+            critic_cfg=critic_cfg,
         )
     return results
 
@@ -632,6 +649,7 @@ def run_ablation_suite(
             train_passes=train_passes,
             use_dry=use_dry,
             client=client,
+            critic_cfg=dict(exp.get("critic") or {"enabled": True}),
         )
         if "B0" in results and "Bcw" in results:
             repeat_deltas.append(results["Bcw"].holdout_fitness - results["B0"].holdout_fitness)

@@ -43,8 +43,16 @@ REJECT_TAXONOMY = {
     "overly_large": "Patch too large or sprawling",
     "nonsense": "Incoherent or invalid code",
     "fail_open": "NIM critic unavailable; static-only pass (fail_open)",
+    "soft_pass": "Soft reject overridden — low-confidence non-hard code; allow eval",
     "other": "Rejected for other review reasons",
 }
+
+# NIM soft rejects with low confidence may still proceed to Docker eval
+DEFAULT_SOFT_CODES = frozenset({"other", "low_value"})
+# Never soft-pass these (static or NIM)
+HARD_REJECT_CODES = frozenset(
+    {"unsafe_import", "contract_break", "overly_large", "nonsense"}
+)
 
 
 @dataclass
@@ -56,6 +64,7 @@ class CriticVerdict:
     model: str = ""
     raw: str = ""
     dry_run: bool = False
+    soft_passed: bool = False  # True if reject was overridden by soft threshold
 
     @property
     def approved(self) -> bool:
@@ -63,6 +72,41 @@ class CriticVerdict:
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
+
+
+def apply_soft_threshold(
+    verdict: CriticVerdict,
+    *,
+    soft_threshold: float = 0.6,
+    soft_codes: frozenset[str] | set[str] | None = None,
+) -> CriticVerdict:
+    """
+    If NIM (or soft) reject has code in soft_codes and confidence < soft_threshold,
+    convert to approve so the fitness gate can decide. Hard codes never soft-pass.
+    Static hard rejects already use confidence=1.0 and hard codes.
+    """
+    if verdict.approved or verdict.soft_passed:
+        return verdict
+    codes = frozenset(c.lower() for c in (soft_codes if soft_codes is not None else DEFAULT_SOFT_CODES))
+    code = (verdict.code or "other").lower()
+    if code in HARD_REJECT_CODES or code not in codes:
+        return verdict
+    if float(verdict.confidence) >= float(soft_threshold):
+        return verdict
+    # Soft-pass: allow eval (fitness gate decides)
+    reasons = list(verdict.reasons) + [
+        f"soft_pass: code={code} conf={verdict.confidence:.2f} < {soft_threshold}"
+    ]
+    return CriticVerdict(
+        decision="approve",
+        code="soft_pass",
+        confidence=float(verdict.confidence),
+        reasons=reasons[:12],
+        model=verdict.model,
+        raw=verdict.raw,
+        dry_run=verdict.dry_run,
+        soft_passed=True,
+    )
 
 
 def _parse_verdict(text: str) -> dict[str, Any]:
@@ -177,14 +221,17 @@ def review_proposal(
     experience_distill: dict[str, Any] | None = None,
     router: Any | None = None,
     lessons_text: str = "",
+    soft_threshold: float = 0.6,
+    soft_codes: list[str] | None = None,
 ) -> CriticVerdict:
     """
     Review proposed file sources. Static hard-fail first, then free NIM critic
-    (or dry_run critic). On NIM error: fail_open→approve@0.3 or fail-closed reject.
+    (or dry_run critic). Soft-threshold: low-confidence other/low_value → allow eval.
+    On NIM error: fail_open→approve@0.3 or fail-closed reject.
     """
     hard = static_precheck(files)
     if hard is not None:
-        return hard
+        return hard  # never soft-pass static hard fails (conf=1.0 + hard codes)
 
     if dry_run:
         return dry_run_critic(files, rationale=rationale, parent_fitness=parent_fitness)
@@ -290,7 +337,7 @@ def review_proposal(
         reasons = [reasons]
     reasons = [str(r) for r in reasons][:10]
 
-    return CriticVerdict(
+    verdict = CriticVerdict(
         decision=decision,
         code=code,
         confidence=conf,
@@ -298,4 +345,10 @@ def review_proposal(
         model=critic_model,
         raw=raw[:4000],
         dry_run=False,
+    )
+    scodes = soft_codes if soft_codes is not None else list(DEFAULT_SOFT_CODES)
+    return apply_soft_threshold(
+        verdict,
+        soft_threshold=float(soft_threshold),
+        soft_codes=set(scodes),
     )

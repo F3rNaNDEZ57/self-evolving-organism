@@ -65,6 +65,42 @@ def test_manifest_written(tmp_path: Path):
     assert "test_run" in path.read_text(encoding="utf-8")
 
 
+def test_soft_threshold_other_low_conf():
+    from organism.critic import CriticVerdict, apply_soft_threshold
+
+    v = CriticVerdict(
+        decision="reject",
+        code="other",
+        confidence=0.5,
+        reasons=["vague"],
+        model="test",
+    )
+    out = apply_soft_threshold(v, soft_threshold=0.6)
+    assert out.approved
+    assert out.soft_passed
+    assert out.code == "soft_pass"
+
+    hard = CriticVerdict(
+        decision="reject",
+        code="unsafe_import",
+        confidence=0.4,
+        reasons=["os"],
+        model="static",
+    )
+    out2 = apply_soft_threshold(hard, soft_threshold=0.6)
+    assert not out2.approved
+
+    high = CriticVerdict(
+        decision="reject",
+        code="other",
+        confidence=0.9,
+        reasons=["sure"],
+        model="test",
+    )
+    out3 = apply_soft_threshold(high, soft_threshold=0.6)
+    assert not out3.approved
+
+
 def test_critic_fail_closed_on_nim_error():
     client = MagicMock()
     client.cfg = {"models": {"critic": "x", "coder_fallback": "y", "coder_primary": "z"}}

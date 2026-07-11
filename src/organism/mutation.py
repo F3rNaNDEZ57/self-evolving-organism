@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from organism.config import resolve_path
-from organism.critic import CriticVerdict, review_proposal
+from organism.critic import CriticVerdict, review_proposal  # soft threshold inside review_proposal
 from organism.evaluator import EvalResult, FitnessConfig, episode_score, evaluate, run_episode
 from organism.genome_loader import WHITELIST, copy_genome, make_policy_factory
 from organism.nim_client import NimClient
@@ -365,6 +365,10 @@ def run_mutation_cycle(
     if dry_run and not force_host_eval:
         force_host_eval = True
 
+    # Fitness gate for genomic mutations: always score frozen code path (Bc), never
+    # train random weights mid-eval (that produced ~0 fitness noise on Bcw).
+    fit_ablation = "Bc" if ablation in ("Bc", "Bcw") else ablation
+
     # 1) Parent fitness (host unless parent_isolation)
     parent_force_host = force_host_eval or not sb.parent_isolation
     parent_eval = _eval_genome(
@@ -373,7 +377,7 @@ def run_mutation_cycle(
         fit,
         wcfg,
         train_seeds,
-        ablation,
+        fit_ablation,
         sandbox_cfg=sb,
         force_host=parent_force_host,
         force_docker=sb.parent_isolation and not force_host_eval,
@@ -391,7 +395,7 @@ def run_mutation_cycle(
         {"mutation_id": mut_id, "genome_id": parent_genome_id, "fitness": parent_eval.fitness},
     )
 
-    summaries = _episode_context(parent_dir, world, fit, wcfg, ablation, train_seeds)
+    summaries = _episode_context(parent_dir, world, fit, wcfg, fit_ablation, train_seeds)
 
     # 1b) Structured mutation memory (SQL lessons — no vectors)
     from organism.mutation_memory import format_lessons_for_prompt, retrieve_mutation_lessons
@@ -532,6 +536,8 @@ def run_mutation_cycle(
     # 2b) Critic before expensive apply/eval (static hard-fail + free NIM / dry-run)
     if use_critic:
         fail_open = bool(ccfg.get("fail_open", True))
+        soft_thr = float(ccfg.get("soft_threshold", 0.6))
+        soft_codes = ccfg.get("soft_codes") or ["other", "low_value"]
         critic_verdict = review_proposal(
             files=files,
             rationale=rationale,
@@ -546,6 +552,8 @@ def run_mutation_cycle(
             experience_distill=experience_distill,
             router=router,
             lessons_text=lessons_text,
+            soft_threshold=soft_thr,
+            soft_codes=list(soft_codes),
         )
         store.log_event(
             "mutation_critic",
@@ -558,6 +566,7 @@ def run_mutation_cycle(
                 "reasons": critic_verdict.reasons,
                 "dry_run": critic_verdict.dry_run,
                 "fail_open_used": critic_verdict.code == "fail_open",
+                "soft_passed": critic_verdict.soft_passed,
             },
         )
         if not critic_verdict.approved:
@@ -695,7 +704,7 @@ def run_mutation_cycle(
             fit,
             wcfg,
             train_seeds,
-            ablation,
+            fit_ablation,
             sandbox_cfg=sb,
             force_host=force_host_eval,
             force_docker=sb.episode_isolation and not force_host_eval,
