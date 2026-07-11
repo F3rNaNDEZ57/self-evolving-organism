@@ -102,7 +102,15 @@ def test_mutation_critic_rejects_unsafe_proposal(tmp_path: Path):
     copy_genome(SEED, parent)
     store.insert_genome(genome_id="g_parent", status="active", artifact_path=str(parent))
 
-    bad_policy = "import os\n\nclass Policy:\n    def reset(self, seed): pass\n"
+    # Full Policy surface so quality gate passes; critic must hard-reject unsafe import
+    bad_policy = (
+        "import os\n\n"
+        "class Policy:\n"
+        "    def __init__(self, **kwargs): pass\n"
+        "    def reset(self, seed): pass\n"
+        "    def act(self, o): return None\n"
+        "    def on_step_result(self, r): pass\n"
+    )
     result = run_mutation_cycle(
         parent_dir=parent,
         artifacts_dir=tmp_path / "art",

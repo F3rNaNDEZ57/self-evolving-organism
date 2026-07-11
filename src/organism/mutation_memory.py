@@ -91,10 +91,15 @@ def _theme_hints(lessons: list[dict[str, Any]]) -> list[str]:
             "Prior energy tweaks were rejected — if touching energy, make a "
             "clearly different rule (threshold or action switch), not a micro-edit."
         )
+    if "nonsense" in blob or "no mutation code" in blob or "empty" in blob:
+        hints.append(
+            "Previous replies had empty/missing file bodies. Return COMPLETE "
+            "heuristics.py source inside JSON files — never prose-only."
+        )
     if not hints:
         hints.append(
             "Propose a *different failure mode* than the rejects above "
-            "(energy / walls / timeout / forage timing) — not the same function again."
+            "(energy / walls / timeout / rest timing) — not the same function again."
         )
     return hints
 

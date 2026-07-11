@@ -25,7 +25,9 @@ MUTATION_SYSTEM = """You are the mutation coder for a self-evolving digital orga
 You may ONLY change whitelist modules: policy.py, heuristics.py, memory_hooks.py.
 
 Rules:
-- Improve food collection and survival.
+- Improve food collection and survival (beat the parent fitness bar).
+- Prefer changing ENERGY management, REST vs move tradeoffs, WALL avoidance, or TIMEOUT survival.
+- Avoid micro-tweaks to nearest_food_direction / should_forage unless clearly novel.
 - Do NOT import os, sys, subprocess, socket, pathlib, shutil, or use eval/exec/open.
 - Allowed: random, math, typing, numpy, organism.schemas, organism.weights, and sibling modules.
 - policy.py MUST define class Policy with methods: reset(seed), act(observation), on_step_result(result).
@@ -33,7 +35,7 @@ Rules:
 
 Respond with ONLY a JSON object (no markdown fences) of this shape:
 {
-  "rationale": "one short paragraph",
+  "rationale": "one short paragraph naming the failure mode you target (energy|rest|walls|timeout|food)",
   "files": {
     "heuristics.py": "full file source if changed, else omit key",
     "policy.py": "full file source if changed, else omit key",
@@ -41,11 +43,11 @@ Respond with ONLY a JSON object (no markdown fences) of this shape:
   }
 }
 Rules for the response:
-- Include at least one file key under "files".
-- Provide COMPLETE file contents for each included key (not a diff).
+- Include at least one file key under "files" with COMPLETE file source (not a diff, not empty).
 - Prefer changing ONLY ONE file (heuristics.py is best when possible).
 - Keep each file under ~120 lines so the JSON finishes completely.
-- Close all braces/quotes — truncated JSON is a failed mutation.
+- Close all braces/quotes — truncated or empty files = failed mutation.
+- Never return prose without JSON; never return {"files": {}} empty.
 """
 
 
@@ -244,6 +246,79 @@ def extract_rationale(text: str) -> str:
     return ""
 
 
+def _norm_src(s: str) -> str:
+    return "\n".join(line.rstrip() for line in (s or "").replace("\r\n", "\n").splitlines()).strip()
+
+
+def proposal_file_issues(
+    files: dict[str, str],
+    *,
+    parent_dir: Path | None = None,
+) -> list[str]:
+    """
+    Static proposal quality checks (no LLM).
+    Returns human-readable issues; empty list means files look usable.
+    """
+    issues: list[str] = []
+    if not files:
+        issues.append("no whitelist files in proposal")
+        return issues
+    for name, src in files.items():
+        body = (src or "").strip()
+        if len(body) < 40:
+            issues.append(f"{name}: body too short ({len(body)} chars)")
+            continue
+        if name == "policy.py" and "class Policy" not in body:
+            issues.append(f"{name}: missing class Policy")
+        if name == "policy.py" and "def act" not in body:
+            issues.append(f"{name}: missing def act")
+        if name.endswith(".py") and "def " not in body and "class " not in body:
+            issues.append(f"{name}: no def/class — not a full module")
+    if parent_dir is not None:
+        parent_dir = Path(parent_dir)
+        identical = 0
+        for name, src in files.items():
+            p = parent_dir / name
+            if not p.exists():
+                continue
+            try:
+                parent_src = p.read_text(encoding="utf-8")
+            except OSError:
+                continue
+            if _norm_src(src) == _norm_src(parent_src):
+                identical += 1
+                issues.append(f"{name}: identical to parent (no-op)")
+        if files and identical == len(files):
+            issues.append("all proposed files are identical to parent")
+    return issues
+
+
+def is_usable_proposal(
+    files: dict[str, str],
+    *,
+    parent_dir: Path | None = None,
+) -> tuple[bool, str]:
+    """Return (ok, reason). ok=False → skip critic/eval."""
+    issues = proposal_file_issues(files, parent_dir=parent_dir)
+    if not issues:
+        return True, ""
+    # Allow non-identical files even if one extra note; only fail hard issues
+    hard = [
+        i
+        for i in issues
+        if "identical to parent" in i
+        or "too short" in i
+        or "no whitelist" in i
+        or "missing class" in i
+        or "missing def" in i
+        or "no def/class" in i
+        or "all proposed" in i
+    ]
+    if hard:
+        return False, "; ".join(hard[:4])
+    return True, ""
+
+
 def apply_files(parent_dir: Path, candidate_dir: Path, files: dict[str, str]) -> list[str]:
     """Copy parent genome then overwrite whitelist files from proposal."""
     if candidate_dir.exists():
@@ -295,12 +370,14 @@ def propose_policy_patch(
         f"{distill_line}"
         f"{lessons_line}"
         "Improve survival and food collection. Return ONLY complete JSON "
-        "(rationale + files) with full sources for changed modules only.\n"
+        "(rationale + files) with FULL file sources for every changed module.\n"
+        "Target a real failure mode: energy / rest-vs-move / walls / timeout survival.\n"
         "Prefer a single small change to heuristics.py if possible.\n"
         "If past lessons say low_value on food-direction tweaks, change a "
-        "DIFFERENT behavior (energy/rest/forage/walls), not the same function.\n"
+        "DIFFERENT behavior (energy/rest/walls), not the same function.\n"
         "Do NOT rewrite policy.py unless required; prefer heuristics.py only.\n"
         "Do NOT re-edit nearest_food_direction / should_forage when lessons forbid it.\n"
+        "Do NOT return empty files, diffs, or identical parent sources.\n"
         "Keep Policy interface; only use real Observation fields (tick not ticks).\n"
         f"Recent episode summaries: {json.dumps(episode_summaries[:8])}\n\n"
         + "\n\n".join(sources)
@@ -309,19 +386,38 @@ def propose_policy_patch(
     chat_usage: dict[str, Any] | None = None
     text = ""
     model = ""
+    retries: list[str] = []
 
-    def _one_chat(messages: list[dict[str, str]], *, role: str, max_tokens: int) -> Any:
+    def _one_chat(
+        messages: list[dict[str, str]],
+        *,
+        role: str,
+        max_tokens: int,
+        force_fallback: bool = False,
+    ) -> Any:
         if router is not None:
             rtr: FreeNimRouter = router
+            use_role = "coder_fallback" if force_fallback else "code"
+            fb = None if force_fallback else "coder_fallback"
             return rtr.chat(
-                "code",
+                use_role,
                 messages,
                 max_tokens=max_tokens,
-                temperature=0.2,
-                fallback_role="coder_fallback",
+                temperature=0.25 if force_fallback else 0.2,
+                fallback_role=fb,
             )
         nonlocal model
-        model = client.cfg["models"]["coder_primary"]
+        models = client.cfg.get("models") or {}
+        if force_fallback:
+            model = models.get("coder_fallback") or models.get("coder_primary")
+            return client.chat(
+                messages,
+                model=model,
+                max_tokens=max_tokens,
+                temperature=0.25,
+                role="coder_fallback",
+            )
+        model = models.get("coder_primary") or model
         try:
             return client.chat(
                 messages,
@@ -331,7 +427,7 @@ def propose_policy_patch(
                 role=role,
             )
         except Exception:
-            model = client.cfg["models"].get("coder_fallback", model)
+            model = models.get("coder_fallback", model)
             return client.chat(
                 messages,
                 model=model,
@@ -339,6 +435,20 @@ def propose_policy_patch(
                 temperature=0.2,
                 role="coder_fallback",
             )
+
+    def _log_chat(usage: dict[str, Any] | None, stage: str, used_model: str) -> None:
+        if store is None or usage is None:
+            return
+        store.insert_llm_call(
+            model=str(usage.get("model", used_model)),
+            role=str(usage.get("role") or "coder"),
+            mutation_id=mutation_id,
+            tokens_in=usage.get("tokens_in"),
+            tokens_out=usage.get("tokens_out"),
+            estimated_usd=float(usage.get("estimated_usd") or 0.0),
+            latency_ms=float(usage.get("latency_ms") or 0.0),
+            meta={"stage": stage},
+        )
 
     messages = [
         {"role": "system", "content": MUTATION_SYSTEM},
@@ -348,34 +458,30 @@ def propose_policy_patch(
     text = chat.content or ""
     model = getattr(chat, "model", None) or model or ""
     chat_usage = chat.to_dict() if hasattr(chat, "to_dict") else None
-
-    if store is not None and chat_usage is not None:
-        store.insert_llm_call(
-            model=str(chat_usage.get("model", model)),
-            role=str(chat_usage.get("role") or "coder"),
-            mutation_id=mutation_id,
-            tokens_in=chat_usage.get("tokens_in"),
-            tokens_out=chat_usage.get("tokens_out"),
-            estimated_usd=float(chat_usage.get("estimated_usd") or 0.0),
-            latency_ms=float(chat_usage.get("latency_ms") or 0.0),
-            meta={"stage": "propose"},
-        )
+    _log_chat(chat_usage, "propose", model)
     files = extract_files_from_proposal(text)
+    ok, why = is_usable_proposal(files, parent_dir=genome_dir)
+    if not ok:
+        retries.append(f"primary_unusable:{why or 'empty'}")
+        files = {}
 
-    # Retry once if parse failed (truncated / invalid JSON is common on free NIM)
-    if not files:
+    def _retry_propose(*, force_fallback: bool, stage: str, extra: str) -> None:
+        nonlocal text, files, model, chat_usage
         retry_user = (
-            "Your previous reply could not be parsed (invalid or truncated JSON).\n"
+            f"{extra}\n"
             "Return ONLY a complete JSON object with rationale and files.\n"
-            "Change ONLY heuristics.py (full file source, under 100 lines).\n"
-            "Do not use markdown fences. Close all braces and quotes.\n\n"
+            "Change ONLY heuristics.py — FULL file source (not a diff), under 100 lines.\n"
+            "Target energy management OR rest-vs-move OR wall avoidance (not food-direction micro-tweaks).\n"
+            "Do not use markdown fences. Close all braces and quotes.\n"
+            "files.heuristics.py must differ from the parent and include real functions.\n\n"
             f"Parent fitness: {parent_fitness}\n"
             f"Episode summaries: {json.dumps(episode_summaries[:4])}\n\n"
         )
         heur_path = genome_dir / "heuristics.py"
         if heur_path.exists():
             retry_user += (
-                "### heuristics.py\n```python\n"
+                "### parent heuristics.py (modify a different behavior than food-only)\n"
+                "```python\n"
                 f"{heur_path.read_text(encoding='utf-8')[:4000]}\n```\n"
             )
         retry_messages = [
@@ -383,28 +489,44 @@ def propose_policy_patch(
             {"role": "user", "content": retry_user},
         ]
         try:
-            chat2 = _one_chat(retry_messages, role="coder", max_tokens=coder_max_tokens)
+            chat2 = _one_chat(
+                retry_messages,
+                role="coder",
+                max_tokens=coder_max_tokens,
+                force_fallback=force_fallback,
+            )
             text2 = chat2.content or ""
             model = getattr(chat2, "model", None) or model
             usage2 = chat2.to_dict() if hasattr(chat2, "to_dict") else None
-            if store is not None and usage2 is not None:
-                store.insert_llm_call(
-                    model=str(usage2.get("model", model)),
-                    role=str(usage2.get("role") or "coder"),
-                    mutation_id=mutation_id,
-                    tokens_in=usage2.get("tokens_in"),
-                    tokens_out=usage2.get("tokens_out"),
-                    estimated_usd=float(usage2.get("estimated_usd") or 0.0),
-                    latency_ms=float(usage2.get("latency_ms") or 0.0),
-                    meta={"stage": "propose_retry"},
-                )
+            _log_chat(usage2, stage, model)
             files2 = extract_files_from_proposal(text2)
-            if files2:
+            ok2, why2 = is_usable_proposal(files2, parent_dir=genome_dir)
+            if ok2 and files2:
                 text = text2
                 files = files2
                 chat_usage = usage2
-        except Exception:
-            pass
+            else:
+                retries.append(f"{stage}:{why2 or 'empty'}")
+        except Exception as e:
+            retries.append(f"{stage}_error:{type(e).__name__}")
+
+    # Retry 1: same path after parse/no-op fail
+    if not files:
+        _retry_propose(
+            force_fallback=False,
+            stage="propose_retry",
+            extra="Your previous reply was empty, unparseable, truncated, or a no-op.",
+        )
+    # Retry 2: force secondary free coder model after parse fail
+    if not files:
+        _retry_propose(
+            force_fallback=True,
+            stage="propose_fallback",
+            extra=(
+                "Previous attempts failed to produce usable file bodies. "
+                "You are the fallback coder — produce valid JSON with full heuristics.py."
+            ),
+        )
 
     return {
         "model": model,
@@ -414,6 +536,9 @@ def propose_policy_patch(
         "applied": False,
         "llm_usage": chat_usage,
         "experience_distill": experience_distill,
+        "retries": retries,
+        "usable": bool(files)
+        and is_usable_proposal(files, parent_dir=genome_dir)[0],
     }
 
 
@@ -652,11 +777,15 @@ def run_mutation_cycle(
     cand_path = artifacts_dir / "genomes" / cand_id
     critic_verdict: CriticVerdict | None = None
 
-    if not files:
+    usable, usable_why = is_usable_proposal(files, parent_dir=parent_dir)
+    if not files or not usable:
         raw_preview = str(proposal.get("proposal", ""))[:200].replace("\n", " ")
+        retries = proposal.get("retries") or []
         reason = (
-            "apply/validate failed: could not parse any whitelist files from model proposal "
-            f"(often truncated JSON; retry ran once). preview={raw_preview!r}"
+            "proposal quality gate: "
+            f"{usable_why or 'no whitelist files'} "
+            f"(retries={retries!r}; often empty/truncated/no-op JSON). "
+            f"preview={raw_preview!r}"
         )
         store.insert_mutation(
             mut_id,
@@ -668,9 +797,19 @@ def run_mutation_cycle(
                 "model": model,
                 "rationale": rationale,
                 "proposal": str(proposal.get("proposal", ""))[:8000],
+                "retries": retries,
+                "quality_gate": usable_why or "empty",
             },
         )
-        store.log_event("mutation_failed", {"mutation_id": mut_id, "reason": reason})
+        store.log_event(
+            "mutation_failed",
+            {
+                "mutation_id": mut_id,
+                "reason": reason,
+                "quality_gate": True,
+                "retries": retries,
+            },
+        )
         return MutationResult(
             mutation_id=mut_id,
             parent_genome_id=parent_genome_id,
@@ -687,6 +826,7 @@ def run_mutation_cycle(
             proposal_raw=str(proposal.get("proposal", ""))[:8000],
             files_changed=[],
             critic_decision="skipped",
+            meta={"quality_gate": True, "retries": list(retries)},
         )
 
     # 2b) Critic before expensive apply/eval (static hard-fail + free NIM / dry-run)

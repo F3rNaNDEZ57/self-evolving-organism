@@ -3,7 +3,14 @@
 from pathlib import Path
 
 from organism.evaluator import FitnessConfig
-from organism.mutation import apply_files, extract_files_from_proposal, run_mutation_cycle
+from organism.genome_loader import copy_genome
+from organism.mutation import (
+    apply_files,
+    extract_files_from_proposal,
+    is_usable_proposal,
+    proposal_file_issues,
+    run_mutation_cycle,
+)
 from organism.persistence import Store
 from organism.validate import validate_genome_dir, validate_source
 from organism.weights import WeightConfig
@@ -25,6 +32,61 @@ def test_extract_json_files():
     files = extract_files_from_proposal(text)
     assert "heuristics.py" in files
     assert "x = 1" in files["heuristics.py"]
+
+
+def test_proposal_quality_gate_empty_and_noop(tmp_path: Path):
+    parent = tmp_path / "parent"
+    copy_genome(SEED, parent)
+    ok, why = is_usable_proposal({}, parent_dir=parent)
+    assert not ok and "whitelist" in why
+    parent_h = (parent / "heuristics.py").read_text(encoding="utf-8")
+    ok2, why2 = is_usable_proposal(
+        {"heuristics.py": parent_h}, parent_dir=parent
+    )
+    assert not ok2
+    assert "identical" in why2 or "no-op" in why2
+    issues = proposal_file_issues({"heuristics.py": "x=1\n"}, parent_dir=parent)
+    assert any("short" in i for i in issues)
+    # real-looking change should pass
+    changed = parent_h + "\n# diversity marker\n"
+    # ensure AST still has defs — append comment only may still be "identical" norm?
+    # comment-only differs from parent after strip of trailing only if we add line
+    ok3, _ = is_usable_proposal({"heuristics.py": changed}, parent_dir=parent)
+    assert ok3
+
+
+def test_quality_gate_skips_critic_on_empty_proposal(tmp_path: Path):
+    world = WorldConfig(height=12, width=12, T=40, food_density=0.08)
+    fit = FitnessConfig(T=40, energy_max=100, epsilon_accept=0.0, lambda_std=0.0)
+    store = Store(tmp_path / "t.sqlite")
+    parent = tmp_path / "parent"
+    copy_genome(SEED, parent)
+    store.insert_genome(genome_id="g_p", status="active", artifact_path=str(parent))
+    result = run_mutation_cycle(
+        parent_dir=parent,
+        artifacts_dir=tmp_path / "art",
+        store=store,
+        world=world,
+        fit=fit,
+        wcfg=WeightConfig(),
+        train_seeds=[0, 1],
+        ablation="Bc",
+        parent_genome_id="g_p",
+        dry_run=True,
+        force_host_eval=True,
+        critic=True,
+        proposal_override={
+            "model": "test",
+            "rationale": "empty",
+            "proposal": "{}",
+            "files": {},
+        },
+    )
+    store.close()
+    assert result.decision == "failed"
+    assert "quality gate" in result.reason
+    assert result.critic_decision == "skipped"
+    assert result.meta.get("quality_gate") is True
 
 
 def test_extract_truncated_json_policy():

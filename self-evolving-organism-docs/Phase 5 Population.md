@@ -157,6 +157,16 @@ Follow-up: validate parents on open; static reject food-only re-tweaks when less
 
 Note: [[Runs/2026-07-12-population-evo-6a1f0edb0a]]. Food-repeat spam reduced; free NIM still below champion bar.
 
+## Proposal quality gate (2026-07-12 · `feat/proposal-quality`)
+
+| Gate | Behavior |
+|------|----------|
+| Empty / unparseable files | **failed** before critic (after primary + fallback retries) |
+| No-op (identical parent source) | **failed** quality gate |
+| Stub body (too short / no def) | **failed** quality gate |
+| Parse fail retry | second attempt primary, then **force coder_fallback** model |
+| Coder prompt | energy/rest/walls/timeout · full file bodies · no empty JSON |
+
 ## Not yet (later Phase 5)
 
 - [ ] Hard resource isolation between lineages (Docker-per-lineage)
