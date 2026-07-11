@@ -62,6 +62,13 @@ seo eval --ablation Bw --weights latest
 # Continuous evolution (schedule + plateau triggers)
 seo evolve --cycles 5 --dry-run --every 8 --plateau 20 --max-mutations 5
 seo evolve --cycles 10 --live --ablation Bc
+
+# Docker episode isolation
+seo docker-build
+seo docker-smoke
+seo docker-eval --seeds 0,1
+seo eval --docker --ablation Bc
+seo eval --host --ablation B0
 ```
 
 ## Layout
