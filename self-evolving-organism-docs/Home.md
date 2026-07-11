@@ -89,15 +89,15 @@ cssclasses:
 
 | Field | Value |
 |-------|-------|
-| Stage | **Phase 2 hardened** + Phase 3 critic |
-| Code | `seo eval/mutate/ablate/weights/evolve` · docker · critic · manifests |
-| Containment | AST facade-only imports · Docker cap-drop/no-new-privs/pids/non-root |
-| Critic | static AST → dry/NIM · `fail_open` flag · llm_calls tokens |
-| Isolation | Candidates Docker `--network none` · result via stdout (no rw host job) |
-| Science | K-repeat δ · weight/code attribution · reproducibility manifest |
+| Stage | **Phase 3 pool live** (router · summarizer · metrics · critic A/B) |
+| Code | mutate/ablate/evolve · `seo metrics` · `seo critic-ab` · `seo pins` |
+| Pool | code/critique/summarize free pins · session token/RPM budgets |
+| Critic | static → dry/NIM · summarizer context · fail_open · waste metrics |
+| Containment | facade AST · hardened Docker (cap-drop, non-root, job RO) |
+| Science | K-repeat δ · weight/code attribution · manifests · tokens/gain |
 | Git remote | https://github.com/F3rNaNDEZ57/self-evolving-organism |
 | Secrets | `.env` only (gitignored) |
-| Next | Live critic A/B · summarizer context · optional Runs/ |
+| Next | Live long-run critic A/B · optional Runs/ · Phase 4 UI |
 
 ---
 

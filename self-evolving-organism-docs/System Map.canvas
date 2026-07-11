@@ -1,8 +1,8 @@
 {
 	"nodes":[
-		{"id":"title","type":"text","text":"# Self-Evolving Organism — Dashboard\nPhase 0–3 · **P2 hardened** (facade AST · Docker lock-down · manifests)\nOrigin: github.com/F3rNaNDEZ57/self-evolving-organism","x":0,"y":0,"width":2000,"height":120,"color":"4"},
+		{"id":"title","type":"text","text":"# Self-Evolving Organism — Dashboard\nPhase 0–3 · **pool LIVE** (router · summarizer · metrics · critic AB)\nOrigin: github.com/F3rNaNDEZ57/self-evolving-organism","x":0,"y":0,"width":2000,"height":120,"color":"4"},
 		{"id":"process","type":"text","text":"**Process rule:** after every task → update vault + this canvas · no secrets in vault · see Working Rules / AGENTS.md","x":0,"y":160,"width":2000,"height":70,"color":"1"},
-		{"id":"status","type":"text","text":"**Verified:** pytest 42p · adversarial containment · Docker hardened · llm_calls · K-repeat δ · manifests","x":0,"y":270,"width":2000,"height":70,"color":"5"},
+		{"id":"status","type":"text","text":"**Verified:** pytest 47p · critic-ab · metrics · router · summarizer · hardened Docker","x":0,"y":270,"width":2000,"height":70,"color":"5"},
 		{"id":"grp-docs","type":"group","x":0,"y":390,"width":2000,"height":280,"label":"1 · Vault notes (click to open)","color":"6"},
 		{"id":"f-home","type":"file","file":"Home.md","x":40,"y":460,"width":220,"height":80},
 		{"id":"f-rules","type":"file","file":"Working Rules.md","x":300,"y":460,"width":220,"height":80},
@@ -19,8 +19,8 @@
 		{"id":"f-glossary","type":"file","file":"Glossary.md","x":1340,"y":560,"width":220,"height":80},
 		{"id":"f-refs","type":"file","file":"References.md","x":1600,"y":560,"width":220,"height":80},
 		{"id":"grp-next","type":"group","x":0,"y":740,"width":2000,"height":200,"label":"2 · Next action","color":"2"},
-		{"id":"n-next","type":"text","text":"**Next**\n\n• Critic metrics + live A/B\n• Summarizer → critic context\n• Optional Runs/ write-ups\nCLI: seo mutate --dry-run","x":40,"y":800,"width":1200,"height":100,"color":"2"},
-		{"id":"n-cli","type":"text","text":"**CLI**\nseo init|demo|eval\nseo mutate --critic|--no-critic\nseo ablate|evolve|weights\nseo docker-build|smoke|eval\nseo pins","x":1320,"y":800,"width":640,"height":100,"color":"5"},
+		{"id":"n-next","type":"text","text":"**Next**\n\n• Live long-run critic A/B\n• Optional Runs/ write-ups\n• Phase 4 UI\nCLI: seo metrics | critic-ab","x":40,"y":800,"width":1200,"height":100,"color":"2"},
+		{"id":"n-cli","type":"text","text":"**CLI**\nseo mutate|metrics|critic-ab\nseo pins|ablate|evolve\nseo docker-*|weights\nseo eval --weights","x":1320,"y":800,"width":640,"height":100,"color":"5"},
 		{"id":"grp-org","type":"group","x":0,"y":1020,"width":600,"height":720,"label":"3 · Organism (mutable)","color":"4"},
 		{"id":"n-body","type":"text","text":"**Body (D1)**\n24×24 grid · energy · vision\nmove / forage / rest / noop","x":40,"y":1100,"width":520,"height":100,"color":"4"},
 		{"id":"n-genome","type":"text","text":"**Genome (D3)** whitelist\npolicy · heuristics · memory_hooks","x":40,"y":1240,"width":520,"height":100,"color":"4"},

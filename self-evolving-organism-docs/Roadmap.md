@@ -243,15 +243,17 @@ Build a system of **self-evolving digital organisms** that:
 - [x] Free multi-model pins (coder / critic / summarizer) in `nim.pinned.yaml`
 - [x] Critic policy + reject taxonomy (`src/organism/critic.py`)
 - [x] Critic gate in mutation loop (before Docker eval)
-- [ ] Metrics: accept rate, regressions, tokens/useful mutation
-- [ ] Router abstraction + summarizer-enriched critic context
+- [x] Metrics: accept rate, critic reject rate, tokens/useful mutation (`seo metrics`)
+- [x] Router abstraction + summarizer-enriched critic context
+- [x] Offline critic A/B (`seo critic-ab`) for evals-saved estimate
+- [ ] Live long-run A/B with free NIM (operator run)
 
 **Exit criteria**
 
 - Critic reduces regressions or wasted evals vs Phase 2
 - Free-tier RPM handled; model pins revalidated
 
-**Smoke (2026-07-11):** pytest **20p** · dry critic approve · unsafe static reject · seed AST-clean
+**Smoke:** pytest **47p** · critic-ab · metrics rollup · router roles
 
 ---
 

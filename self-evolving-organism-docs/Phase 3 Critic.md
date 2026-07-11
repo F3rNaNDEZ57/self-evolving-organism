@@ -1,28 +1,39 @@
 ---
-tags: [phase/3, critic, nim, free-tier]
+tags: [phase/3, critic, nim, free-tier, router, metrics]
 updated: 2026-07-11
 ---
 
-# Phase 3 — Free NIM critic
+# Phase 3 — Free NIM pool + critic
 
 ## Goal
 
-Gate genomic mutations with **static precheck + free NIM critic** before expensive Docker eval, reducing wasted episodes and unsafe patches.
+Multi-model quality control on **free NIM only**: critic gate, summarizer context, role router, budgets, and measurable waste reduction.
 
-## Design
+## Pipeline
 
 ```text
-parent eval → propose (coder) → critic (static → NIM/dry) → apply → validate → eval → ε accept
-                                      │ reject
-                                      └─ skip Docker eval; log taxonomy
+parent eval → summarize (distill) → propose (coder) → critic (static → NIM/dry)
+                                                      │ reject → skip Docker eval
+                                                      └ approve → apply → eval → ε
 ```
+
+| Role | Pin (default) | Module |
+|------|---------------|--------|
+| code | `deepseek-ai/deepseek-v4-flash` | router → mutation |
+| critique | `nvidia/nemotron-3-nano-30b-a3b` | critic |
+| summarize | `meta/llama-3.1-8b-instruct` | summarizer |
+| plan | summarizer pin | router alias |
+
+## Layers
 
 | Layer | Role |
 |-------|------|
-| `static_precheck` | Hard-fail: AST allowlist, Policy contract, size cap (500 lines) |
-| `dry_run_critic` | Offline deterministic approve after static pass |
-| Free NIM critic | Pin: `nvidia/nemotron-3-nano-30b-a3b` · JSON `approve|reject` + taxonomy |
-| Fail-open | If NIM critic errors after static pass → low-confidence approve (logged) |
+| `static_precheck` | Hard-fail AST / Policy contract / size |
+| `dry_run_critic` | Offline approve after static |
+| Free NIM critic | JSON approve/reject + taxonomy |
+| Summarizer | Episode distill → coder + critic prompts |
+| Router | role→pin + session token/call/mutation budgets |
+| Metrics | accept rate, critic reject rate, evals saved, tokens/gain |
 
 ### Reject taxonomy
 
@@ -34,64 +45,75 @@ parent eval → propose (coder) → critic (static → NIM/dry) → apply → va
 | `low_value` | Empty / no-op |
 | `overly_large` | Patch sprawl |
 | `nonsense` | Invalid / incoherent |
+| `fail_open` | NIM down, static-only pass |
 | `other` | Misc reject |
 
 ## Config
 
 ```yaml
-# config/experiment_v0.prereg.yaml
+# experiment_v0.prereg.yaml
 critic:
   enabled: true
-  max_combined_lines: 500
+  fail_open: true
+  use_summarizer: true
 
-# config/nim.pinned.yaml
-models:
-  critic: nvidia/nemotron-3-nano-30b-a3b
+pool:
+  budget:
+    max_rpm: 40
+    max_tokens_session: 200000
+    max_calls_session: 200
+    max_mutations: 30
 ```
-
-Env override: `NIM_CRITIC=...`
 
 ## CLI
 
 ```powershell
-seo mutate --dry-run --ablation Bc          # dry critic + host eval
-seo mutate --ablation Bc                    # live coder + live critic
-seo mutate --no-critic --dry-run            # bypass critic gate
+seo mutate --dry-run --ablation Bc
+seo mutate --ablation Bc
+seo mutate --no-critic --dry-run
+seo metrics                    # accept rate, critic waste, tokens
+seo critic-ab --n 6            # offline A/B: evals saved by critic
+seo pins                       # role map + budget
 ```
 
 ## Code map
 
 | Path | Role |
 |------|------|
-| `src/organism/critic.py` | Verdict, static, dry, NIM review |
-| `src/organism/mutation.py` | Critic gate before apply/eval |
-| `src/organism/cli.py` | `--critic/--no-critic` |
-| `tests/test_critic.py` | Static + dry + mutation reject path |
+| `src/organism/critic.py` | Verdict + static/NIM |
+| `src/organism/router.py` | FreeNimRouter + BudgetState |
+| `src/organism/summarizer.py` | Episode distillation |
+| `src/organism/metrics.py` | Pool rollup + critic A/B |
+| `src/organism/mutation.py` | Summarize → propose → critic gate |
+| `tests/test_phase3_pool.py` | Router/metrics/AB |
 
 ## Artifacts
 
-- Critic reject: `artifacts/mutations/{id}_rejected_sources/` + `{id}.json` with `critic` blob
-- Events: `mutation_critic`, `mutation_rejected` (via=critic)
+- `artifacts/last_pool_metrics.json`
+- `artifacts/last_critic_ab.json`
+- Mutation meta: `critic`, `llm_usage`, `cost_per_accepted_gain_tokens`
+- Events: `mutation_summarize`, `mutation_critic`
 
-## Smoke (2026-07-11)
+## Smoke
 
 | Check | Result |
 |-------|--------|
-| pytest | **20 passed** (incl. critic suite) |
-| Seed genome | pathlib removed from whitelist `policy.py` (AST-clean) |
-| Dry mutation + critic | approve → fitness gate |
-| Unsafe proposal | `critic reject [unsafe_import]` · no eval |
+| pytest | **47+** (incl. phase3 pool) |
+| `seo critic-ab` | evals saved on hostile proposals |
+| `seo metrics` | rollup from SQLite |
 
-## Remaining Phase 3
+## Deliverables
 
-- [ ] Token/RPM budget counters + metrics (accept rate, wasted evals avoided)
-- [ ] Live critic A/B vs no-critic (regression / waste rate)
-- [ ] Summarizer distillation into critic context
-- [ ] Router abstraction (plan / code / critique / summarize)
+- [x] Free multi-model pins (coder / critic / summarizer)
+- [x] Critic policy + reject taxonomy
+- [x] Critic gate before Docker eval
+- [x] Metrics: accept rate, critic reject rate, tokens/useful mutation
+- [x] Router abstraction + summarizer-enriched critic context
+- [x] Critic A/B (dry) for wasted-eval estimate
+- [ ] Live long-run A/B with NIM (operator; needs key + RPM patience)
 
 ## See also
 
-- [[Phase 2 Scaffold]]
+- [[Phase 2 Hardening]]
 - [[NIM Pin Log]]
 - [[Roadmap]]
-- [[Research Brief]]
