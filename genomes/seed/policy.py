@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import random
-from pathlib import Path
 
 import numpy as np
 from heuristics import nearest_food_direction, should_forage
@@ -38,7 +37,8 @@ class Policy:
         self._feature_dim: int | None = None
         self._pending_weight_path: str | None = None
 
-    def load_weights(self, path: Path | str) -> None:
+    def load_weights(self, path: str) -> None:
+        # path is str only — pathlib is forbidden in whitelist modules
         self._pending_weight_path = str(path)
 
     def reset(self, seed: int) -> None:
@@ -55,9 +55,10 @@ class Policy:
                 rng=np.random.default_rng(self.rng.randint(0, 10**9)),
             )
             if self._pending_weight_path:
-                p = Path(self._pending_weight_path)
-                if p.exists():
-                    self.scorer.load(p)
+                try:
+                    self.scorer.load(self._pending_weight_path)
+                except (OSError, FileNotFoundError, ValueError):
+                    pass
         return self.scorer
 
     def act(self, observation: Observation) -> Action:
