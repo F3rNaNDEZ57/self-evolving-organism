@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from organism.config import resolve_path
+from organism.critic import CriticVerdict, review_proposal
 from organism.evaluator import EvalResult, FitnessConfig, episode_score, evaluate, run_episode
 from organism.genome_loader import WHITELIST, copy_genome, make_policy_factory
 from organism.nim_client import NimClient
@@ -59,6 +60,9 @@ class MutationResult:
     rationale: str = ""
     proposal_raw: str = ""
     files_changed: list[str] = field(default_factory=list)
+    critic_decision: str = ""  # approve | reject | skipped
+    critic_code: str = ""
+    critic_confidence: float | None = None
     meta: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -287,9 +291,13 @@ def run_mutation_cycle(
     proposal_override: dict[str, Any] | None = None,
     sandbox_cfg: Any | None = None,
     force_host_eval: bool = False,
+    critic: bool | None = None,
+    critic_model: str | None = None,
+    critic_cfg: dict[str, Any] | None = None,
 ) -> MutationResult:
     """
-    Full loop: eval parent → NIM propose → apply → validate → eval candidate → accept/reject.
+    Full loop: eval parent → NIM propose → critic → apply → validate → eval → accept/reject.
+    Critic (static + free NIM / dry-run) runs before expensive candidate eval.
     Candidate eval uses Docker episode isolation when sandbox.episode_isolation is true.
     """
     from organism.sandbox import SandboxConfig
@@ -301,6 +309,8 @@ def run_mutation_cycle(
     cand_id = _uid("g")
     epsilon = float(fit.epsilon_accept)
     sb = sandbox_cfg if sandbox_cfg is not None else SandboxConfig()
+    ccfg = dict(critic_cfg or {})
+    use_critic = bool(ccfg.get("enabled", True)) if critic is None else bool(critic)
     # Dry-run unit paths stay on host; live mutations isolate candidates in Docker.
     if dry_run and not force_host_eval:
         force_host_eval = True
@@ -374,11 +384,154 @@ def run_mutation_cycle(
 
     files = proposal.get("files") or extract_files_from_proposal(str(proposal.get("proposal", "")))
     rationale = str(proposal.get("rationale") or extract_rationale(str(proposal.get("proposal", ""))))
-
     cand_path = artifacts_dir / "genomes" / cand_id
+    critic_verdict: CriticVerdict | None = None
+
+    if not files:
+        reason = "apply/validate failed: could not parse any whitelist files from model proposal"
+        store.insert_mutation(
+            mut_id,
+            parent_genome_id,
+            cand_id,
+            "failed",
+            reason,
+            {
+                "model": model,
+                "rationale": rationale,
+                "proposal": str(proposal.get("proposal", ""))[:8000],
+            },
+        )
+        store.log_event("mutation_failed", {"mutation_id": mut_id, "reason": reason})
+        return MutationResult(
+            mutation_id=mut_id,
+            parent_genome_id=parent_genome_id,
+            candidate_genome_id=cand_id,
+            decision="failed",
+            reason=reason,
+            parent_fitness=parent_eval.fitness,
+            candidate_fitness=None,
+            epsilon=epsilon,
+            parent_path=str(parent_dir),
+            candidate_path=str(cand_path),
+            model=model,
+            rationale=rationale,
+            proposal_raw=str(proposal.get("proposal", ""))[:8000],
+            files_changed=[],
+            critic_decision="skipped",
+        )
+
+    # 2b) Critic before expensive apply/eval (static hard-fail + free NIM / dry-run)
+    if use_critic:
+        critic_verdict = review_proposal(
+            files=files,
+            rationale=rationale,
+            parent_fitness=parent_eval.fitness,
+            episode_summaries=summaries,
+            client=None if dry_run else (client or NimClient()),
+            dry_run=dry_run,
+            model=critic_model or ccfg.get("model"),
+        )
+        store.log_event(
+            "mutation_critic",
+            {
+                "mutation_id": mut_id,
+                "decision": critic_verdict.decision,
+                "code": critic_verdict.code,
+                "confidence": critic_verdict.confidence,
+                "model": critic_verdict.model,
+                "reasons": critic_verdict.reasons,
+                "dry_run": critic_verdict.dry_run,
+            },
+        )
+        if not critic_verdict.approved:
+            reason = (
+                f"critic reject [{critic_verdict.code}]: "
+                + "; ".join(critic_verdict.reasons[:4])
+            )
+            # Optional audit copy of rejected proposal sources (no full genome apply)
+            rej_dir = artifacts_dir / "mutations" / f"{mut_id}_rejected_sources"
+            rej_dir.mkdir(parents=True, exist_ok=True)
+            for name, src in files.items():
+                (rej_dir / name).write_text(
+                    src if src.endswith("\n") else src + "\n", encoding="utf-8"
+                )
+            store.insert_genome(
+                genome_id=cand_id,
+                parent_id=parent_genome_id,
+                status="critic_rejected",
+                ablation=ablation,
+                artifact_path=str(rej_dir),
+            )
+            store.insert_mutation(
+                mut_id,
+                parent_genome_id,
+                cand_id,
+                "rejected",
+                reason,
+                {
+                    "model": model,
+                    "rationale": rationale,
+                    "files_changed": list(files.keys()),
+                    "parent_fitness": parent_eval.fitness,
+                    "candidate_fitness": None,
+                    "epsilon": epsilon,
+                    "critic": critic_verdict.to_dict(),
+                    "proposal": str(proposal.get("proposal", ""))[:8000],
+                },
+            )
+            store.log_event(
+                "mutation_rejected",
+                {
+                    "mutation_id": mut_id,
+                    "parent": parent_genome_id,
+                    "candidate": cand_id,
+                    "reason": reason,
+                    "via": "critic",
+                },
+            )
+            prop_path = artifacts_dir / "mutations" / f"{mut_id}.json"
+            prop_path.parent.mkdir(parents=True, exist_ok=True)
+            prop_path.write_text(
+                json.dumps(
+                    {
+                        "mutation_id": mut_id,
+                        "decision": "rejected",
+                        "reason": reason,
+                        "model": model,
+                        "rationale": rationale,
+                        "files_changed": list(files.keys()),
+                        "parent_fitness": parent_eval.fitness,
+                        "candidate_fitness": None,
+                        "critic": critic_verdict.to_dict(),
+                        "proposal": proposal.get("proposal"),
+                    },
+                    indent=2,
+                ),
+                encoding="utf-8",
+            )
+            return MutationResult(
+                mutation_id=mut_id,
+                parent_genome_id=parent_genome_id,
+                candidate_genome_id=cand_id,
+                decision="rejected",
+                reason=reason,
+                parent_fitness=parent_eval.fitness,
+                candidate_fitness=None,
+                epsilon=epsilon,
+                parent_path=str(parent_dir),
+                candidate_path=str(rej_dir),
+                model=model,
+                rationale=rationale,
+                proposal_raw=str(proposal.get("proposal", ""))[:8000],
+                files_changed=list(files.keys()),
+                critic_decision=critic_verdict.decision,
+                critic_code=critic_verdict.code,
+                critic_confidence=critic_verdict.confidence,
+                meta={"proposal_path": str(prop_path), "critic": critic_verdict.to_dict()},
+            )
+
+    # 2c) Apply + validate
     try:
-        if not files:
-            raise ValueError("could not parse any whitelist files from model proposal")
         changed = apply_files(parent_dir, cand_path, files)
         assert_valid_genome(cand_path)
     except Exception as e:
@@ -393,10 +546,10 @@ def run_mutation_cycle(
                 "model": model,
                 "rationale": rationale,
                 "proposal": str(proposal.get("proposal", ""))[:8000],
+                "critic": critic_verdict.to_dict() if critic_verdict else None,
             },
         )
         store.log_event("mutation_failed", {"mutation_id": mut_id, "reason": reason})
-        # keep failed candidate for inspection if partial
         return MutationResult(
             mutation_id=mut_id,
             parent_genome_id=parent_genome_id,
@@ -412,6 +565,9 @@ def run_mutation_cycle(
             rationale=rationale,
             proposal_raw=str(proposal.get("proposal", ""))[:8000],
             files_changed=list(files.keys()) if isinstance(files, dict) else [],
+            critic_decision=critic_verdict.decision if critic_verdict else "skipped",
+            critic_code=critic_verdict.code if critic_verdict else "",
+            critic_confidence=critic_verdict.confidence if critic_verdict else None,
         )
 
     # 3) Evaluate candidate (Docker-isolated by default)
@@ -460,6 +616,9 @@ def run_mutation_cycle(
             rationale=rationale,
             proposal_raw=str(proposal.get("proposal", ""))[:8000],
             files_changed=changed,
+            critic_decision=critic_verdict.decision if critic_verdict else "skipped",
+            critic_code=critic_verdict.code if critic_verdict else "",
+            critic_confidence=critic_verdict.confidence if critic_verdict else None,
         )
 
     store.insert_genome(
@@ -514,6 +673,7 @@ def run_mutation_cycle(
         )
         store.set_genome_status(cand_id, "rejected")
 
+    critic_meta = critic_verdict.to_dict() if critic_verdict else {"decision": "skipped"}
     store.insert_mutation(
         mut_id,
         parent_genome_id,
@@ -527,6 +687,7 @@ def run_mutation_cycle(
             "parent_fitness": parent_eval.fitness,
             "candidate_fitness": cand_eval.fitness,
             "epsilon": epsilon,
+            "critic": critic_meta,
             "proposal": str(proposal.get("proposal", ""))[:8000],
         },
     )
@@ -539,6 +700,7 @@ def run_mutation_cycle(
             "parent_fitness": parent_eval.fitness,
             "candidate_fitness": cand_eval.fitness,
             "reason": reason,
+            "critic": critic_meta,
         },
     )
 
@@ -556,6 +718,7 @@ def run_mutation_cycle(
                 "files_changed": changed,
                 "parent_fitness": parent_eval.fitness,
                 "candidate_fitness": cand_eval.fitness,
+                "critic": critic_meta,
                 "proposal": proposal.get("proposal"),
             },
             indent=2,
@@ -578,7 +741,10 @@ def run_mutation_cycle(
         rationale=rationale,
         proposal_raw=str(proposal.get("proposal", ""))[:8000],
         files_changed=changed,
-        meta={"proposal_path": str(prop_path)},
+        critic_decision=critic_verdict.decision if critic_verdict else "skipped",
+        critic_code=critic_verdict.code if critic_verdict else "",
+        critic_confidence=critic_verdict.confidence if critic_verdict else None,
+        meta={"proposal_path": str(prop_path), "critic": critic_meta},
     )
 
 
