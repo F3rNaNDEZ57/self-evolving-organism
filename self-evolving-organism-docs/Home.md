@@ -94,7 +94,7 @@ cssclasses:
 | Isolation | Candidates in Docker `--network none` · image `seo-sandbox:py312` |
 | Evolve | Schedule + plateau · `artifacts/last_evolve_report.json` |
 | Checkpoints | `artifacts/weights/*.npz` + sidecar JSON |
-| GitNexus | [[GitNexus]] (refresh after push) |
+| GitNexus | **1338** nodes / **117** flows · [[GitNexus]] |
 | Git remote | https://github.com/F3rNaNDEZ57/self-evolving-organism |
 | Secrets | `.env` only (gitignored) |
 | Next | Phase 3 free NIM critic · optional Runs/ notes · live long ablations |
