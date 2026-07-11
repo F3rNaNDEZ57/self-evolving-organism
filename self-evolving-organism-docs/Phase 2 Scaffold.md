@@ -189,7 +189,7 @@ seo eval --host --ablation B0    # force host (tests / speed)
 
 | Check | Result |
 |-------|--------|
-| pytest | **13 passed** (incl. docker isolation tests) |
+| pytest | **42 passed** (incl. adversarial containment + hardening) |
 | `seo docker-build` | OK `seo-sandbox:py312` |
 | `seo docker-eval --seeds 0,1` | fitness ~22.76 · `isolated: true` |
 

@@ -65,13 +65,17 @@ seo eval --ablation Bw --weights latest
 seo evolve --cycles 5 --dry-run --every 8 --plateau 20 --max-mutations 5
 seo evolve --cycles 10 --live --ablation Bc
 
-# Docker episode isolation
+# Docker episode isolation (hardened image)
 seo docker-build
 seo docker-smoke
 seo docker-eval --seeds 0,1
 seo eval --docker --ablation Bc
 seo eval --host --ablation B0
+# Bw learning measurement requires a checkpoint
+seo weights train --passes 2
+seo eval --ablation Bw --weights latest
 ```
+
 
 ## Layout
 

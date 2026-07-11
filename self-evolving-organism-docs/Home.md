@@ -89,16 +89,15 @@ cssclasses:
 
 | Field | Value |
 |-------|-------|
-| Stage | **Phase 3 critic live** (static + free NIM gate before eval) |
-| Code | `seo eval/mutate/ablate/weights/evolve` · **`seo docker-*`** · critic gate |
-| Critic | static AST → dry/NIM (`nemotron-3-nano`) · `--critic/--no-critic` |
-| Isolation | Candidates in Docker `--network none` · image `seo-sandbox:py312` |
-| Evolve | Schedule + plateau · `artifacts/last_evolve_report.json` |
-| Checkpoints | `artifacts/weights/*.npz` + sidecar JSON |
-| GitNexus | re-analyze after Phase 3 push |
+| Stage | **Phase 2 hardened** + Phase 3 critic |
+| Code | `seo eval/mutate/ablate/weights/evolve` · docker · critic · manifests |
+| Containment | AST facade-only imports · Docker cap-drop/no-new-privs/pids/non-root |
+| Critic | static AST → dry/NIM · `fail_open` flag · llm_calls tokens |
+| Isolation | Candidates Docker `--network none` · result via stdout (no rw host job) |
+| Science | K-repeat δ · weight/code attribution · reproducibility manifest |
 | Git remote | https://github.com/F3rNaNDEZ57/self-evolving-organism |
 | Secrets | `.env` only (gitignored) |
-| Next | Critic metrics / live A/B · summarizer context · optional Runs/ |
+| Next | Live critic A/B · summarizer context · optional Runs/ |
 
 ---
 
