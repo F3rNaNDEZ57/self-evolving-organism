@@ -172,6 +172,7 @@ def propose_policy_patch(
     mutation_id: str | None = None,
     router: Any | None = None,
     experience_distill: dict[str, Any] | None = None,
+    lessons_text: str = "",
 ) -> dict[str, Any]:
     from organism.router import FreeNimRouter
     from organism.summarizer import format_distill_for_prompt
@@ -186,10 +187,13 @@ def propose_policy_patch(
     distill_line = ""
     if experience_distill:
         distill_line = format_distill_for_prompt(experience_distill) + "\n"
+    lessons_line = (lessons_text.strip() + "\n") if lessons_text else ""
     user = (
         f"{fit_line}"
         f"{distill_line}"
+        f"{lessons_line}"
         "Improve survival and food collection. Return JSON with full file sources for changed modules only.\n"
+        "Keep Policy interface; only use real Observation fields (tick not ticks).\n"
         f"Recent episode summaries: {json.dumps(episode_summaries[:8])}\n\n"
         + "\n\n".join(sources)
     )
@@ -389,10 +393,20 @@ def run_mutation_cycle(
 
     summaries = _episode_context(parent_dir, world, fit, wcfg, ablation, train_seeds)
 
-    # 1b) Experience distillation (summarizer pin / offline) for coder + critic context
+    # 1b) Structured mutation memory (SQL lessons — no vectors)
+    from organism.mutation_memory import format_lessons_for_prompt, retrieve_mutation_lessons
     from organism.router import FreeNimRouter
     from organism.summarizer import distill_episodes
 
+    lessons = retrieve_mutation_lessons(store, k=5, parent_genome_id=parent_genome_id)
+    lessons_text = format_lessons_for_prompt(lessons)
+    if lessons:
+        store.log_event(
+            "mutation_memory",
+            {"mutation_id": mut_id, "n": len(lessons), "ids": [L.get("mutation_id") for L in lessons]},
+        )
+
+    # 1c) Experience distillation (summarizer pin / offline) for coder + critic context
     pool_cfg = dict(ccfg)
     use_summarizer = bool(pool_cfg.get("use_summarizer", True))
     router: FreeNimRouter | None = None
@@ -472,6 +486,7 @@ def run_mutation_cycle(
                 mutation_id=mut_id,
                 router=router,
                 experience_distill=experience_distill,
+                lessons_text=lessons_text,
             )
             model = str(proposal.get("model", ""))
             router.budget.record_mutation()
@@ -530,6 +545,7 @@ def run_mutation_cycle(
             mutation_id=mut_id,
             experience_distill=experience_distill,
             router=router,
+            lessons_text=lessons_text,
         )
         store.log_event(
             "mutation_critic",

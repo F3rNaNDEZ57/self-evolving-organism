@@ -18,6 +18,10 @@ Genome may only change: policy.py, heuristics.py, memory_hooks.py.
 Reject if:
 - unsafe imports/calls (os, sys, subprocess, socket, eval, exec, open, network)
 - missing Policy interface (reset, act, on_step_result) when policy.py changes
+- uses non-existent Observation fields (ticks, pos, health, food, grid) — ONLY:
+  tick, energy, energy_max, x, y, local_food, vision, last_reward, alive
+- random.choice(..., weights=...) — invalid (choice has no weights)
+- Policy.__init__ signature break (must accept use_weights, weight_cfg, explore, train)
 - change is pointless noise / huge unrelated rewrite / breaks grid organism design
 
 Approve only if the change is small, safe, and plausibly improves food/survival.
@@ -172,6 +176,7 @@ def review_proposal(
     mutation_id: str | None = None,
     experience_distill: dict[str, Any] | None = None,
     router: Any | None = None,
+    lessons_text: str = "",
 ) -> CriticVerdict:
     """
     Review proposed file sources. Static hard-fail first, then free NIM critic
@@ -205,9 +210,11 @@ def review_proposal(
         "files": list(files.keys()),
     }
     distill_txt = format_distill_for_prompt(experience_distill or {})
+    lessons_block = (lessons_text.strip() + "\n") if lessons_text else ""
     prompt = (
         f"Review this mutation proposal.\n"
         f"{distill_txt}\n"
+        f"{lessons_block}"
         f"Context JSON: {json.dumps(user)}\n\n"
         + "\n\n".join(file_blobs)
     )
