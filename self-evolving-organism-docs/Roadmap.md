@@ -207,7 +207,9 @@ Build a system of **self-evolving digital organisms** that:
 - [x] Lineage log tables (genomes/evaluations/episodes/events)
 - [x] Mutation apply + accept/reject pipeline (`seo mutate`)
 - [x] Ablation runs B0 / Bw / Bc / Bcw + holdout δ report (`seo ablate`)
+- [x] Schedule + plateau auto-mutate (`seo evolve`)
 - [ ] How-to-run notes in vault `Runs/` (report JSON exists; human write-up optional)
+- [ ] Docker-isolated episode eval (optional hardening)
 
 **Exit criteria**
 
@@ -217,7 +219,7 @@ Build a system of **self-evolving digital organisms** that:
 > [!example] Success metric
 > Holdout fitness: Bcw ≥ B0 + δ; attribute gains via Bw and Bc.
 
-**Smoke (2026-07-11):** pytest 6p · mutate dry-run+live accept · `seo ablate --quick` report written.
+**Smoke (2026-07-11):** pytest 11p · mutate · ablate · weights · `seo evolve` schedule triggers.
 
 ---
 
