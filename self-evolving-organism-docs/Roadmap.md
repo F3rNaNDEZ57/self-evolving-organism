@@ -209,17 +209,18 @@ Build a system of **self-evolving digital organisms** that:
 - [x] Ablation runs B0 / Bw / Bc / Bcw + holdout δ report (`seo ablate`)
 - [x] Schedule + plateau auto-mutate (`seo evolve`)
 - [x] Docker-isolated episode eval (`seo docker-build` / `docker-eval` / mutation candidates)
-- [ ] How-to-run notes in vault `Runs/` (optional)
+- [x] How-to-run / lab notes in vault `Runs/` → [[Runs/2026-07-11-live-ablation-weight-fix]]
 
 **Exit criteria**
 
-- Holdout **Bcw** improves vs **B0** (or documented negative) with ablations — **runner ready**; quick dry-run produced documented negative δ
-- Zero host escape on basic adversarial smoke tests — Docker smoke PASS
+- Holdout **Bcw** improves vs **B0** (or **documented negative**) — **live free-NIM suites recorded**
+  - pre-fix: δ=**−10.47** · post weight fix: δ=**−2.51** · success still **False** (max_mutations=3)
+- Zero host escape on basic adversarial smoke tests — Docker smoke PASS · hardened flags
 
 > [!example] Success metric
 > Holdout fitness: Bcw ≥ B0 + δ; attribute gains via Bw and Bc.
 
-**Smoke (2026-07-11):** pytest 11p · mutate · ablate · weights · `seo evolve` schedule triggers.
+**Smoke:** pytest **49p** · live ablate · weights BC/keep-best · Docker hardened
 
 ---
 
@@ -246,14 +247,17 @@ Build a system of **self-evolving digital organisms** that:
 - [x] Metrics: accept rate, critic reject rate, tokens/useful mutation (`seo metrics`)
 - [x] Router abstraction + summarizer-enriched critic context
 - [x] Offline critic A/B (`seo critic-ab`) for evals-saved estimate
-- [ ] Live long-run A/B with free NIM (operator run)
+- [x] Live free-NIM field trial (mutate · evolve · ablate) + [[Runs/2026-07-11-live-ablation-weight-fix]]
+- [x] Mutation memory (SQL) + schema AST contracts
+- [ ] Soft critic `other` threshold / more code accepts for δ
 
 **Exit criteria**
 
-- Critic reduces regressions or wasted evals vs Phase 2
-- Free-tier RPM handled; model pins revalidated
+- Critic reduces wasted evals — **yes** (61% reject rate · 11 evals avoided · contract_break live)
+- Free-tier RPM handled; model pins revalidated — **yes** (40 RPM · no fail_open storms)
+- δ success still open under max_mutations=3 (honest negative)
 
-**Smoke:** pytest **47p** · critic-ab · metrics rollup · router roles
+**Smoke:** pytest **49p** · live ablate post weight fix · metrics · mutation memory
 
 ---
 
@@ -381,8 +385,8 @@ Detail: [[Research Brief#Sandbox and safety]]
 |------:|------|-----------------|--------|
 | 0 | Concept freeze | Definitions + decisions + canvas | ✅ |
 | 1 | Research package | Matrix + NIM pins + Docker + pre-reg | ✅ |
-| 2 | Paper organism | Bcw vs B0 under sandbox | ✅ |
-| 3 | Free LLM pool + critic | Multi-model quality on free NIM | 🔧 **critic live** |
+| 2 | Paper organism | Bcw vs B0 under sandbox | ✅ runner · 🔧 δ open (live negative) |
+| 3 | Free LLM pool + critic | Multi-model quality on free NIM | 🔧 **field-trialed** |
 | 4 | Observer UI | Legible lineage & mutations | ⬜ |
 | 5 | Population | Multi-organism selection | ⬜ |
 | 6 | Hardening | Research-grade isolation & experiments | ⬜ |
@@ -391,9 +395,9 @@ Detail: [[Research Brief#Sandbox and safety]]
 
 ## Immediate next steps
 
-1. Critic metrics + live A/B (with vs without critic)
-2. Summarizer distillation into critic / mutation context
-3. Optional Runs/ vault auto-export
+1. Raise free-NIM **code accept** rate (soft `other` / evolve budget)
+2. Optional: Bcw parent eval without train-mode fitness noise
+3. Phase 4 observer UI when ready
 
 ---
 

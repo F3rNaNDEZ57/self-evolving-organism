@@ -89,15 +89,16 @@ cssclasses:
 
 | Field | Value |
 |-------|-------|
-| Stage | **Phase 3 pool live** (router · summarizer · metrics · critic A/B) |
-| Code | mutate/ablate/evolve · `seo metrics` · `seo critic-ab` · `seo pins` |
-| Pool | code/critique/summarize free pins · session token/RPM budgets |
-| Critic | static → dry/NIM · summarizer context · fail_open · waste metrics |
-| Containment | facade AST · hardened Docker (cap-drop, non-root, job RO) |
-| Science | K-repeat δ · weight/code attribution · manifests · tokens/gain |
+| Stage | **Phase 3 field-trialed** · weight loop repaired · live ablate re-run |
+| Code | mutate/ablate/evolve · metrics · critic-ab · weights train · pins |
+| Pool | free NIM coder/critic/summarizer · RPM 40 · router budgets |
+| Critic | static + schema AST · NIM · mutation memory · evals avoided |
+| Weights | BC bootstrap · keep-best · explore_eval=0 · **Bw≈8.5 holdout** (was 0.5) |
+| Science | Live ablate `abl_dd5cb56e83`: **δ=−2.51** (fail) · prior **δ=−10.47** |
+| Runs | [[Runs/2026-07-11-live-ablation-weight-fix]] |
 | Git remote | https://github.com/F3rNaNDEZ57/self-evolving-organism |
 | Secrets | `.env` only (gitignored) |
-| Next | Live long-run critic A/B · optional Runs/ · Phase 4 UI |
+| Next | More code accepts (critic soft-threshold / evolve) · Phase 4 UI |
 
 ---
 

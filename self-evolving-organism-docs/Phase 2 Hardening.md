@@ -57,7 +57,11 @@ Live `abl_01d836c6d5` showed holdout **Bw ≈ 0.5 vs B0 ≈ 11** (weights replac
 | Schema AST: `obs.ticks`, `random.choice(weights=)` | catch live crash modes |
 | SQL mutation memory → prompts | avoid repeat failures |
 
-**After fix:** B0 holdout ~10.95 · Bw holdout ~**8.88** · Δ ≈ **−2.1** (still below B0, not catastrophic).
+**After fix (host seed re-measure):** B0 holdout ~10.95 · Bw holdout ~**8.88** · Δ ≈ **−2.1**.
+
+**Live re-ablate `abl_dd5cb56e83`:** B0 **10.95** · Bw **8.45** · Bcw **8.45** · δ=**−2.51** (was −10.47). Full note: [[Runs/2026-07-11-live-ablation-weight-fix]].
+
+Active genome smoke: B0 holdout = Bw holdout = **22.11** (weights clone evolved heuristic).
 
 ## Rebuild sandbox image
 
