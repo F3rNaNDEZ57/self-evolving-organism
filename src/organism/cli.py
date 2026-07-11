@@ -1469,6 +1469,36 @@ def watch_cmd(
         console.print(f"[green]GIF[/green] {out}")
 
 
+@app.command("doctor")
+def doctor_cmd(
+    strict_docker: bool = typer.Option(
+        False,
+        "--strict-docker",
+        help="Fail if Docker unavailable even when sandbox.require_docker is soft",
+    ),
+) -> None:
+    """Phase 6: environment / artifacts / docker health check."""
+    from organism.doctor import run_doctor
+
+    report = run_doctor(require_docker=True if strict_docker else None)
+    table = Table(title="seo doctor")
+    table.add_column("check")
+    table.add_column("ok")
+    table.add_column("severity")
+    table.add_column("detail")
+    for c in report.checks:
+        mark = "yes" if c.ok else "NO"
+        color = "green" if c.ok else ("red" if c.severity == "error" else "yellow")
+        table.add_row(c.name, f"[{color}]{mark}[/{color}]", c.severity, c.detail[:80])
+    console.print(table)
+    console.print(
+        f"{'[green]OK[/green]' if report.ok else '[red]ISSUES[/red]'} · "
+        "artifacts/last_doctor_report.json"
+    )
+    if not report.ok:
+        raise typer.Exit(1)
+
+
 @app.command("ui")
 def ui_cmd(
     port: int = typer.Option(8501, help="Streamlit port"),

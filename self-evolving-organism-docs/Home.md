@@ -67,6 +67,7 @@ cssclasses:
 ### Lab notebooks (empty until experiments)
 
 - [[Phase 5 Population]] — elite archive + mutate parent picker
+- [[Phase 6 Hardening]] — doctor + research-grade checklist
 - [[Runs/README|Runs/]] — experiment write-ups
 - [[Mutations/README|Mutations/]] — patch post-mortems
 - [[Lineage/README|Lineage/]] — lineage narratives
@@ -90,16 +91,16 @@ cssclasses:
 
 | Field | Value |
 |-------|-------|
-| Stage | **Phase 5 complete scaffold** · live mutate OK · Bw holdout tool |
-| Code | elites · select · lineages · multi Watch · runs export · weights holdout |
+| Stage | **Phase 5 done** · **Phase 6 scaffold** (`seo doctor`) |
+| Code | best-of phenotype · weights diagnose · doctor · full Phase 5 ops |
 | Science | **Bcw − B0 = +4.44** · thr 0.30 · success=True |
-| UI | [[Phase 4 Observer UI]] · [[Phase 5 Population]] · Weights holdout |
-| Critic | hard schema · soft_pass · mutation parse retry on truncated NIM JSON |
-| Weights | train → `seo weights holdout` B0 vs Bw on holdout seeds |
-| Runs | [[Runs/README]] · `seo runs export` · mutation rejects are scientific OK |
+| UI | [[Phase 4 Observer UI]] · [[Phase 5 Population]] · [[Phase 6 Hardening]] |
+| Critic | soft_pass · truncated JSON retry |
+| Weights | best-of eval · holdout · diagnose · keep-if-beats-b0 |
+| Runs | [[Runs/README]] · `seo runs export` |
 | Git remote | https://github.com/F3rNaNDEZ57/self-evolving-organism |
 | Secrets | `.env` only (gitignored) |
-| Next | Live Bw holdout measurements · Phase 6 when ready |
+| Next | Longer soaks · reproduce bundles · optional public notes |
 
 ---
 

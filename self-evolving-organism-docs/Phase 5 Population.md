@@ -88,11 +88,17 @@ Rejected patches (e.g. rest-more heuristics losing to parent ~28) are normal und
 seo weights train --passes 4
 seo weights holdout --weights latest          # B0 vs Bw on holdout seeds
 seo weights holdout --passes 4                # train then compare
+seo weights diagnose --weights latest         # recommendation
+seo weights train --passes 4 --keep-if-beats-b0
 seo runs export --kind weights_holdout
 # UI: Run → Weights → Start B0 vs Bw holdout
 ```
 
-Writes `artifacts/last_weights_holdout.json`.
+Writes `artifacts/last_weights_holdout.json` / `last_weights_diagnose.json`.
+
+## Dual-timescale best-of phenotype
+
+For **Bw/Bcw** evals with a frozen checkpoint, `evaluate_genome` runs **code-only** and **with-weights**, keeps the better fitness (`phenotype=code_only|with_weights`). Weak scorers cannot tank strong heuristics.
 
 ## Runs export (lab notes)
 

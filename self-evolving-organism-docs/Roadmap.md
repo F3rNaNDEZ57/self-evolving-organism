@@ -321,11 +321,14 @@ Build a system of **self-evolving digital organisms** that:
 - [x] Runs lab-note export (`seo runs export` · `feat/phase5-runs-export`)
 - [x] Live mutate parse harden (truncated JSON + retry)
 - [x] `seo weights holdout` B0 vs Bw holdout compare (`feat/bw-holdout-eval`)
+- [x] Best-of phenotype at Bw/Bcw eval (`feat/best-of-phenotype-eval`)
+- [x] Weights diagnose + keep-if-beats-b0 (`feat/weight-train-diagnostics`)
 
 **Deliverables**
 
 - [x] Solo vs population experiment write-up path (export stubs from evolve reports)
 - [x] Operator path to measure Bw holdout gap
+- [x] Dual-timescale best-of so weak scorers cannot tank code
 
 **Exit criteria**
 
@@ -340,13 +343,17 @@ Build a system of **self-evolving digital organisms** that:
 | **Goal** | Research-grade reliability and broader questions |
 | **Tags** | `#phase/6` |
 
-**Candidates (after Phase 5)**
+**Scaffold (2026-07-11 · `feat/phase6-scaffold`)**
 
-- Stronger isolation (containers, Wasm, …)
-- Hybrid body (sim + limited tools)
-- Task curriculum / open-ended survival
-- Kernel regression suites
-- Experiment packaging (seed, config, replay)
+- [x] `seo doctor` environment health check · [[Phase 6 Hardening]]
+- [x] Checklist: reliability / isolation / packaging / science extensions
+
+**Candidates (next)**
+
+- Longer-run soak tests
+- Stronger isolation defaults
+- Reproduce-last-suite packaging
+- Kernel regression gate (optional CI)
 - Optional public research notes
 
 ---
@@ -412,16 +419,16 @@ Detail: [[Research Brief#Sandbox and safety]]
 | 2 | Paper organism | Bcw vs B0 under sandbox | ✅ runner · ✅ δ success (sequential dual) |
 | 3 | Free LLM pool + critic | Multi-model quality on free NIM | ✅ **soft critic · δ success** |
 | 4 | Observer UI | Legible lineage & mutations + run console | ✅ **merged** |
-| 5 | Population | Multi-organism selection | 🔧 **scaffold + runs export** |
-| 6 | Hardening | Research-grade isolation & experiments | ⬜ |
+| 5 | Population | Multi-organism selection | ✅ **scaffold** |
+| 6 | Hardening | Research-grade isolation & experiments | 🔧 **doctor scaffold** |
 
 ---
 
 ## Immediate next steps
 
-1. Run `seo weights holdout` on active genome; log with `seo runs export`
-2. Phase 6 hardening when ready
-3. Keep exporting Runs notes after live mutate / population experiments
+1. `seo doctor` before long live runs
+2. Prefer Bc mutates + best-of Bcw; `seo weights diagnose` before trusting Bw
+3. Soak tests + reproduce-bundle packaging
 
 ---
 
