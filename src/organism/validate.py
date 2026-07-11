@@ -80,6 +80,41 @@ FORBIDDEN_IMPORT_ROOTS = frozenset(
 
 FORBIDDEN_CALLS = frozenset({"eval", "exec", "compile", "__import__", "open", "input", "breakpoint"})
 
+# Frozen Observation fields (organism.schemas.Observation) — LLM often invents others
+OBSERVATION_ATTRS = frozenset(
+    {
+        "tick",
+        "energy",
+        "energy_max",
+        "x",
+        "y",
+        "local_food",
+        "vision",
+        "last_reward",
+        "alive",
+        "feature_dim",  # method
+    }
+)
+
+# Common hallucinated attrs that crashed live ablations
+FORBIDDEN_OBS_ATTRS = frozenset(
+    {
+        "ticks",
+        "pos",
+        "position",
+        "health",
+        "food",
+        "grid",
+        "world",
+        "state",
+        "hp",
+        "stamina",
+        "inventory",
+        "get_food_positions",
+        "nearest_food_distance",
+    }
+)
+
 
 class GenomeValidationError(Exception):
     def __init__(self, errors: list[str]) -> None:
@@ -116,6 +151,23 @@ def _import_allowed(module_path: str | None) -> bool:
     return root in ALLOWED_IMPORT_ROOTS
 
 
+def _call_name(func: ast.AST) -> str | None:
+    if isinstance(func, ast.Name):
+        return func.id
+    if isinstance(func, ast.Attribute):
+        # random.choice → choice; also return dotted if possible
+        parts: list[str] = []
+        cur: ast.AST | None = func
+        while isinstance(cur, ast.Attribute):
+            parts.append(cur.attr)
+            cur = cur.value
+        if isinstance(cur, ast.Name):
+            parts.append(cur.id)
+            return ".".join(reversed(parts))
+        return parts[0] if parts else None
+    return None
+
+
 def validate_source(filename: str, source: str) -> list[str]:
     errors: list[str] = []
     try:
@@ -138,13 +190,30 @@ def validate_source(filename: str, source: str) -> list[str]:
                 errors.append(f"{filename}: forbidden import from '{mod}'")
         elif isinstance(node, ast.Call):
             func = node.func
-            name = None
-            if isinstance(func, ast.Name):
-                name = func.id
-            elif isinstance(func, ast.Attribute):
-                name = func.attr
-            if name in FORBIDDEN_CALLS:
-                errors.append(f"{filename}: forbidden call '{name}'")
+            dotted = _call_name(func)
+            short = dotted.split(".")[-1] if dotted else None
+            if short in FORBIDDEN_CALLS or dotted in FORBIDDEN_CALLS:
+                errors.append(f"{filename}: forbidden call '{dotted or short}'")
+            # random.choice does NOT accept weights= (LLM often confuses with random.choices)
+            if dotted in ("random.choice", "choice") and any(
+                kw.arg == "weights" for kw in (node.keywords or []) if kw.arg
+            ):
+                errors.append(
+                    f"{filename}: random.choice() has no 'weights' arg "
+                    f"(use random.choices or rng.choice without weights)"
+                )
+        elif isinstance(node, ast.Attribute):
+            # observation.ticks / obs.ticks etc.
+            if node.attr in FORBIDDEN_OBS_ATTRS:
+                base = node.value
+                base_name = None
+                if isinstance(base, ast.Name):
+                    base_name = base.id
+                if base_name in ("observation", "obs", "o", "state") or node.attr == "ticks":
+                    errors.append(
+                        f"{filename}: forbidden/unknown Observation attr '{node.attr}' "
+                        f"(allowed: {', '.join(sorted(OBSERVATION_ATTRS))})"
+                    )
 
     if filename == "policy.py":
         has_policy = any(

@@ -112,3 +112,29 @@ def test_bare_organism_import_denied():
     src = "import organism\nclass Policy:\n    def reset(self,s): pass\n    def act(self,o): pass\n    def on_step_result(self,r): pass\n"
     errs = validate_source("policy.py", src)
     assert any("forbidden" in e for e in errs)
+
+
+def test_schema_rejects_obs_ticks_and_choice_weights():
+    bad_ticks = (
+        "from organism.schemas import Action, Observation, StepResult\n"
+        "class Policy:\n"
+        "    def reset(self, seed): pass\n"
+        "    def act(self, observation):\n"
+        "        _ = observation.ticks\n"
+        "        return Action.NOOP\n"
+        "    def on_step_result(self, result): pass\n"
+    )
+    errs = validate_source("policy.py", bad_ticks)
+    assert any("ticks" in e for e in errs)
+
+    bad_choice = (
+        "import random\n"
+        "from organism.schemas import Action, Observation, StepResult\n"
+        "class Policy:\n"
+        "    def reset(self, seed): pass\n"
+        "    def act(self, observation):\n"
+        "        return random.choice([Action.N], weights=[1.0])\n"
+        "    def on_step_result(self, result): pass\n"
+    )
+    errs2 = validate_source("policy.py", bad_choice)
+    assert any("weights" in e for e in errs2)
