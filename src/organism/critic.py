@@ -170,6 +170,8 @@ def review_proposal(
     fail_open: bool = True,
     store: Any | None = None,
     mutation_id: str | None = None,
+    experience_distill: dict[str, Any] | None = None,
+    router: Any | None = None,
 ) -> CriticVerdict:
     """
     Review proposed file sources. Static hard-fail first, then free NIM critic
@@ -181,6 +183,8 @@ def review_proposal(
 
     if dry_run:
         return dry_run_critic(files, rationale=rationale, parent_fitness=parent_fitness)
+
+    from organism.summarizer import format_distill_for_prompt
 
     client = client or NimClient()
     critic_model = (
@@ -197,25 +201,40 @@ def review_proposal(
         "parent_fitness": parent_fitness,
         "rationale": rationale,
         "episode_summaries": (episode_summaries or [])[:4],
+        "experience_distill": experience_distill or {},
         "files": list(files.keys()),
     }
+    distill_txt = format_distill_for_prompt(experience_distill or {})
     prompt = (
         f"Review this mutation proposal.\n"
+        f"{distill_txt}\n"
         f"Context JSON: {json.dumps(user)}\n\n"
         + "\n\n".join(file_blobs)
     )
     try:
-        chat = client.chat(
-            [
-                {"role": "system", "content": CRITIC_SYSTEM},
-                {"role": "user", "content": prompt},
-            ],
-            model=critic_model,
-            max_tokens=800,
-            temperature=0.1,
-            role="critic",
-        )
+        if router is not None:
+            chat = router.chat(
+                "critique",
+                [
+                    {"role": "system", "content": CRITIC_SYSTEM},
+                    {"role": "user", "content": prompt},
+                ],
+                max_tokens=800,
+                temperature=0.1,
+            )
+        else:
+            chat = client.chat(
+                [
+                    {"role": "system", "content": CRITIC_SYSTEM},
+                    {"role": "user", "content": prompt},
+                ],
+                model=critic_model,
+                max_tokens=800,
+                temperature=0.1,
+                role="critic",
+            )
         raw = chat.content
+        critic_model = chat.model
         if store is not None:
             store.insert_llm_call(
                 model=chat.model,

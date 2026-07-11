@@ -170,50 +170,74 @@ def propose_policy_patch(
     parent_fitness: float | None = None,
     store: Store | None = None,
     mutation_id: str | None = None,
+    router: Any | None = None,
+    experience_distill: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    client = client or NimClient()
+    from organism.router import FreeNimRouter
+    from organism.summarizer import format_distill_for_prompt
+
+    client = client or (router.client() if router is not None else NimClient())
     sources = []
     for name in WHITELIST:
         p = genome_dir / name
         if p.exists():
             sources.append(f"### {name}\n```python\n{p.read_text(encoding='utf-8')[:5000]}\n```")
     fit_line = f"Parent fitness (train seeds): {parent_fitness:.4f}\n" if parent_fitness is not None else ""
+    distill_line = ""
+    if experience_distill:
+        distill_line = format_distill_for_prompt(experience_distill) + "\n"
     user = (
         f"{fit_line}"
+        f"{distill_line}"
         "Improve survival and food collection. Return JSON with full file sources for changed modules only.\n"
         f"Recent episode summaries: {json.dumps(episode_summaries[:8])}\n\n"
         + "\n\n".join(sources)
     )
-    model = client.cfg["models"]["coder_primary"]
     chat_usage: dict[str, Any] | None = None
-    try:
-        chat = client.chat(
+    if router is not None:
+        rtr: FreeNimRouter = router
+        chat = rtr.chat(
+            "code",
             [
                 {"role": "system", "content": MUTATION_SYSTEM},
                 {"role": "user", "content": user},
             ],
-            model=model,
             max_tokens=4096,
             temperature=0.2,
-            role="coder",
+            fallback_role="coder_fallback",
         )
         text = chat.content
+        model = chat.model
         chat_usage = chat.to_dict()
-    except Exception:
-        # fallback model
-        model = client.cfg["models"].get("coder_fallback", model)
-        chat = client.chat(
-            [
-                {"role": "system", "content": MUTATION_SYSTEM},
-                {"role": "user", "content": user},
-            ],
-            model=model,
-            max_tokens=4096,
-            temperature=0.2,
-            role="coder_fallback",
-        )
-        text = chat.content
-        chat_usage = chat.to_dict()
+    else:
+        model = client.cfg["models"]["coder_primary"]
+        try:
+            chat = client.chat(
+                [
+                    {"role": "system", "content": MUTATION_SYSTEM},
+                    {"role": "user", "content": user},
+                ],
+                model=model,
+                max_tokens=4096,
+                temperature=0.2,
+                role="coder",
+            )
+            text = chat.content
+            chat_usage = chat.to_dict()
+        except Exception:
+            model = client.cfg["models"].get("coder_fallback", model)
+            chat = client.chat(
+                [
+                    {"role": "system", "content": MUTATION_SYSTEM},
+                    {"role": "user", "content": user},
+                ],
+                model=model,
+                max_tokens=4096,
+                temperature=0.2,
+                role="coder_fallback",
+            )
+            text = chat.content
+            chat_usage = chat.to_dict()
     if store is not None and chat_usage is not None:
         store.insert_llm_call(
             model=str(chat_usage.get("model", model)),
@@ -233,6 +257,7 @@ def propose_policy_patch(
         "files": files,
         "applied": False,
         "llm_usage": chat_usage,
+        "experience_distill": experience_distill,
     }
 
 
@@ -364,6 +389,45 @@ def run_mutation_cycle(
 
     summaries = _episode_context(parent_dir, world, fit, wcfg, ablation, train_seeds)
 
+    # 1b) Experience distillation (summarizer pin / offline) for coder + critic context
+    from organism.router import FreeNimRouter
+    from organism.summarizer import distill_episodes
+
+    pool_cfg = dict(ccfg)
+    use_summarizer = bool(pool_cfg.get("use_summarizer", True))
+    router: FreeNimRouter | None = None
+    if not dry_run:
+        # Merge experiment pool.budget into NIM pins if present on critic_cfg parent path
+        rcfg = None
+        try:
+            from organism.config import experiment_config, nim_config
+
+            ncfg = nim_config()
+            exp = experiment_config()
+            pool = exp.get("pool") or {}
+            if pool.get("budget"):
+                ncfg = dict(ncfg)
+                ncfg["budget"] = {**(ncfg.get("budget") or {}), **pool["budget"]}
+            rcfg = ncfg
+        except Exception:
+            rcfg = None
+        router = FreeNimRouter(rcfg)
+        client = client or router.client()
+    experience_distill: dict[str, Any] | None = None
+    if use_summarizer:
+        experience_distill = distill_episodes(
+            summaries,
+            client=client,
+            router=router,
+            dry_run=dry_run,
+            store=store,
+            mutation_id=mut_id,
+        )
+        store.log_event(
+            "mutation_summarize",
+            {"mutation_id": mut_id, "distill": experience_distill},
+        )
+
     # 2) Propose
     if proposal_override is not None:
         proposal = proposal_override
@@ -394,10 +458,11 @@ def run_mutation_cycle(
                 ),
                 "rationale": "dry-run: greedier food chase",
                 "files": {"policy.py": pol2, "heuristics.py": heur2},
+                "experience_distill": experience_distill,
             }
             model = "dry_run"
         else:
-            client = client or NimClient()
+            assert router is not None
             proposal = propose_policy_patch(
                 parent_dir,
                 summaries,
@@ -405,8 +470,11 @@ def run_mutation_cycle(
                 parent_fitness=parent_eval.fitness,
                 store=store,
                 mutation_id=mut_id,
+                router=router,
+                experience_distill=experience_distill,
             )
             model = str(proposal.get("model", ""))
+            router.budget.record_mutation()
 
     files = proposal.get("files") or extract_files_from_proposal(str(proposal.get("proposal", "")))
     rationale = str(proposal.get("rationale") or extract_rationale(str(proposal.get("proposal", ""))))
@@ -460,6 +528,8 @@ def run_mutation_cycle(
             fail_open=fail_open,
             store=store,
             mutation_id=mut_id,
+            experience_distill=experience_distill,
+            router=router,
         )
         store.log_event(
             "mutation_critic",
