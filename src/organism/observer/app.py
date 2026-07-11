@@ -7,6 +7,7 @@ Launch: seo ui   (or: streamlit run -m organism.observer.app)
 from __future__ import annotations
 
 import json
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import streamlit as st
@@ -545,47 +546,104 @@ def page_run(artifacts: Path, db: Path) -> None:
         st.info("No jobs yet. Start one above.")
         return
 
-    # refresh running
+    # Prefer the running job in the dropdown when one is active
     for j in jobs:
-        if j.status == "running":
+        if j.status in ("running", "queued"):
             jobmod.refresh_job(artifacts, j)
-
     jobs = jobmod.list_jobs(artifacts, limit=30)
     labels = [f"{j.job_id} · {j.kind} · {j.status}" for j in jobs]
-    pick = st.selectbox("Job", range(len(labels)), format_func=lambda i: labels[i])
-    rec = jobs[pick]
-    rec = jobmod.refresh_job(artifacts, rec)
+    default_idx = 0
+    for i, j in enumerate(jobs):
+        if j.status in ("running", "queued"):
+            default_idx = i
+            break
+    pick = st.selectbox(
+        "Job",
+        range(len(labels)),
+        index=default_idx,
+        format_func=lambda i: labels[i],
+        key="job_pick",
+    )
+    rec0 = jobs[pick]
 
-    c1, c2, c3, c4 = st.columns(4)
-    with c1:
-        st.metric("status", rec.status)
-    with c2:
-        st.metric("pid", rec.pid or "—")
-    with c3:
-        st.metric("returncode", rec.returncode if rec.returncode is not None else "—")
-    with c4:
-        st.metric("kind", rec.kind)
+    live = st.toggle(
+        "Live logs (auto-refresh while running)",
+        value=True,
+        key="job_live_logs",
+        help="Polls the job log every 2s without a full page refresh.",
+    )
+    any_running = any(j.status in ("running", "queued") for j in jobs)
+    # Fragment re-runs only when live mode is on and something is (or might be) running
+    run_every = timedelta(seconds=2) if (live and any_running) else None
 
-    st.code(" ".join(rec.argv), language="text")
-    b1, b2, b3 = st.columns(3)
-    with b1:
-        if st.button("Refresh log", key="job_ref"):
+    @st.fragment(run_every=run_every)
+    def _job_status_panel() -> None:
+        rec = jobmod.load_job(artifacts, rec0.job_id) or rec0
+        rec = jobmod.refresh_job(artifacts, rec)
+
+        # When a job finishes, full-rerun once so we drop the 2s poll interval
+        prev = st.session_state.get("_job_live_status")
+        st.session_state["_job_live_status"] = rec.status
+        if (
+            live
+            and prev in ("running", "queued")
+            and rec.status not in ("running", "queued")
+        ):
             st.rerun()
-    with b2:
-        if rec.status == "running" and st.button("Kill job", type="primary", key="job_kill"):
-            jobmod.kill_job(artifacts, rec.job_id)
-            st.warning("Kill signal sent")
-            st.rerun()
-    with b3:
-        if rec.status == "running" and st.button("Soft pause (control.json)", key="job_soft"):
-            save_control(
-                artifacts,
-                ControlState(mutations_paused=True, note=f"paused from UI during {rec.job_id}"),
+
+        c1, c2, c3, c4 = st.columns(4)
+        with c1:
+            st.metric("status", rec.status)
+        with c2:
+            st.metric("pid", rec.pid or "—")
+        with c3:
+            st.metric(
+                "returncode",
+                rec.returncode if rec.returncode is not None else "—",
             )
-            st.info("Paused next mutations via control.json")
+        with c4:
+            st.metric("kind", rec.kind)
 
-    st.markdown("#### Log tail")
-    st.text(jobmod.tail_log(artifacts, rec.job_id) or "(empty)")
+        st.code(" ".join(rec.argv), language="text")
+        b1, b2, b3 = st.columns(3)
+        with b1:
+            if st.button("Refresh log now", key="job_ref"):
+                st.rerun(scope="fragment")
+        with b2:
+            if rec.status == "running" and st.button(
+                "Kill job", type="primary", key="job_kill"
+            ):
+                jobmod.kill_job(artifacts, rec.job_id)
+                st.warning("Kill signal sent")
+                st.rerun(scope="fragment")
+        with b3:
+            if rec.status == "running" and st.button(
+                "Soft pause (control.json)", key="job_soft"
+            ):
+                save_control(
+                    artifacts,
+                    ControlState(
+                        mutations_paused=True,
+                        note=f"paused from UI during {rec.job_id}",
+                    ),
+                )
+                st.info("Paused next mutations via control.json")
+
+        log = jobmod.tail_log(artifacts, rec.job_id, max_bytes=48_000) or "(empty)"
+        if rec.status in ("running", "queued") and live:
+            st.caption(
+                f"Live · last refresh {datetime.now().strftime('%H:%M:%S')} · every 2s"
+            )
+        elif rec.status in ("running", "queued"):
+            st.caption("Live logs off — use Refresh log now, or enable the toggle above.")
+        else:
+            st.caption(f"Job {rec.status} · static log")
+
+        st.markdown("#### Log tail")
+        # code block keeps monospace + scroll; show newest end of long logs
+        st.code(log, language="text")
+
+    _job_status_panel()
 
 
 def main() -> None:
