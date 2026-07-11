@@ -606,11 +606,20 @@ def page_run(artifacts: Path, db: Path) -> None:
 
         detail = jobmod.job_parameters(rec)
         cli = detail.get("cli") or {}
-        # Always visible parameter strip for running/selected jobs
-        with st.expander(
-            "Job parameters",
-            expanded=rec.status in ("running", "queued"),
-        ):
+        finished = rec.status not in ("running", "queued")
+        result = jobmod.load_job_result(artifacts, rec.job_id) if finished else None
+        # Backfill snapshot for older jobs / race after exit
+        if finished and result is None:
+            try:
+                dest = jobmod.snapshot_job_result(artifacts, rec)
+                rec.result_path = str(dest)
+                jobmod.save_job(artifacts, rec)
+                result = jobmod.load_job_result(artifacts, rec.job_id)
+            except Exception:
+                result = None
+
+        # Parameters stay open for the selected job (running and finished)
+        with st.expander("Job parameters", expanded=True):
             p1, p2, p3, p4 = st.columns(4)
             with p1:
                 st.metric("command", str(cli.get("command") or rec.kind))
@@ -629,16 +638,14 @@ def page_run(artifacts: Path, db: Path) -> None:
             with p4:
                 st.metric("note", (rec.note or "—")[:28])
 
-            # Kind-specific CLI flags as a clean table
-            flag_rows = {
-                k: v
-                for k, v in cli.items()
-                if k not in ("command",)
-            }
+            flag_rows = {k: v for k, v in cli.items() if k not in ("command",)}
             if flag_rows:
                 st.markdown("**CLI flags**")
                 st.table(
-                    [{"parameter": k, "value": str(v)} for k, v in sorted(flag_rows.items())]
+                    [
+                        {"parameter": k, "value": str(v)}
+                        for k, v in sorted(flag_rows.items())
+                    ]
                 )
 
             st.markdown("**Timing**")
@@ -660,7 +667,13 @@ def page_run(artifacts: Path, db: Path) -> None:
 
             st.markdown("**Paths**")
             st.code(
-                f"log:  {rec.log_path or '—'}\nmeta: {rec.meta_path or '—'}",
+                "\n".join(
+                    [
+                        f"log:    {rec.log_path or '—'}",
+                        f"meta:   {rec.meta_path or '—'}",
+                        f"result: {rec.result_path or '—'}",
+                    ]
+                ),
                 language="text",
             )
             if rec.error:
@@ -669,8 +682,8 @@ def page_run(artifacts: Path, db: Path) -> None:
             st.markdown("**Full argv**")
             st.code(" ".join(rec.argv), language="text")
 
-            st.markdown("**Raw job record**")
-            st.json(detail)
+            with st.expander("Raw job record JSON", expanded=False):
+                st.json(detail)
 
         b1, b2, b3 = st.columns(3)
         with b1:
@@ -696,19 +709,62 @@ def page_run(artifacts: Path, db: Path) -> None:
                 )
                 st.info("Paused next mutations via control.json")
 
-        log = jobmod.tail_log(artifacts, rec.job_id, max_bytes=48_000) or "(empty)"
-        if rec.status in ("running", "queued") and live:
-            st.caption(
-                f"Live · last refresh {datetime.now().strftime('%H:%M:%S')} · every 2s"
-            )
-        elif rec.status in ("running", "queued"):
-            st.caption("Live logs off — use Refresh log now, or enable the toggle above.")
-        else:
-            st.caption(f"Job {rec.status} · static log")
+        # Final result stays visible after the job ends
+        if finished:
+            st.markdown("#### Final result")
+            if rec.status == "succeeded":
+                st.success(
+                    f"**{rec.job_id}** succeeded"
+                    + (
+                        f" · exit {rec.returncode}"
+                        if rec.returncode is not None
+                        else ""
+                    )
+                )
+            elif rec.status == "failed":
+                st.error(
+                    f"**{rec.job_id}** failed"
+                    + (
+                        f" · exit {rec.returncode}"
+                        if rec.returncode is not None
+                        else ""
+                    )
+                )
+            else:
+                st.warning(f"**{rec.job_id}** · {rec.status}")
 
-        st.markdown("#### Log tail")
-        # code block keeps monospace + scroll; show newest end of long logs
-        st.code(log, language="text")
+            headline = None
+            if result and isinstance(result.get("summary"), dict):
+                headline = result["summary"].get("headline") or result["summary"].get(
+                    "decision"
+                )
+            if headline:
+                st.info(str(headline))
+
+            if result and result.get("artifact") is not None:
+                with st.expander("Structured result (CLI artifact)", expanded=True):
+                    st.json(result["artifact"])
+
+            log_full = ""
+            if result and result.get("log"):
+                log_full = str(result["log"])
+            else:
+                log_full = jobmod.read_log(artifacts, rec.job_id) or "(empty)"
+            st.markdown("#### Final log")
+            st.caption("Full job log (persisted with the job — still available after exit)")
+            st.code(log_full or "(empty)", language="text")
+        else:
+            log = jobmod.tail_log(artifacts, rec.job_id, max_bytes=48_000) or "(empty)"
+            if live:
+                st.caption(
+                    f"Live · last refresh {datetime.now().strftime('%H:%M:%S')} · every 2s"
+                )
+            else:
+                st.caption(
+                    "Live logs off — use Refresh log now, or enable the toggle above."
+                )
+            st.markdown("#### Log tail")
+            st.code(log, language="text")
 
     _job_status_panel()
 

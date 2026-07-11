@@ -20,6 +20,14 @@ from typing import Any
 from organism.config import ROOT
 
 
+# CLI writes these under artifacts/; we snapshot per job when the process exits.
+KIND_RESULT_ARTIFACTS: dict[str, str] = {
+    "mutate": "last_mutation_result.json",
+    "evolve": "last_evolve_report.json",
+    "ablate": "last_ablation_report.json",
+}
+
+
 @dataclass
 class JobRecord:
     job_id: str
@@ -33,6 +41,7 @@ class JobRecord:
     returncode: int | None = None
     log_path: str = ""
     meta_path: str = ""
+    result_path: str = ""  # per-job final snapshot (params + log + CLI artifact)
     error: str = ""
     note: str = ""
 
@@ -53,6 +62,7 @@ class JobRecord:
             returncode=d.get("returncode"),
             log_path=str(d.get("log_path") or ""),
             meta_path=str(d.get("meta_path") or ""),
+            result_path=str(d.get("result_path") or ""),
             error=str(d.get("error") or ""),
             note=str(d.get("note") or ""),
         )
@@ -268,9 +278,137 @@ def job_parameters(rec: JobRecord) -> dict[str, Any]:
         "duration_s": duration_s,
         "log_path": rec.log_path,
         "meta_path": rec.meta_path,
+        "result_path": rec.result_path,
         "argv": list(rec.argv),
         "cli": cli,
     }
+
+
+def read_log(artifacts_dir: Path, job_id: str, *, max_bytes: int | None = None) -> str:
+    """Read job log (full file unless max_bytes is set — then last N bytes)."""
+    rec = load_job(artifacts_dir, job_id)
+    if not rec or not rec.log_path:
+        return ""
+    p = Path(rec.log_path)
+    if not p.exists():
+        return ""
+    data = p.read_bytes()
+    if max_bytes is not None and len(data) > max_bytes:
+        data = data[-max_bytes:]
+    return data.decode("utf-8", errors="replace")
+
+
+def load_job_result(artifacts_dir: Path, job_id: str) -> dict[str, Any] | None:
+    """Load per-job final snapshot if present."""
+    rec = load_job(artifacts_dir, job_id)
+    candidates: list[Path] = []
+    if rec and rec.result_path:
+        candidates.append(Path(rec.result_path))
+    candidates.append(jobs_dir(artifacts_dir) / f"{job_id}.result.json")
+    for p in candidates:
+        if p.exists():
+            try:
+                return json.loads(p.read_text(encoding="utf-8"))
+            except Exception:
+                continue
+    return None
+
+
+def snapshot_job_result(artifacts_dir: Path, rec: JobRecord) -> Path:
+    """
+    Persist a durable final snapshot after a job ends:
+    parameters, full log (capped), and kind-specific CLI artifact if available.
+    """
+    artifacts_dir = Path(artifacts_dir)
+    jdir = jobs_dir(artifacts_dir)
+    dest = jdir / f"{rec.job_id}.result.json"
+    log_text = ""
+    if rec.log_path and Path(rec.log_path).exists():
+        # Cap very large logs in the snapshot JSON (full log stays on disk)
+        log_text = Path(rec.log_path).read_text(encoding="utf-8", errors="replace")
+        if len(log_text) > 200_000:
+            log_text = log_text[-200_000:]
+
+    artifact_name = KIND_RESULT_ARTIFACTS.get(rec.kind)
+    artifact_data: Any = None
+    artifact_src = ""
+    if artifact_name:
+        src = artifacts_dir / artifact_name
+        if src.exists():
+            # Only attach if written during/after this job started
+            try:
+                mtime = src.stat().st_mtime
+                started = float(rec.started_at or rec.created_at or 0.0)
+                if mtime + 1.0 >= started:  # small clock skew allowance
+                    artifact_data = json.loads(src.read_text(encoding="utf-8"))
+                    artifact_src = str(src)
+            except Exception:
+                pass
+
+    # Weights train: best-effort parse checkpoint id from log
+    summary: dict[str, Any] = {
+        "decision": None,
+        "headline": None,
+    }
+    if rec.kind == "mutate" and isinstance(artifact_data, dict):
+        summary["decision"] = artifact_data.get("decision")
+        summary["headline"] = (
+            f"{artifact_data.get('decision')}: {str(artifact_data.get('reason') or '')[:160]}"
+        )
+    elif rec.kind == "evolve" and isinstance(artifact_data, dict):
+        summary["headline"] = (
+            f"episodes={artifact_data.get('episodes_run')} "
+            f"acc={artifact_data.get('mutations_accepted')} "
+            f"final={artifact_data.get('final_genome_id')}"
+        )
+    elif rec.kind == "ablate" and isinstance(artifact_data, dict):
+        delta = artifact_data.get("delta_holdout_bcw_minus_b0")
+        summary["headline"] = (
+            f"delta={delta} success={artifact_data.get('success')}"
+        )
+    elif rec.kind == "weights_train":
+        for line in log_text.splitlines():
+            if line.strip().startswith("Checkpoint "):
+                summary["headline"] = line.strip()
+                break
+        if not summary["headline"]:
+            for line in log_text.splitlines():
+                if "train_fitness" in line.lower() or "│ train_fitness" in line:
+                    summary["headline"] = line.strip()
+                    break
+
+    if not summary["headline"]:
+        # last non-empty log lines
+        lines = [ln for ln in log_text.strip().splitlines() if ln.strip()]
+        summary["headline"] = " | ".join(lines[-3:]) if lines else rec.status
+
+    payload = {
+        "job_id": rec.job_id,
+        "kind": rec.kind,
+        "status": rec.status,
+        "returncode": rec.returncode,
+        "note": rec.note,
+        "error": rec.error,
+        "created_at": rec.created_at,
+        "started_at": rec.started_at,
+        "ended_at": rec.ended_at,
+        "duration_s": (
+            max(0.0, float(rec.ended_at) - float(rec.started_at))
+            if rec.started_at and rec.ended_at
+            else None
+        ),
+        "cli": parse_cli_params(rec.argv),
+        "argv": list(rec.argv),
+        "log_path": rec.log_path,
+        "meta_path": rec.meta_path,
+        "summary": summary,
+        "artifact_source": artifact_src,
+        "artifact": artifact_data,
+        "log": log_text,
+        "snapshotted_at": time.time(),
+    }
+    dest.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    return dest
 
 
 def _pid_alive(pid: int | None) -> bool:
@@ -372,7 +510,14 @@ def refresh_job(artifacts_dir: Path, rec: JobRecord) -> JobRecord:
         # unknown exit
         rec.returncode = -1 if rec.status == "running" else rec.returncode
     rec.status = "succeeded" if rec.returncode == 0 else "failed"
-    rec.ended_at = time.time()
+    if rec.ended_at is None:
+        rec.ended_at = time.time()
+    # Ensure durable final snapshot exists even if watcher missed it
+    if not rec.result_path or not Path(rec.result_path).exists():
+        try:
+            rec.result_path = str(snapshot_job_result(artifacts_dir, rec))
+        except Exception:
+            pass
     save_job(artifacts_dir, rec)
     lock = read_lock(artifacts_dir)
     if lock and lock.get("job_id") == rec.job_id:
@@ -492,6 +637,13 @@ def start_job(
                 r.returncode = code
                 r.status = "succeeded" if code == 0 else "failed"
                 r.ended_at = time.time()
+                try:
+                    # Small delay so CLI can finish writing last_*.json
+                    time.sleep(0.15)
+                    result_p = snapshot_job_result(artifacts_dir, r)
+                    r.result_path = str(result_p)
+                except Exception as snap_err:
+                    r.error = (r.error + f"; snapshot: {snap_err}").strip("; ")
                 save_job(artifacts_dir, r)
             lock = read_lock(artifacts_dir)
             if lock and lock.get("job_id") == job_id:
@@ -503,16 +655,7 @@ def start_job(
 
 
 def tail_log(artifacts_dir: Path, job_id: str, max_bytes: int = 24_000) -> str:
-    rec = load_job(artifacts_dir, job_id)
-    if not rec or not rec.log_path:
-        return ""
-    p = Path(rec.log_path)
-    if not p.exists():
-        return ""
-    data = p.read_bytes()
-    if len(data) > max_bytes:
-        data = data[-max_bytes:]
-    return data.decode("utf-8", errors="replace")
+    return read_log(artifacts_dir, job_id, max_bytes=max_bytes)
 
 
 def kill_job(artifacts_dir: Path, job_id: str) -> JobRecord | None:
