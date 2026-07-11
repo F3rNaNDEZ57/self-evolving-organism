@@ -94,7 +94,7 @@ cssclasses:
 | Checkpoints | `artifacts/weights/*.npz` + sidecar JSON · list/show/latest/best |
 | GitNexus | Indexed · [[GitNexus]] |
 | Git remote | `origin` → https://github.com/F3rNaNDEZ57/self-evolving-organism.git |
-| History | **53** file-by-file commits on `master` (pushed) |
+| History | **55** granular commits on `master` (pushed to origin) |
 | Secrets | `.env` only (gitignored) — never committed |
 | Containment | AST jail + Docker smoke **PASS** |
 | Next | Live ablations · plateau auto-mutate · optional Docker episode eval |
