@@ -416,8 +416,32 @@ def page_run(artifacts: Path, db: Path) -> None:
         from organism.elites import list_elites
         from organism.mutation import resolve_parent_genome
 
+        from organism.safety import recommend_mutation_ablation, weights_preferred
+
         dry = st.checkbox("Dry-run (no NIM)", value=True, key="mut_dry")
-        abl = st.selectbox("Ablation", ["Bc", "Bcw"], key="mut_abl")
+        prefer_w, safety_msg = weights_preferred(artifacts)
+        default_abl = 0 if not prefer_w else 0  # always list Bc first
+        abl = st.selectbox(
+            "Ablation",
+            ["Bc", "Bcw"],
+            index=default_abl,
+            key="mut_abl",
+            help="Bc = code only (recommended when weights diagnose is negative)",
+        )
+        force_bcw = st.checkbox(
+            "Force Bcw (ignore weights safety rail)",
+            value=False,
+            key="mut_force_bcw",
+            help="Only if you intentionally want weights path despite diagnose",
+        )
+        if abl == "Bcw" and not prefer_w and not force_bcw:
+            st.warning(
+                "Weights diagnose says **do not prefer weights** — "
+                "Start will use **Bc** unless you check Force Bcw. "
+                f"({safety_msg[:160]})"
+            )
+        elif not prefer_w:
+            st.caption(f"Safety: code-only preferred. {safety_msg[:120]}")
         crit = st.checkbox("Critic", value=True, key="mut_crit")
         mut_select = st.selectbox(
             "Auto-select policy",
@@ -483,6 +507,9 @@ def page_run(artifacts: Path, db: Path) -> None:
             if not dry and not st.session_state.get("mut_live_ok"):
                 st.session_state["mut_live_ok"] = False
             try:
+                eff_abl, _, _ = recommend_mutation_ablation(
+                    artifacts, abl, force_weights=force_bcw
+                )
                 if not dry:
                     st.session_state["pending_live_mutate"] = {
                         "ablation": abl,
@@ -490,6 +517,7 @@ def page_run(artifacts: Path, db: Path) -> None:
                         "parent_id": parent_id,
                         "select": select_policy,
                         "tournament_k": int(mut_k),
+                        "force_bcw": force_bcw,
                     }
                 else:
                     rec = jobmod.start_job(
@@ -497,15 +525,16 @@ def page_run(artifacts: Path, db: Path) -> None:
                         kind="mutate",
                         argv=jobmod.build_mutate_argv(
                             dry_run=True,
-                            ablation=abl,
+                            ablation=eff_abl if not force_bcw else abl,
                             critic=crit,
                             parent_id=parent_id,
                             select=select_policy,
                             tournament_k=int(mut_k),
+                            force_bcw=force_bcw,
                         ),
                         note=(
                             f"ui mutate dry-run "
-                            f"parent={parent_id or select_policy}"
+                            f"parent={parent_id or select_policy} abl={eff_abl}"
                         ),
                     )
                     store = open_store(db)
@@ -532,16 +561,22 @@ def page_run(artifacts: Path, db: Path) -> None:
                 if st.button("Confirm LIVE mutate", type="primary", key="mut_live_yes"):
                     p = st.session_state.pop("pending_live_mutate")
                     try:
+                        eff, _, _ = recommend_mutation_ablation(
+                            artifacts,
+                            p["ablation"],
+                            force_weights=bool(p.get("force_bcw")),
+                        )
                         rec = jobmod.start_job(
                             artifacts,
                             kind="mutate",
                             argv=jobmod.build_mutate_argv(
                                 dry_run=False,
-                                ablation=p["ablation"],
+                                ablation=eff if not p.get("force_bcw") else p["ablation"],
                                 critic=p["critic"],
                                 parent_id=p.get("parent_id") or "",
                                 select=p.get("select") or "active",
                                 tournament_k=int(p.get("tournament_k") or 3),
+                                force_bcw=bool(p.get("force_bcw")),
                             ),
                             note="ui mutate LIVE",
                         )

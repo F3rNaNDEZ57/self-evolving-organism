@@ -92,6 +92,7 @@ def build_mutate_argv(
     parent_id: str = "",
     select: str = "active",
     tournament_k: int = 3,
+    force_bcw: bool = False,
 ) -> list[str]:
     args = ["mutate", "--ablation", ablation]
     if dry_run:
@@ -100,6 +101,8 @@ def build_mutate_argv(
         args.append("--critic")
     else:
         args.append("--no-critic")
+    if force_bcw:
+        args.append("--force-bcw")
     if parent_id:
         args.extend(["--parent-id", str(parent_id)])
     elif select and select != "active":

@@ -1062,9 +1062,15 @@ def mutate(
         "--critic/--no-critic",
         help="Run free-NIM critic (static + model) before candidate eval",
     ),
+    force_bcw: bool = typer.Option(
+        False,
+        "--force-bcw",
+        help="Allow Bcw even when weights diagnose says do not use weights",
+    ),
 ) -> None:
     """Run full mutation loop: propose → critic → apply → validate → eval → accept/reject."""
     from organism.mutation import run_mutation_cycle
+    from organism.safety import recommend_mutation_ablation
     from organism.selection import SELECT_POLICIES, select_and_resolve
 
     if ablation not in ("Bc", "Bcw", "B0", "Bw"):
@@ -1084,6 +1090,18 @@ def mutate(
         console.print(f"[red]Blocked by operator control:[/red] {why}")
         console.print("[dim]Clear via seo ui -> Control, or delete artifacts/control.json[/dim]")
         raise typer.Exit(3)
+
+    # Safety rail: downgrade Bcw→Bc when diagnose says weights hurt
+    eff_abl, safety_why, downgraded = recommend_mutation_ablation(
+        artifacts, ablation, force_weights=force_bcw
+    )
+    if downgraded:
+        console.print(f"[yellow]Safety rail:[/yellow] {safety_why}")
+        console.print("[dim]Override with --force-bcw if you really want weights path[/dim]")
+        ablation = eff_abl
+    elif ablation in ("Bcw", "Bw"):
+        console.print(f"[dim]safety[/dim] {safety_why}")
+
     seeds = list(exp.get("eval", {}).get("train_seeds", list(range(8))))
     critic_cfg = dict(exp.get("critic") or {})
     # CLI flag wins over yaml
