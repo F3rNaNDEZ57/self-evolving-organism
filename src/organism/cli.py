@@ -363,6 +363,41 @@ app.add_typer(weights_app, name="weights")
 elite_app = typer.Typer(help="Phase 5 elite archive (promote / demote / list)")
 app.add_typer(elite_app, name="elite")
 
+runs_app = typer.Typer(help="Export machine reports to vault Runs/ lab notes")
+app.add_typer(runs_app, name="runs")
+
+
+@runs_app.command("export")
+def runs_export_cmd(
+    kind: str = typer.Option(
+        "auto",
+        help="auto | evolve | ablate | mutation (auto = newest last_* report)",
+    ),
+    title: str = typer.Option("", help="Optional note title"),
+    slug: str = typer.Option("", help="Optional filename slug"),
+    no_index: bool = typer.Option(False, "--no-index", help="Do not update Runs/README"),
+    force: bool = typer.Option(False, "--force", help="Overwrite same slug if exists"),
+) -> None:
+    """Write a markdown run note under self-evolving-organism-docs/Runs/."""
+    from organism.runs_export import export_run_note
+
+    exp, _, _, _ = _load_cfgs()
+    artifacts = resolve_path(exp.get("paths", {}).get("artifacts_dir", "artifacts"))
+    try:
+        res = export_run_note(
+            artifacts,
+            kind=kind,
+            title=title or None,
+            slug=slug or None,
+            update_index=not no_index,
+            force=force,
+        )
+    except Exception as e:
+        console.print(f"[red]{e}[/red]")
+        raise typer.Exit(2)
+    console.print(f"[green]Wrote[/green] {res.path}")
+    console.print(f"kind={res.kind} run_id={res.run_id}")
+
 
 @elite_app.command("list")
 def elite_list() -> None:

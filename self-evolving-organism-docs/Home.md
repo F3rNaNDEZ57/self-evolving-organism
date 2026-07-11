@@ -90,16 +90,16 @@ cssclasses:
 
 | Field | Value |
 |-------|-------|
-| Stage | **Phase 5** · elites · select · budgets · multi-agent Watch |
-| Code | soft critic · Streamlit · jobs · elites · selection · lineages · multiagent |
+| Stage | **Phase 5** · population scaffold + Runs export |
+| Code | elites · selection · lineages · multiagent · `seo runs export` |
 | Science | **Bcw − B0 = +4.44** · thr 0.30 · success=True |
-| UI | [[Phase 4 Observer UI]] · [[Phase 5 Population]] · Watch multi |
+| UI | [[Phase 4 Observer UI]] · [[Phase 5 Population]] · export lab note |
 | Critic | hard schema · soft_pass other@conf&lt;0.6 · mutation memory |
 | Weights | BC bootstrap · keep-best · Bw holdout ~8.45 |
-| Runs | [[Runs/2026-07-11-soft-critic-delta-success]] · [[Runs/2026-07-11-live-ablation-weight-fix]] |
+| Runs | [[Runs/README]] · soft-critic δ success · `seo runs export` |
 | Git remote | https://github.com/F3rNaNDEZ57/self-evolving-organism |
 | Secrets | `.env` only (gitignored) |
-| Next | Population experiment note · optional Bw gap · Phase 6 when ready |
+| Next | Optional Bw gap · Phase 6 hardening when ready |
 
 ---
 

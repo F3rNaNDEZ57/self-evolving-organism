@@ -84,6 +84,26 @@ def page_overview(artifacts: Path, db: Path) -> None:
     finally:
         store.close()
 
+    st.markdown("#### Export lab note")
+    st.caption(
+        "Write a markdown note under `self-evolving-organism-docs/Runs/` from the "
+        "newest machine report (evolve / ablate / mutation)."
+    )
+    ek = st.selectbox(
+        "Report kind",
+        ["auto", "evolve", "ablate", "mutation"],
+        key="export_kind",
+    )
+    if st.button("Export to Runs/", type="primary", key="export_run_btn"):
+        try:
+            from organism.runs_export import export_run_note
+
+            res = export_run_note(artifacts, kind=ek, update_index=True)
+            st.success(f"Wrote `{res.path.name}` ({res.kind}) · run_id={res.run_id}")
+            st.code(str(res.path), language="text")
+        except Exception as e:
+            st.error(str(e))
+
 
 def page_genomes(artifacts: Path, db: Path) -> None:
     st.subheader("Population / genomes")

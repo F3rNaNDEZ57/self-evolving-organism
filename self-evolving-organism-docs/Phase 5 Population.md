@@ -72,9 +72,22 @@ seo watch --agents g_xxx,g_yyy --gif artifacts/replays/duel.gif
 # UI: seo ui → Watch → Mode multi → pick agents → Live stream
 ```
 
+## Runs export (lab notes)
+
+| Item | Status |
+|------|--------|
+| `seo runs export` from last evolve/ablate/mutation | ☑ |
+| Population evolve notes include lineage slots | ☑ |
+| UI Overview → Export lab note | ☑ |
+| Updates [[Runs/README]] index | ☑ |
+
+```powershell
+seo evolve --dry-run --lineages 3 --cycles 4
+seo runs export --kind evolve
+```
+
 ## Not yet (later Phase 5)
 
-- [ ] Solo vs population experiment write-up
 - [ ] Hard resource isolation between lineages (Docker-per-lineage)
 - [ ] Multi-agent used in fitness / selection (if ever)
 
@@ -98,6 +111,7 @@ seo mutate --dry-run --ablation Bc --parent-id g_xxxxxxxx
 | `src/organism/selection.py` | fitness_rank / tournament parent pick |
 | `src/organism/lineages.py` | slots, budgets, pick schedule |
 | `src/organism/multiagent.py` | same-map multi-agent Watch arena (viz only) |
+| `src/organism/runs_export.py` | last_* report → Runs/ markdown |
 | `src/organism/evolve.py` | select + auto_elite + population evolve |
 | `src/organism/mutation.py` | `resolve_parent_genome(..., parent_id=)` |
 | `src/organism/cli.py` | `seo elite *` · mutate/evolve `--select` |

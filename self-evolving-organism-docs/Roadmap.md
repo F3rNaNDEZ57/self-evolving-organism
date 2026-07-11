@@ -318,10 +318,11 @@ Build a system of **self-evolving digital organisms** that:
 - [x] Evolve re-selects parent; auto-elite on accept when select≠active
 - [x] Multi-lineage budgets + `run_evolve_population` (`feat/phase5-lineage-budgets`)
 - [x] Multi-agent same-map Watch viz (`feat/phase5-multiagent-watch`)
+- [x] Runs lab-note export (`seo runs export` · `feat/phase5-runs-export`)
 
 **Deliverables**
 
-- [ ] Solo vs population experiment comparison
+- [x] Solo vs population experiment write-up path (export stubs from evolve reports)
 
 **Exit criteria**
 
@@ -408,16 +409,16 @@ Detail: [[Research Brief#Sandbox and safety]]
 | 2 | Paper organism | Bcw vs B0 under sandbox | ✅ runner · ✅ δ success (sequential dual) |
 | 3 | Free LLM pool + critic | Multi-model quality on free NIM | ✅ **soft critic · δ success** |
 | 4 | Observer UI | Legible lineage & mutations + run console | ✅ **merged** |
-| 5 | Population | Multi-organism selection | 🔧 **elites + select + budgets + multi Watch** |
+| 5 | Population | Multi-organism selection | 🔧 **scaffold + runs export** |
 | 6 | Hardening | Research-grade isolation & experiments | ⬜ |
 
 ---
 
 ## Immediate next steps
 
-1. Solo vs population experiment write-up
-2. Optional: close weight gap (Bw still below pure code holdout)
-3. Phase 6 hardening when ready
+1. Optional: close weight gap (Bw still below pure code holdout)
+2. Phase 6 hardening when ready
+3. Keep exporting Runs notes after live population experiments
 
 ---
 

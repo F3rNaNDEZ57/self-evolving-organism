@@ -3,7 +3,7 @@
 		{
 			"id": "title",
 			"type": "text",
-			"text": "# Self-Evolving Organism — Dashboard\n\nPhase 0–4 complete · Phase 5 population scaffold + multi Watch · δ SUCCESS\nOrigin: github.com/F3rNaNDEZ57/self-evolving-organism",
+			"text": "# Self-Evolving Organism — Dashboard\n\nPhase 0–4 complete · Phase 5 scaffold + runs export · δ SUCCESS\nOrigin: github.com/F3rNaNDEZ57/self-evolving-organism",
 			"x": 0,
 			"y": 0,
 			"width": 2800,
@@ -218,7 +218,7 @@
 		{
 			"id": "chk-p4",
 			"type": "text",
-			"text": "**Phase 4 — Observer UI**\n\n☑ Population / organism list\n☑ Lineage tree\n☑ Mutation inspector\n☑ Event timeline\n☑ Kill switch / pause / freeze\n☑ Run-from-UI job console (4.1–4.4)\n☑ Live logs · launch plan · final snapshot\n☑ Windows-safe job encoding\n☑ Watch live video stream + GIF loop\n\n**Phase 5–6**\n\n☑ Elite archive + parent picker\n☑ Auto selection rank / tournament\n☑ Multi-lineage budgets + schedule\n☑ Multi-agent same-map Watch (viz)\n☐ Research-grade hardening",
+			"text": "**Phase 4 — Observer UI**\n\n☑ Population / organism list\n☑ Lineage tree\n☑ Mutation inspector\n☑ Event timeline\n☑ Kill switch / pause / freeze\n☑ Run-from-UI job console (4.1–4.4)\n☑ Live logs · launch plan · final snapshot\n☑ Windows-safe job encoding\n☑ Watch live video stream + GIF loop\n\n**Phase 5–6**\n\n☑ Elite archive + parent picker\n☑ Auto selection rank / tournament\n☑ Multi-lineage budgets + schedule\n☑ Multi-agent same-map Watch (viz)\n☑ Runs export (seo runs export)\n☐ Research-grade hardening",
 			"x": 2140,
 			"y": 880,
 			"width": 600,
@@ -238,7 +238,7 @@
 		{
 			"id": "n-next",
 			"type": "text",
-			"text": "**Next**\n\n1. Population experiment write-up\n2. Optional: close Bw holdout gap\n3. Phase 6 when ready\n\n**UI:** Watch multi · evolve lineages\n**CLI:** watch --multi N · evolve --lineages\n**Phase 5:** elites + select + budgets + multi Watch",
+			"text": "**Next**\n\n1. Optional: close Bw holdout gap\n2. Phase 6 hardening when ready\n3. Live pop experiments + runs export\n\n**UI:** Overview → Export lab note\n**CLI:** seo runs export --kind evolve\n**Phase 5:** scaffold complete on master",
 			"x": 50,
 			"y": 1660,
 			"width": 1750,
@@ -248,7 +248,7 @@
 		{
 			"id": "n-cli",
 			"type": "text",
-			"text": "**CLI**\n\nseo ui  ← Watch multi + Run + elites\nseo elite list|promote|demote|select\nseo mutate --select fitness_rank\nseo evolve --lineages 3\nseo watch --multi 3  ← same-map GIF\nseo ablate | weights | pins",
+			"text": "**CLI**\n\nseo ui  ← Watch + Run + elites\nseo runs export --kind auto\nseo elite * · mutate --select\nseo evolve --lineages 3\nseo watch --multi 3\nseo ablate | weights | pins",
 			"x": 1860,
 			"y": 1660,
 			"width": 880,
