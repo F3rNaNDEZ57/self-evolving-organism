@@ -44,6 +44,14 @@ genomic:
   max_mutations: 30
   max_patch_lines: 80
 
+# Continuous evolution loop (seo evolve)
+evolve:
+  mutate_every_episodes: 10   # schedule: fire after this many seed-episodes
+  plateau_episodes: 20        # plateau window (in multi-seed eval cycles if eval uses full seed set, counted in episodes)
+  plateau_epsilon: 0.01       # max fitness span to treat as flat
+  max_mutations: 30
+  eval_every: 1
+
 paths:
   artifacts_dir: artifacts
   db_path: artifacts/seo.sqlite
