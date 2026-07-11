@@ -101,13 +101,11 @@ cssclasses:
 | Ops | `seo doctor` · `seo soak` · `seo package` · `seo runs export` |
 | Git remote | https://github.com/F3rNaNDEZ57/self-evolving-organism |
 | Secrets | `.env` only (gitignored) |
-| Next | Optionally promote `g_c07765783a` to active · continue multi-lineage · weights if Δ>0 |
-| Propose | quality gate + fallback · enabled accept path |
-| Lab | [[Runs/2026-07-12-population-evo-e7bd5a260f]] **first live multi-lineage accept** |
-| Active pointer | may still be `g_0a2b03eafe` @ 28.13 |
-| Best lineage | **`g_c07765783a` @ 28.76** (`evo_e7bd5a260f`) |
-| Live soak | **acc=0/att=10** · ok (2026-07-11) |
-| Multi-lineage | **acc=1/att=6** · best **28.76** |
+| Next | Stronger free NIM pins + richer mutation history in coder · then re-evolve |
+| Propose | quality gate + fallback · history R&D next |
+| Lab | [[Runs/2026-07-12-population-evo-3731006908]] post-promote · [[Runs/2026-07-12-population-evo-e7bd5a260f]] first accept |
+| Active + elite | **`g_c07765783a` @ 28.76** (promoted) |
+| Multi-lineage | first accept then plateau hold at **28.76** |
 
 ---
 

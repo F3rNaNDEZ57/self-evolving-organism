@@ -82,4 +82,6 @@ Writes `self-evolving-organism-docs/Runs/YYYY-MM-DD-….md` and appends this ind
 | 2026-07-12 | [[2026-07-12-population-evo-6a1f0edb0a]] | multi-lineage + food gate | **acc=0** · 2 fitness rej · 1 nonsense · plateau |
 | 2026-07-12 | [[2026-07-12-population-evo-4d46fba79c]] | short validate quality gate | acc=0 · fitness rej 21.7 (usable patch) |
 | 2026-07-12 | [[2026-07-12-population-evo-e7bd5a260f]] | long multi-lineage live | **acc=1** · best **28.76** · `g_c07765783a` |
+| 2026-07-12 | [[2026-07-12-population-evo-3731006908]] | post-promote multi-lineage | acc=0/6 · champion **held 28.76** |
+| 2026-07-12 | [[2026-07-12-population-evo-3731006908]] | population | auto-export: 2026-07-12-population-evo-3731006908 |
 
