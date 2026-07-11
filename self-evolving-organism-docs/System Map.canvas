@@ -1,482 +1,58 @@
 {
-	"nodes": [
-		{
-			"id": "title",
-			"type": "text",
-			"text": "# Self-Evolving Organism — Dashboard\nPhase 0–1 OK · **Phase 2 COMPLETE** (mutate · ablate · weights · evolve · Docker eval)\nOrigin: github.com/F3rNaNDEZ57/self-evolving-organism",
-			"x": 0,
-			"y": 0,
-			"width": 2000,
-			"height": 120,
-			"color": "4"
-		},
-		{
-			"id": "process",
-			"type": "text",
-			"text": "**Process rule:** after every task → update vault + this canvas · no secrets in vault · see Working Rules / AGENTS.md",
-			"x": 0,
-			"y": 160,
-			"width": 2000,
-			"height": 70,
-			"color": "1"
-		},
-		{
-			"id": "status",
-			"type": "text",
-			"text": "**Verified:** pytest 13p · seo docker-build · docker-eval isolated · mutate/ablate/weights/evolve · GitNexus refresh after push",
-			"x": 0,
-			"y": 270,
-			"width": 2000,
-			"height": 70,
-			"color": "5"
-		},
-		{
-			"id": "grp-docs",
-			"type": "group",
-			"x": 0,
-			"y": 390,
-			"width": 2000,
-			"height": 280,
-			"label": "1 · Vault notes (click to open)",
-			"color": "6"
-		},
-		{
-			"id": "f-home",
-			"type": "file",
-			"file": "Home.md",
-			"x": 40,
-			"y": 460,
-			"width": 220,
-			"height": 80
-		},
-		{
-			"id": "f-rules",
-			"type": "file",
-			"file": "Working Rules.md",
-			"x": 300,
-			"y": 460,
-			"width": 220,
-			"height": 80
-		},
-		{
-			"id": "f-overview",
-			"type": "file",
-			"file": "Project Overview.md",
-			"x": 560,
-			"y": 460,
-			"width": 220,
-			"height": 80
-		},
-		{
-			"id": "f-roadmap",
-			"type": "file",
-			"file": "Roadmap.md",
-			"x": 820,
-			"y": 460,
-			"width": 220,
-			"height": 80
-		},
-		{
-			"id": "f-brief",
-			"type": "file",
-			"file": "Research Brief.md",
-			"x": 1080,
-			"y": 460,
-			"width": 220,
-			"height": 80
-		},
-		{
-			"id": "f-decisions",
-			"type": "file",
-			"file": "Open Decisions.md",
-			"x": 1340,
-			"y": 460,
-			"width": 220,
-			"height": 80
-		},
-		{
-			"id": "f-phase1",
-			"type": "file",
-			"file": "Phase 1 Research Package.md",
-			"x": 1600,
-			"y": 460,
-			"width": 220,
-			"height": 80
-		},
-		{
-			"id": "f-phase2",
-			"type": "file",
-			"file": "Phase 2 Scaffold.md",
-			"x": 40,
-			"y": 560,
-			"width": 220,
-			"height": 80
-		},
-		{
-			"id": "f-nim",
-			"type": "file",
-			"file": "NIM Pin Log.md",
-			"x": 300,
-			"y": 560,
-			"width": 220,
-			"height": 80
-		},
-		{
-			"id": "f-gitnexus",
-			"type": "file",
-			"file": "GitNexus.md",
-			"x": 560,
-			"y": 560,
-			"width": 220,
-			"height": 80
-		},
-		{
-			"id": "f-artifacts",
-			"type": "file",
-			"file": "Artifact Management.md",
-			"x": 820,
-			"y": 560,
-			"width": 220,
-			"height": 80
-		},
-		{
-			"id": "f-glossary",
-			"type": "file",
-			"file": "Glossary.md",
-			"x": 1080,
-			"y": 560,
-			"width": 220,
-			"height": 80
-		},
-		{
-			"id": "f-refs",
-			"type": "file",
-			"file": "References.md",
-			"x": 1340,
-			"y": 560,
-			"width": 220,
-			"height": 80
-		},
-		{
-			"id": "grp-next",
-			"type": "group",
-			"x": 0,
-			"y": 740,
-			"width": 2000,
-			"height": 200,
-			"label": "2 · Next action",
-			"color": "2"
-		},
-		{
-			"id": "n-next",
-			"type": "text",
-			"text": "**Next**\n\n• Phase 3: free NIM critic pool\n• Optional Runs/ lab write-ups\n• Live long ablations / evolve\nCLI: seo docker-eval --seeds 0,1",
-			"x": 40,
-			"y": 800,
-			"width": 1200,
-			"height": 100,
-			"color": "2"
-		},
-		{
-			"id": "n-cli",
-			"type": "text",
-			"text": "**CLI**\nseo init|demo|eval\nseo mutate|ablate|evolve\nseo weights train|list|show\nseo docker-build|smoke|eval\nseo pins",
-			"x": 1320,
-			"y": 800,
-			"width": 640,
-			"height": 100,
-			"color": "5"
-		},
-		{
-			"id": "grp-org",
-			"type": "group",
-			"x": 0,
-			"y": 1020,
-			"width": 600,
-			"height": 720,
-			"label": "3 · Organism (mutable)",
-			"color": "4"
-		},
-		{
-			"id": "n-body",
-			"type": "text",
-			"text": "**Body (D1)**\n24×24 grid · energy · vision\nmove / forage / rest / noop",
-			"x": 40,
-			"y": 1100,
-			"width": 520,
-			"height": 100,
-			"color": "4"
-		},
-		{
-			"id": "n-genome",
-			"type": "text",
-			"text": "**Genome (D3)** whitelist\npolicy · heuristics · memory_hooks",
-			"x": 40,
-			"y": 1240,
-			"width": 520,
-			"height": 100,
-			"color": "4"
-		},
-		{
-			"id": "n-memory",
-			"type": "text",
-			"text": "**Memory (D4)**\nepisode summaries · mutation memory",
-			"x": 40,
-			"y": 1380,
-			"width": 520,
-			"height": 90,
-			"color": "4"
-		},
-		{
-			"id": "n-weights",
-			"type": "text",
-			"text": "**Weights (D5) — CHECKPOINTS LIVE**\nnumpy linear scorer · REINFORCE-lite\n`artifacts/weights/{id}.npz` + `.json`\nlatest.json · best.json · index.jsonl\nCLI: seo weights train | list | show",
-			"x": 40,
-			"y": 1510,
-			"width": 520,
-			"height": 160,
-			"color": "3"
-		},
-		{
-			"id": "grp-kernel",
-			"type": "group",
-			"x": 700,
-			"y": 1020,
-			"width": 600,
-			"height": 720,
-			"label": "4 · Kernel (frozen)",
-			"color": "1"
-		},
-		{
-			"id": "n-world",
-			"type": "text",
-			"text": "**World + Evaluator (D2)**\nmulti-seed fitness · holdout · ε · δ",
-			"x": 740,
-			"y": 1100,
-			"width": 520,
-			"height": 100,
-			"color": "1"
-		},
-		{
-			"id": "n-sandbox",
-			"type": "text",
-			"text": "**Sandbox (D9) — EPISODE ISOLATION LIVE**\nimage seo-sandbox:py312 (numpy)\n--network none --memory 512m\nseo docker-build | docker-eval | eval --docker\nCandidates isolated; parent host by default",
-			"x": 740,
-			"y": 1240,
-			"width": 520,
-			"height": 110,
-			"color": "4"
-		},
-		{
-			"id": "n-llm",
-			"type": "text",
-			"text": "**LLM (D6) free NIM**\ncoder: deepseek-ai/deepseek-v4-flash\nfallback: nvidia/nemotron-3-nano-30b-a3b\nsummarizer: meta/llama-3.1-8b-instruct",
-			"x": 740,
-			"y": 1390,
-			"width": 520,
-			"height": 140,
-			"color": "4"
-		},
-		{
-			"id": "n-mut",
-			"type": "text",
-			"text": "**Genomic loop LIVE**\npropose → apply → validate → eval\naccept if fit_c ≥ fit_p + ε\n**+ schedule/plateau (seo evolve)**",
-			"x": 740,
-			"y": 1570,
-			"width": 520,
-			"height": 100,
-			"color": "2"
-		},
-		{
-			"id": "grp-plan",
-			"type": "group",
-			"x": 1400,
-			"y": 1020,
-			"width": 600,
-			"height": 720,
-			"label": "5 · Roadmap & science",
-			"color": "5"
-		},
-		{
-			"id": "n-phases",
-			"type": "text",
-			"text": "**Phases**\n0 OK freeze\n1 OK research + NIM + Docker\n2 OK full paper-organism loop\n3 TODO free critic pool\n4 TODO observer UI\n5 TODO population\n6 TODO hardening",
-			"x": 1440,
-			"y": 1100,
-			"width": 520,
-			"height": 280,
-			"color": "5"
-		},
-		{
-			"id": "n-ablate",
-			"type": "text",
-			"text": "**Ablations (seo ablate)**\nB0 fixed · Bw weights · Bc code · Bcw both\nSuccess: holdout Bcw ≥ B0 + δ\nReport: last_ablation_report.json",
-			"x": 1440,
-			"y": 1420,
-			"width": 520,
-			"height": 160,
-			"color": "2"
-		},
-		{
-			"id": "n-freeze",
-			"type": "text",
-			"text": "**D1–D12 locked** · Python · free NIM · Docker · single lineage · no UI in P2",
-			"x": 1440,
-			"y": 1620,
-			"width": 520,
-			"height": 80,
-			"color": "4"
-		},
-		{
-			"id": "grp-loops",
-			"type": "group",
-			"x": 0,
-			"y": 1840,
-			"width": 980,
-			"height": 280,
-			"label": "6 · Two timescales",
-			"color": "5"
-		},
-		{
-			"id": "n-fast",
-			"type": "text",
-			"text": "**FAST — behavioral**\nsense → act → reward\n→ memory + weight updates\n(checkpoint after train)",
-			"x": 40,
-			"y": 1920,
-			"width": 420,
-			"height": 140,
-			"color": "3"
-		},
-		{
-			"id": "n-slow",
-			"type": "text",
-			"text": "**SLOW — genomic**\nNIM/dry-run patch → AST\n→ eval → accept/reject\n→ lineage + active_genome.json",
-			"x": 520,
-			"y": 1920,
-			"width": 420,
-			"height": 140,
-			"color": "2"
-		},
-		{
-			"id": "grp-storage",
-			"type": "group",
-			"x": 1060,
-			"y": 1840,
-			"width": 940,
-			"height": 280,
-			"label": "7 · Storage (D7)",
-			"color": "6"
-		},
-		{
-			"id": "n-sqlite",
-			"type": "text",
-			"text": "**SQLite**\ngenomes · evals · mutations\nweight_checkpoints · events",
-			"x": 1100,
-			"y": 1920,
-			"width": 260,
-			"height": 140,
-			"color": "6"
-		},
-		{
-			"id": "n-disk",
-			"type": "text",
-			"text": "**Disk artifacts/**\ngenomes/ · weights/*.npz\nmutations/ · ablations/",
-			"x": 1420,
-			"y": 1920,
-			"width": 260,
-			"height": 140,
-			"color": "6"
-		},
-		{
-			"id": "n-obsidian",
-			"type": "text",
-			"text": "**Obsidian vault**\nthis dashboard + lab notes\nno API keys",
-			"x": 1740,
-			"y": 1920,
-			"width": 220,
-			"height": 140,
-			"color": "6"
-		}
+	"nodes":[
+		{"id":"title","type":"text","text":"# Self-Evolving Organism — Dashboard\nPhase 0–2 OK · **Phase 3 critic LIVE** (static + free NIM gate)\nOrigin: github.com/F3rNaNDEZ57/self-evolving-organism","x":0,"y":0,"width":2000,"height":120,"color":"4"},
+		{"id":"process","type":"text","text":"**Process rule:** after every task → update vault + this canvas · no secrets in vault · see Working Rules / AGENTS.md","x":0,"y":160,"width":2000,"height":70,"color":"1"},
+		{"id":"status","type":"text","text":"**Verified:** pytest 20p · critic static+dry · mutate --critic · docker eval · evolve · GitNexus after push","x":0,"y":270,"width":2000,"height":70,"color":"5"},
+		{"id":"grp-docs","type":"group","x":0,"y":390,"width":2000,"height":280,"label":"1 · Vault notes (click to open)","color":"6"},
+		{"id":"f-home","type":"file","file":"Home.md","x":40,"y":460,"width":220,"height":80},
+		{"id":"f-rules","type":"file","file":"Working Rules.md","x":300,"y":460,"width":220,"height":80},
+		{"id":"f-overview","type":"file","file":"Project Overview.md","x":560,"y":460,"width":220,"height":80},
+		{"id":"f-roadmap","type":"file","file":"Roadmap.md","x":820,"y":460,"width":220,"height":80},
+		{"id":"f-brief","type":"file","file":"Research Brief.md","x":1080,"y":460,"width":220,"height":80},
+		{"id":"f-decisions","type":"file","file":"Open Decisions.md","x":1340,"y":460,"width":220,"height":80},
+		{"id":"f-phase1","type":"file","file":"Phase 1 Research Package.md","x":1600,"y":460,"width":220,"height":80},
+		{"id":"f-phase2","type":"file","file":"Phase 2 Scaffold.md","x":40,"y":560,"width":220,"height":80},
+		{"id":"f-phase3","type":"file","file":"Phase 3 Critic.md","x":300,"y":560,"width":220,"height":80},
+		{"id":"f-nim","type":"file","file":"NIM Pin Log.md","x":560,"y":560,"width":220,"height":80},
+		{"id":"f-gitnexus","type":"file","file":"GitNexus.md","x":820,"y":560,"width":220,"height":80},
+		{"id":"f-artifacts","type":"file","file":"Artifact Management.md","x":1080,"y":560,"width":220,"height":80},
+		{"id":"f-glossary","type":"file","file":"Glossary.md","x":1340,"y":560,"width":220,"height":80},
+		{"id":"f-refs","type":"file","file":"References.md","x":1600,"y":560,"width":220,"height":80},
+		{"id":"grp-next","type":"group","x":0,"y":740,"width":2000,"height":200,"label":"2 · Next action","color":"2"},
+		{"id":"n-next","type":"text","text":"**Next**\n\n• Critic metrics + live A/B\n• Summarizer → critic context\n• Optional Runs/ write-ups\nCLI: seo mutate --dry-run","x":40,"y":800,"width":1200,"height":100,"color":"2"},
+		{"id":"n-cli","type":"text","text":"**CLI**\nseo init|demo|eval\nseo mutate --critic|--no-critic\nseo ablate|evolve|weights\nseo docker-build|smoke|eval\nseo pins","x":1320,"y":800,"width":640,"height":100,"color":"5"},
+		{"id":"grp-org","type":"group","x":0,"y":1020,"width":600,"height":720,"label":"3 · Organism (mutable)","color":"4"},
+		{"id":"n-body","type":"text","text":"**Body (D1)**\n24×24 grid · energy · vision\nmove / forage / rest / noop","x":40,"y":1100,"width":520,"height":100,"color":"4"},
+		{"id":"n-genome","type":"text","text":"**Genome (D3)** whitelist\npolicy · heuristics · memory_hooks","x":40,"y":1240,"width":520,"height":100,"color":"4"},
+		{"id":"n-memory","type":"text","text":"**Memory (D4)**\nepisode summaries · mutation memory","x":40,"y":1380,"width":520,"height":90,"color":"4"},
+		{"id":"n-weights","type":"text","text":"**Weights (D5) — CHECKPOINTS LIVE**\nnumpy linear scorer · REINFORCE-lite\n`artifacts/weights/{id}.npz` + `.json`\nlatest.json · best.json · index.jsonl\nCLI: seo weights train | list | show","x":40,"y":1510,"width":520,"height":160,"color":"3"},
+		{"id":"grp-kernel","type":"group","x":700,"y":1020,"width":600,"height":720,"label":"4 · Kernel (frozen)","color":"1"},
+		{"id":"n-world","type":"text","text":"**World + Evaluator (D2)**\nmulti-seed fitness · holdout · ε · δ","x":740,"y":1100,"width":520,"height":100,"color":"1"},
+		{"id":"n-sandbox","type":"text","text":"**Sandbox (D9) — EPISODE ISOLATION LIVE**\nimage seo-sandbox:py312 (numpy)\n--network none --memory 512m\nseo docker-build | docker-eval | eval --docker\nCandidates isolated; parent host by default","x":740,"y":1240,"width":520,"height":110,"color":"4"},
+		{"id":"n-llm","type":"text","text":"**LLM (D6) free NIM — CRITIC LIVE**\ncoder: deepseek-ai/deepseek-v4-flash\ncritic: nvidia/nemotron-3-nano-30b-a3b\nsummarizer: meta/llama-3.1-8b-instruct\nstatic AST precheck → NIM JSON verdict","x":740,"y":1390,"width":520,"height":140,"color":"4"},
+		{"id":"n-mut","type":"text","text":"**Genomic loop + CRITIC**\npropose → critic → apply → eval\nreject taxonomy skips Docker eval\naccept if fit_c ≥ fit_p + ε · evolve triggers","x":740,"y":1570,"width":520,"height":100,"color":"2"},
+		{"id":"grp-plan","type":"group","x":1400,"y":1020,"width":600,"height":720,"label":"5 · Roadmap & science","color":"5"},
+		{"id":"n-phases","type":"text","text":"**Phases**\n0 OK freeze\n1 OK research + NIM + Docker\n2 OK full paper-organism loop\n3 🔧 critic live (metrics TODO)\n4 TODO observer UI\n5 TODO population\n6 TODO hardening","x":1440,"y":1100,"width":520,"height":280,"color":"5"},
+		{"id":"n-ablate","type":"text","text":"**Ablations (seo ablate)**\nB0 fixed · Bw weights · Bc code · Bcw both\nSuccess: holdout Bcw ≥ B0 + δ\nReport: last_ablation_report.json","x":1440,"y":1420,"width":520,"height":160,"color":"2"},
+		{"id":"n-freeze","type":"text","text":"**D1–D12 locked** · Python · free NIM · Docker · single lineage · no UI in P2","x":1440,"y":1620,"width":520,"height":80,"color":"4"},
+		{"id":"grp-loops","type":"group","x":0,"y":1840,"width":980,"height":280,"label":"6 · Two timescales","color":"5"},
+		{"id":"n-fast","type":"text","text":"**FAST — behavioral**\nsense → act → reward\n→ memory + weight updates\n(checkpoint after train)","x":40,"y":1920,"width":420,"height":140,"color":"3"},
+		{"id":"n-slow","type":"text","text":"**SLOW — genomic**\nNIM/dry patch → critic → AST\n→ eval → accept/reject\n→ lineage + active_genome.json","x":520,"y":1920,"width":420,"height":140,"color":"2"},
+		{"id":"grp-storage","type":"group","x":1060,"y":1840,"width":940,"height":280,"label":"7 · Storage (D7)","color":"6"},
+		{"id":"n-sqlite","type":"text","text":"**SQLite**\ngenomes · evals · mutations\nweight_checkpoints · events","x":1100,"y":1920,"width":260,"height":140,"color":"6"},
+		{"id":"n-disk","type":"text","text":"**Disk artifacts/**\ngenomes/ · weights/*.npz\nmutations/ · ablations/","x":1420,"y":1920,"width":260,"height":140,"color":"6"},
+		{"id":"n-obsidian","type":"text","text":"**Obsidian vault**\nthis dashboard + lab notes\nno API keys","x":1740,"y":1920,"width":220,"height":140,"color":"6"}
 	],
-	"edges": [
-		{
-			"id": "e1",
-			"fromNode": "n-body",
-			"fromSide": "right",
-			"toNode": "n-world",
-			"toSide": "left",
-			"label": "act / sense"
-		},
-		{
-			"id": "e2",
-			"fromNode": "n-genome",
-			"fromSide": "right",
-			"toNode": "n-sandbox",
-			"toSide": "left",
-			"label": "runs"
-		},
-		{
-			"id": "e3",
-			"fromNode": "n-llm",
-			"fromSide": "bottom",
-			"toNode": "n-mut",
-			"toSide": "top",
-			"label": "patch"
-		},
-		{
-			"id": "e4",
-			"fromNode": "n-mut",
-			"fromSide": "left",
-			"toNode": "n-genome",
-			"toSide": "right",
-			"label": "rewrite"
-		},
-		{
-			"id": "e5",
-			"fromNode": "n-fast",
-			"fromSide": "top",
-			"toNode": "n-weights",
-			"toSide": "bottom",
-			"label": "train"
-		},
-		{
-			"id": "e6",
-			"fromNode": "n-weights",
-			"fromSide": "right",
-			"toNode": "n-disk",
-			"toSide": "left",
-			"label": "npz + json"
-		},
-		{
-			"id": "e7",
-			"fromNode": "n-sqlite",
-			"fromSide": "right",
-			"toNode": "n-disk",
-			"toSide": "left"
-		},
-		{
-			"id": "e8",
-			"fromNode": "n-disk",
-			"fromSide": "right",
-			"toNode": "n-obsidian",
-			"toSide": "left",
-			"label": "notes"
-		},
-		{
-			"id": "e9",
-			"fromNode": "n-ablate",
-			"fromSide": "left",
-			"toNode": "n-slow",
-			"toSide": "right",
-			"label": "suite"
-		},
-		{
-			"id": "e10",
-			"fromNode": "n-world",
-			"fromSide": "bottom",
-			"toNode": "n-mut",
-			"toSide": "top",
-			"label": "fitness"
-		}
+	"edges":[
+		{"id":"e1","fromNode":"n-body","fromSide":"right","toNode":"n-world","toSide":"left","label":"act / sense"},
+		{"id":"e2","fromNode":"n-genome","fromSide":"right","toNode":"n-sandbox","toSide":"left","label":"runs"},
+		{"id":"e3","fromNode":"n-llm","fromSide":"bottom","toNode":"n-mut","toSide":"top","label":"patch"},
+		{"id":"e4","fromNode":"n-mut","fromSide":"left","toNode":"n-genome","toSide":"right","label":"rewrite"},
+		{"id":"e5","fromNode":"n-fast","fromSide":"top","toNode":"n-weights","toSide":"bottom","label":"train"},
+		{"id":"e6","fromNode":"n-weights","fromSide":"right","toNode":"n-disk","toSide":"left","label":"npz + json"},
+		{"id":"e7","fromNode":"n-sqlite","fromSide":"right","toNode":"n-disk","toSide":"left"},
+		{"id":"e8","fromNode":"n-disk","fromSide":"right","toNode":"n-obsidian","toSide":"left","label":"notes"},
+		{"id":"e9","fromNode":"n-ablate","fromSide":"left","toNode":"n-slow","toSide":"right","label":"suite"},
+		{"id":"e10","fromNode":"n-world","fromSide":"bottom","toNode":"n-mut","toSide":"top","label":"fitness"}
 	]
 }

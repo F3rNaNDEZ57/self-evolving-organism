@@ -240,14 +240,18 @@ Build a system of **self-evolving digital organisms** that:
 
 **Deliverables**
 
-- [ ] Pool abstraction + free multi-model config
-- [ ] Critic policy + reject taxonomy
+- [x] Free multi-model pins (coder / critic / summarizer) in `nim.pinned.yaml`
+- [x] Critic policy + reject taxonomy (`src/organism/critic.py`)
+- [x] Critic gate in mutation loop (before Docker eval)
 - [ ] Metrics: accept rate, regressions, tokens/useful mutation
+- [ ] Router abstraction + summarizer-enriched critic context
 
 **Exit criteria**
 
 - Critic reduces regressions or wasted evals vs Phase 2
 - Free-tier RPM handled; model pins revalidated
+
+**Smoke (2026-07-11):** pytest **20p** · dry critic approve · unsafe static reject · seed AST-clean
 
 ---
 
@@ -375,8 +379,8 @@ Detail: [[Research Brief#Sandbox and safety]]
 |------:|------|-----------------|--------|
 | 0 | Concept freeze | Definitions + decisions + canvas | ✅ |
 | 1 | Research package | Matrix + NIM pins + Docker + pre-reg | ✅ |
-| 2 | Paper organism | Bcw vs B0 under sandbox | 🔧 **scaffold live** |
-| 3 | Free LLM pool + critic | Multi-model quality on free NIM | ⬜ |
+| 2 | Paper organism | Bcw vs B0 under sandbox | ✅ |
+| 3 | Free LLM pool + critic | Multi-model quality on free NIM | 🔧 **critic live** |
 | 4 | Observer UI | Legible lineage & mutations | ⬜ |
 | 5 | Population | Multi-organism selection | ⬜ |
 | 6 | Hardening | Research-grade isolation & experiments | ⬜ |
@@ -385,9 +389,9 @@ Detail: [[Research Brief#Sandbox and safety]]
 
 ## Immediate next steps
 
-1. Phase 1 survey from [[References]] (comparison matrix)
-2. Pin free NIM coder model ID(s) on build.nvidia.com
-3. Scaffold Phase 2 paper organism (no UI)
+1. Critic metrics + live A/B (with vs without critic)
+2. Summarizer distillation into critic / mutation context
+3. Optional Runs/ vault auto-export
 
 ---
 

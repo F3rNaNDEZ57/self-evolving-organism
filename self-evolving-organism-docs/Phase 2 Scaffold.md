@@ -200,7 +200,7 @@ seo eval --host --ablation B0    # force host (tests / speed)
 - [x] Schedule/plateau auto mutation triggers (`seo evolve`)  
 - [x] Docker-isolated episode eval  
 - [ ] Runs/ vault note auto-export (optional)  
-- [ ] Phase 3 free NIM critic pool
+- [x] Phase 3 free NIM critic pool → [[Phase 3 Critic]]
 
 ---
 

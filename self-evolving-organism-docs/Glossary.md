@@ -110,7 +110,7 @@ Stored library of variants and evaluations — parents, rejected candidates, eli
 
 ## LLM pool
 
-External multi-model assistance layer on **NVIDIA NIM free endpoints**: coder (v0), later critic, summarizer, router. **Not** the organism itself. Default configs must not require paid-only models.
+External multi-model assistance layer on **NVIDIA NIM free endpoints**: coder, **critic** (Phase 3), summarizer, router. **Not** the organism itself. Default configs must not require paid-only models. Critic = static AST precheck + free NIM JSON approve/reject before Docker eval.
 
 → [[Research Brief#LLM pool (NVIDIA NIM)]] · [[Open Decisions#D6 — Free NVIDIA NIM models (Changed)|D6]] · [[References#NVIDIA NIM]]
 
