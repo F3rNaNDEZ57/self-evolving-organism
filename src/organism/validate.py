@@ -7,13 +7,13 @@ from pathlib import Path
 
 from organism.genome_loader import WHITELIST
 
-# Sibling modules + frozen kernel facade only
+# Sibling modules + approved stdlib/numpy. Bare "organism" is NOT allowed —
+# only explicit submodules in ALLOWED_ORGANISM_MODULES (full dotted path).
 ALLOWED_IMPORT_ROOTS = frozenset(
     {
         "heuristics",
         "memory_hooks",
         "policy",
-        "organism",
         "numpy",
         "random",
         "math",
@@ -28,6 +28,15 @@ ALLOWED_IMPORT_ROOTS = frozenset(
         "copy",
         "numbers",
         "__future__",
+    }
+)
+
+# Genome may only touch these organism.* modules (full path match).
+ALLOWED_ORGANISM_MODULES = frozenset(
+    {
+        "organism.schemas",
+        "organism.weights",
+        "organism.organism_api",
     }
 )
 
@@ -66,7 +75,6 @@ FORBIDDEN_IMPORT_ROOTS = frozenset(
         "zipimport",
         "sqlite3",
         "webbrowser",
-        "pty",
     }
 )
 
@@ -85,6 +93,29 @@ def _root_module(name: str | None) -> str | None:
     return name.split(".", 1)[0]
 
 
+def _import_allowed(module_path: str | None) -> bool:
+    """Return True if the full dotted import path is permitted for genomes."""
+    if not module_path:
+        return False
+    name = module_path.lstrip(".")
+    root = _root_module(name)
+    if root is None:
+        return False
+    if root in FORBIDDEN_IMPORT_ROOTS:
+        return False
+    if root == "organism":
+        # Exact allowlist on full path — bare `organism` and kernel modules denied.
+        if name in ALLOWED_ORGANISM_MODULES:
+            return True
+        # Allow attribute-level from allowed modules only if someone writes
+        # organism.schemas.X as a module path (unusual); deny subpackages of kernel.
+        for allowed in ALLOWED_ORGANISM_MODULES:
+            if name == allowed:
+                return True
+        return False
+    return root in ALLOWED_IMPORT_ROOTS
+
+
 def validate_source(filename: str, source: str) -> list[str]:
     errors: list[str] = []
     try:
@@ -95,20 +126,16 @@ def validate_source(filename: str, source: str) -> list[str]:
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
             for alias in node.names:
-                root = _root_module(alias.name)
-                if root in FORBIDDEN_IMPORT_ROOTS or (
-                    root not in ALLOWED_IMPORT_ROOTS and root is not None
-                ):
+                # e.g. import organism.nim_client  → full path on alias.name
+                if not _import_allowed(alias.name):
                     errors.append(f"{filename}: forbidden import '{alias.name}'")
         elif isinstance(node, ast.ImportFrom):
             if node.level and node.level > 0:
-                # relative imports of siblings only
+                # relative imports of siblings only (heuristics/policy/memory_hooks)
                 continue
-            root = _root_module(node.module)
-            if root in FORBIDDEN_IMPORT_ROOTS or (
-                root not in ALLOWED_IMPORT_ROOTS and root is not None
-            ):
-                errors.append(f"{filename}: forbidden import from '{node.module}'")
+            mod = node.module or ""
+            if not _import_allowed(mod):
+                errors.append(f"{filename}: forbidden import from '{mod}'")
         elif isinstance(node, ast.Call):
             func = node.func
             name = None
@@ -148,14 +175,12 @@ def validate_genome_dir(genome_dir: Path) -> list[str]:
             errors.append(f"missing file {name}")
             continue
         source = path.read_text(encoding="utf-8")
-        # soft line budget across all files
         errors.extend(validate_source(name, source))
     total_lines = 0
     for name in WHITELIST:
         p = genome_dir / name
         if p.exists():
             total_lines += len(p.read_text(encoding="utf-8").splitlines())
-    # not a hard fail if large seed; only warn via return? keep soft: reject if > 500 lines total after mutation
     if total_lines > 500:
         errors.append(f"genome too large: {total_lines} lines (max 500)")
     return errors
