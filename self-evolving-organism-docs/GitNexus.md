@@ -24,13 +24,13 @@ updated: 2026-07-11
 
 | Metric | Value |
 |--------|------:|
-| Indexed | 2026-07-11 |
-| Commit | `69befed` (up-to-date) |
-| Symbols / nodes | 1,013 |
-| Edges | 1,638 |
-| Clusters | 14 |
-| Flows / processes | 82 |
-| Status | ✅ up-to-date |
+| Indexed | 2026-07-11 (refreshed after origin history) |
+| Commit | `92b869b` then re-analyze post-evolve work |
+| Symbols / nodes | **1,132** |
+| Edges | **1,873** |
+| Clusters | 15 |
+| Flows / processes | **97** |
+| Status | ✅ up-to-date at analyze time |
 
 ---
 
