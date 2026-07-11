@@ -3,7 +3,7 @@
 		{
 			"id": "title",
 			"type": "text",
-			"text": "# Self-Evolving Organism — Dashboard\n\nPhase 0–4 · δ SUCCESS · observer UI (seo ui) · soft critic\nOrigin: github.com/F3rNaNDEZ57/self-evolving-organism",
+			"text": "# Self-Evolving Organism — Dashboard\n\nPhase 0–4 · δ SUCCESS · observer inspect live · next: run-from-UI console\nOrigin: github.com/F3rNaNDEZ57/self-evolving-organism",
 			"x": 0,
 			"y": 0,
 			"width": 2800,
@@ -23,7 +23,7 @@
 		{
 			"id": "status",
 			"type": "text",
-			"text": "**Verified:** δ=+4.44 · seo ui Streamlit · pause/freeze · genomes/lineage/mutations",
+			"text": "**Verified:** δ=+4.44 · seo ui inspect surfaces · pause/freeze · next branch feat/phase4-run-from-ui",
 			"x": 0,
 			"y": 270,
 			"width": 2800,
@@ -218,7 +218,7 @@
 		{
 			"id": "chk-p4",
 			"type": "text",
-			"text": "**Phase 4 — Observer UI**\n\n☑ Population / organism list\n☑ Lineage tree\n☑ Mutation inspector\n☑ Event timeline\n☑ Kill switch / pause / freeze\n\n**Phase 5–6**\n\n☐ Multi-organism population\n☐ Research-grade hardening\n☐ Longer experiments",
+			"text": "**Phase 4 — Observer UI**\n\n☑ Population / organism list\n☑ Lineage tree\n☑ Mutation inspector\n☑ Event timeline\n☑ Kill switch / pause / freeze\n☐ Run-from-UI job console (4.1–4.4)\n\n**Phase 5–6**\n\n☐ Multi-organism population\n☐ Research-grade hardening\n☐ Longer experiments",
 			"x": 2140,
 			"y": 880,
 			"width": 600,
@@ -238,7 +238,7 @@
 		{
 			"id": "n-next",
 			"type": "text",
-			"text": "**Next**\n\n1. seo ui — open observer dashboard\n2. Optional Phase 4 polish / charts\n3. Phase 5 population when ready\n\n**Latest:** Phase 4 scaffold · δ=+4.44 · soft critic · sequential Bcw",
+			"text": "**Next**\n\n1. Run-from-UI operator console (4.1–4.4)\n2. Job runner + mutate/evolve from Streamlit\n3. Optional polish / Phase 5 population\n\n**Decision:** UI launches seo CLI jobs — not the organism brain\nBranch: feat/phase4-run-from-ui",
 			"x": 50,
 			"y": 1660,
 			"width": 1750,

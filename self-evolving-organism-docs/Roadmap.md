@@ -286,6 +286,12 @@ Build a system of **self-evolving digital organisms** that:
 
 **Launch:** `pip install -e ".[ui]"` · `seo ui` · [[Phase 4 Observer UI]]
 
+**Operator console (decided 2026-07-11)**
+
+- UI launches **CLI jobs** (not reimplemented science); dry-run default; single job; logs under `artifacts/jobs/`
+- Slices: 4.1 job runner · 4.2 mutate/evolve/weights · 4.3 ablate/docker · 4.4 job history  
+- Branch: `feat/phase4-run-from-ui`
+
 ---
 
 ### Phase 5 — Population dynamics
@@ -399,7 +405,7 @@ Detail: [[Research Brief#Sandbox and safety]]
 
 ## Immediate next steps
 
-1. Phase 4 polish (auto-refresh, charts) as needed
+1. Phase 4.1–4.4 **run-from-UI** operator console (`feat/phase4-run-from-ui`)
 2. Optional: close weight gap (Bw still below pure code holdout)
 3. Phase 5 population when ready
 
