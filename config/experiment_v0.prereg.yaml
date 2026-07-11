@@ -1,0 +1,69 @@
+# Pre-registered Phase 2 defaults (from Phase 1 research package).
+# Do not change mid-run without a new run_id.
+
+world:
+  grid: [24, 24]
+  T: 200
+  food_density: 0.04
+  energy_max: 100.0
+  energy_start: 50.0
+  drain_move: 1.0
+  drain_rest: 0.5
+  forage_energy: 15.0
+  vision: 2  # local view radius (5x5 when 2)
+
+fitness:
+  w1: 3.0
+  w2: 1.0
+  w3: 0.5
+  w4: 0.25
+  w5: 0.05
+  lambda_std: 0.15
+  epsilon_accept: 0.05
+  delta_success: 0.30
+
+eval:
+  N: 8
+  train_seeds: [0, 1, 2, 3, 4, 5, 6, 7]
+  holdout_seeds: [100, 101, 102, 103, 104, 105, 106, 107]
+  episode_timeout_s: 5
+  container_memory: 512m
+  container_cpus: "1"
+
+weights:
+  backend: numpy_linear
+  alpha: 0.05
+  init_std: 0.01
+  clip_abs: 5.0
+  explore_train: 0.10
+  explore_eval: 0.05
+
+genomic:
+  mutate_every_episodes: 10
+  plateau_episodes: 20
+  max_mutations: 30
+  max_patch_lines: 80
+
+paths:
+  artifacts_dir: artifacts
+  db_path: artifacts/seo.sqlite
+  seed_genome: genomes/seed
+
+sandbox:
+  mode: docker  # docker | subprocess (subprocess is weaker; not for untrusted code)
+  image: python:3.12-slim
+  network: none
+  require_docker: true
+
+ablation: B0  # B0 | Bw | Bc | Bcw
+
+# Suite runner defaults (seo ablate)
+ablation_suite:
+  max_mutations: 3          # pre-reg allows up to 30; 3 is practical default
+  train_passes: 2           # Bw weight training passes over train seeds
+  quick:
+    train_seeds: [0, 1, 2]
+    holdout_seeds: [100, 101, 102]
+    max_mutations: 1
+    train_passes: 1
+    dry_run: true
