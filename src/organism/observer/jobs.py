@@ -171,8 +171,11 @@ def build_ablate_argv(*, dry_run: bool, max_mutations: int = 3, quick: bool = Fa
     return _seo_argv(args)
 
 
-def build_weights_train_argv(*, passes: int = 2) -> list[str]:
-    return _seo_argv(["weights", "train", "--passes", str(passes)])
+def build_weights_train_argv(*, passes: int = 2, on_seed: bool = False) -> list[str]:
+    args = ["weights", "train", "--passes", str(passes)]
+    if on_seed:
+        args.append("--on-seed")
+    return _seo_argv(args)
 
 
 def build_weights_holdout_argv(
@@ -180,12 +183,15 @@ def build_weights_holdout_argv(
     weights: str = "latest",
     passes: int = 0,
     host: bool = True,
+    on_seed: bool = False,
 ) -> list[str]:
     args = ["weights", "holdout", "--weights", str(weights), "--passes", str(int(passes))]
     if host:
         args.append("--host")
     else:
         args.append("--docker")
+    if on_seed:
+        args.append("--on-seed")
     return _seo_argv(args)
 
 
@@ -253,6 +259,13 @@ def parse_cli_params(argv: list[str]) -> dict[str, Any]:
         "--label": "label",
         "--weights": "weights",
         "--seeds": "seeds",
+    }
+    bool_flags = {
+        **bool_flags,
+        "--on-seed": ("on_seed", True),
+        "--force-bcw": ("force_bcw", True),
+        "--keep-if-beats-b0": ("keep_if_beats_b0", True),
+        "--always-keep": ("keep_if_beats_b0", False),
     }
     unknown: list[str] = []
     while i < len(rest):

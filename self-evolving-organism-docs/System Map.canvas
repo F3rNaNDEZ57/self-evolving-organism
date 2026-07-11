@@ -218,7 +218,7 @@
 		{
 			"id": "chk-p4",
 			"type": "text",
-			"text": "**Phase 4 \u2014 Observer UI**\n\n\u2611 Population / organism list\n\u2611 Lineage tree\n\u2611 Mutation inspector\n\u2611 Event timeline\n\u2611 Kill switch / pause / freeze\n\u2611 Run-from-UI job console (4.1\u20134.4)\n\u2611 Live logs \u00b7 launch plan \u00b7 final snapshot\n\u2611 Windows-safe job encoding\n\u2611 Watch live video stream + GIF loop\n\n**Phase 5\u20136**\n\n\u2611 Elite archive + parent picker\n\u2611 Auto selection rank / tournament\n\u2611 Multi-lineage budgets + schedule\n\u2611 Multi-agent same-map Watch (viz)\n\u2611 Runs export \u00b7 mutate parse retry\n\u2611 Best-of phenotype \u00b7 weights diagnose\n\u2611 seo doctor (Phase 6 scaffold)\n\u2610 Soak tests \u00b7 reproduce bundles",
+			"text": "**Phase 4 \u2014 Observer UI**\n\n\u2611 Population / organism list\n\u2611 Lineage tree\n\u2611 Mutation inspector\n\u2611 Event timeline\n\u2611 Kill switch / pause / freeze\n\u2611 Run-from-UI job console (4.1\u20134.4)\n\u2611 Live logs \u00b7 launch plan \u00b7 final snapshot\n\u2611 Windows-safe job encoding\n\u2611 Watch live video stream + GIF loop\n\n**Phase 5\u20136**\n\n\u2611 Elite archive + parent picker\n\u2611 Auto selection rank / tournament\n\u2611 Multi-lineage budgets + schedule\n\u2611 Multi-agent same-map Watch (viz)\n\u2611 Runs export \u00b7 mutate parse retry\n\u2611 Best-of phenotype \u00b7 weights diagnose\n\u2611 seo doctor (Phase 6 scaffold)\n\u2611 Safety Bc default (diagnose)\n\u2611 Soak harness + reproduce package\n\u2611 Weights --on-seed experiment",
 			"x": 2140,
 			"y": 880,
 			"width": 600,
@@ -238,7 +238,7 @@
 		{
 			"id": "n-next",
 			"type": "text",
-			"text": "**Next**\n\n1. seo doctor before long live runs\n2. Bc mutates + best-of Bcw; weights diagnose\n3. Soak tests \u00b7 reproduce bundles\n\n**CLI:** seo doctor \u00b7 weights diagnose \u00b7 holdout\n**Phase 5\u20136:** scaffold on master",
+			"text": "**Next**\n\n1. seo doctor / soak before long live runs\n2. Bc default (diagnose) + best-of Bcw\n3. Seed weight A/B via --on-seed\n4. Live multi-hour soak + lab notes\n\n**CLI:** doctor \u00b7 soak \u00b7 package \u00b7 weights --on-seed\n**Phase 6:** safety + soak + seed train on master",
 			"x": 50,
 			"y": 1660,
 			"width": 1750,
@@ -248,7 +248,7 @@
 		{
 			"id": "n-cli",
 			"type": "text",
-			"text": "**CLI**\n\nseo doctor  \u2190 Phase 6 health\nseo ui \u00b7 runs export\nseo weights holdout|diagnose\nseo mutate \u00b7 evolve --lineages\nseo watch --multi \u00b7 elite *\nseo ablate | pins",
+			"text": "**CLI**\n\nseo doctor \u00b7 soak \u00b7 package\nseo ui \u00b7 runs export\nseo weights holdout|diagnose|--on-seed\nseo mutate [--force-bcw] \u00b7 evolve\nseo watch --multi \u00b7 elite *\nseo ablate | pins",
 			"x": 1860,
 			"y": 1660,
 			"width": 880,

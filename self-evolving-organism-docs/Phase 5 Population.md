@@ -90,11 +90,15 @@ seo weights holdout --weights latest          # B0 vs Bw on holdout seeds
 seo weights holdout --passes 4                # train then compare
 seo weights diagnose --weights latest         # recommendation
 seo weights train --passes 4 --keep-if-beats-b0
+seo weights train --on-seed --passes 4        # experiment: seed genome only
+seo weights holdout --on-seed --passes 2
 seo runs export --kind weights_holdout
-# UI: Run → Weights → Start B0 vs Bw holdout
+# UI: Run → Weights → seed checkboxes · Start B0 vs Bw holdout
 ```
 
 Writes `artifacts/last_weights_holdout.json` / `last_weights_diagnose.json`.
+
+**Safety:** if diagnose says do not prefer weights, mutate/evolve **Bcw → Bc** unless `--force-bcw`.
 
 ## Dual-timescale best-of phenotype
 

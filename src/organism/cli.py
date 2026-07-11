@@ -532,6 +532,11 @@ def weights_train(
         "--keep-if-beats-b0/--always-keep",
         help="Only update latest/best if holdout Bw beats B0",
     ),
+    on_seed: bool = typer.Option(
+        False,
+        "--on-seed",
+        help="Train on seed genome only (experiment; not active lineage)",
+    ),
 ) -> None:
     """Train phenotype weights and save checkpoint under artifacts/weights/."""
     from organism.checkpoints import train_and_checkpoint
@@ -542,11 +547,21 @@ def weights_train(
     db = resolve_path(exp.get("paths", {}).get("db_path", "artifacts/seo.sqlite"))
     seeds = list(exp.get("eval", {}).get("train_seeds", list(range(8))))
     holdout = list(exp.get("eval", {}).get("holdout_seeds", list(range(8, 16))))
-    genome_dir, gid = resolve_parent_genome(exp)
-    if genome_id != "g_seed":
-        gid = genome_id
+    if on_seed:
+        genome_dir = resolve_path(exp.get("paths", {}).get("seed_genome", "genomes/seed"))
+        gid = "g_seed"
+        console.print(
+            "[yellow]Experiment path:[/yellow] training on **seed** genome "
+            "(not active lineage)"
+        )
+    else:
+        genome_dir, gid = resolve_parent_genome(exp)
+        if genome_id != "g_seed":
+            gid = genome_id
 
     console.print(f"[cyan]Training weights[/cyan] genome={genome_dir} passes={passes}")
+    # Seed experiments: default to keep-if-beats-b0 when not explicitly always-keep
+    # (CLI flag default False means always-keep unless user passes keep-if-beats-b0)
     meta = train_and_checkpoint(
         genome_dir=genome_dir,
         world=world,
@@ -556,11 +571,11 @@ def weights_train(
         genome_id=gid,
         passes=passes,
         ablation=ablation if ablation in ("Bw", "Bcw") else "Bw",
-        label=label or f"{gid}-p{passes}",
+        label=label or (f"seed-exp-p{passes}" if on_seed else f"{gid}-p{passes}"),
         fit_cfg=fit,
         eval_seeds=seeds,
-        holdout_seeds=holdout if keep_if_beats_b0 else None,
-        keep_if_beats_b0=keep_if_beats_b0,
+        holdout_seeds=holdout if (keep_if_beats_b0 or on_seed) else None,
+        keep_if_beats_b0=keep_if_beats_b0 or on_seed,
     )
     store = Store(db)
     store.insert_weight_checkpoint(
@@ -668,6 +683,11 @@ def weights_holdout_cmd(
         help="If >0, train this many passes before holdout eval",
     ),
     host: bool = typer.Option(True, "--host/--docker", help="Eval isolation"),
+    on_seed: bool = typer.Option(
+        False,
+        "--on-seed",
+        help="Use seed genome (experiment) instead of active lineage",
+    ),
 ) -> None:
     """
     Compare holdout fitness: B0 (no weights) vs Bw (frozen checkpoint).
@@ -683,7 +703,12 @@ def weights_holdout_cmd(
     db = resolve_path(exp.get("paths", {}).get("db_path", "artifacts/seo.sqlite"))
     holdout = list(exp.get("eval", {}).get("holdout_seeds", list(range(8, 16))))
     train_seeds = list(exp.get("eval", {}).get("train_seeds", list(range(8))))
-    genome_dir, gid = resolve_parent_genome(exp)
+    if on_seed:
+        genome_dir = resolve_path(exp.get("paths", {}).get("seed_genome", "genomes/seed"))
+        gid = "g_seed"
+        console.print("[yellow]Experiment:[/yellow] holdout on **seed** genome")
+    else:
+        genome_dir, gid = resolve_parent_genome(exp)
 
     train_passes = int(passes)
     if train_passes > 0:
@@ -699,9 +724,15 @@ def weights_holdout_cmd(
             genome_id=gid,
             passes=train_passes,
             ablation="Bw",
-            label=f"{gid}-holdout-p{train_passes}",
+            label=(
+                f"seed-exp-holdout-p{train_passes}"
+                if on_seed
+                else f"{gid}-holdout-p{train_passes}"
+            ),
             fit_cfg=fit,
             eval_seeds=train_seeds,
+            holdout_seeds=holdout if on_seed else None,
+            keep_if_beats_b0=on_seed,
         )
         wpath = Path(meta.path)
         cid = meta.checkpoint_id

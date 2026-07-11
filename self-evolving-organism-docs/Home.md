@@ -91,16 +91,17 @@ cssclasses:
 
 | Field | Value |
 |-------|-------|
-| Stage | **Phase 5 done** · **Phase 6 scaffold** (`seo doctor`) |
-| Code | best-of phenotype · weights diagnose · doctor · full Phase 5 ops |
-| Science | **Bcw − B0 = +4.44** · thr 0.30 · success=True |
+| Stage | **Phase 5 done** · **Phase 6** doctor · soak · package · safety rail |
+| Code | best-of · diagnose · safety→Bc · soak · package · seed-weight exp |
+| Science | **Bcw − B0 = +4.44** · thr 0.30 · success=True · holdout Bw lag on active |
 | UI | [[Phase 4 Observer UI]] · [[Phase 5 Population]] · [[Phase 6 Hardening]] |
 | Critic | soft_pass · truncated JSON retry |
-| Weights | best-of eval · holdout · diagnose · keep-if-beats-b0 |
-| Runs | [[Runs/README]] · `seo runs export` |
+| Weights | best-of · holdout · diagnose · keep-if-beats-b0 · **`--on-seed`** exp |
+| Safety | Bcw→Bc when diagnose negative (`--force-bcw` override) |
+| Ops | `seo doctor` · `seo soak` · `seo package` · `seo runs export` |
 | Git remote | https://github.com/F3rNaNDEZ57/self-evolving-organism |
 | Secrets | `.env` only (gitignored) |
-| Next | Longer soaks · reproduce bundles · optional public notes |
+| Next | Live soaks · seed-weight A/B notes · optional public packaging |
 
 ---
 

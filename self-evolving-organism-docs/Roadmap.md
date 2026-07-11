@@ -343,18 +343,21 @@ Build a system of **self-evolving digital organisms** that:
 | **Goal** | Research-grade reliability and broader questions |
 | **Tags** | `#phase/6` |
 
-**Scaffold (2026-07-11 · `feat/phase6-scaffold`)**
+**Scaffold + rails (2026-07-11)**
 
 - [x] `seo doctor` environment health check · [[Phase 6 Hardening]]
 - [x] Checklist: reliability / isolation / packaging / science extensions
+- [x] Safety default **Bc** when weights diagnose negative (`feat/safety-default-bc`)
+- [x] Soak harness + reproduce package (`feat/phase6-soak-package`)
+- [x] Weights train/holdout **`--on-seed`** experiment path (`feat/weights-train-seed`)
 
 **Candidates (next)**
 
-- Longer-run soak tests
+- Multi-hour live soak (operator)
 - Stronger isolation defaults
-- Reproduce-last-suite packaging
 - Kernel regression gate (optional CI)
 - Optional public research notes
+- Seed vs active weight A/B lab notes
 
 ---
 
@@ -420,15 +423,16 @@ Detail: [[Research Brief#Sandbox and safety]]
 | 3 | Free LLM pool + critic | Multi-model quality on free NIM | ✅ **soft critic · δ success** |
 | 4 | Observer UI | Legible lineage & mutations + run console | ✅ **merged** |
 | 5 | Population | Multi-organism selection | ✅ **scaffold** |
-| 6 | Hardening | Research-grade isolation & experiments | 🔧 **doctor scaffold** |
+| 6 | Hardening | Research-grade isolation & experiments | 🔧 **doctor · soak · package · safety** |
 
 ---
 
 ## Immediate next steps
 
-1. `seo doctor` before long live runs
-2. Prefer Bc mutates + best-of Bcw; `seo weights diagnose` before trusting Bw
-3. Soak tests + reproduce-bundle packaging
+1. `seo doctor` before long live runs; `seo soak` for dry health
+2. Prefer Bc mutates (auto when diagnose negative) + best-of Bcw
+3. `seo weights diagnose`; seed-only experiments via `--on-seed`
+4. `seo package` after suites worth sharing
 
 ---
 

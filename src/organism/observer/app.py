@@ -753,13 +753,21 @@ def page_run(artifacts: Path, db: Path) -> None:
 
     with tab_w:
         passes = st.number_input("Train passes", min_value=1, max_value=20, value=2, key="w_p")
+        w_on_seed = st.checkbox(
+            "Train on **seed** genome (experiment)",
+            value=False,
+            key="w_on_seed",
+            help="Does not use active lineage — for weight experiments only",
+        )
         if st.button("Start weights train", type="primary", disabled=busy, key="w_go"):
             try:
                 rec = jobmod.start_job(
                     artifacts,
                     kind="weights_train",
-                    argv=jobmod.build_weights_train_argv(passes=int(passes)),
-                    note="ui weights train",
+                    argv=jobmod.build_weights_train_argv(
+                        passes=int(passes), on_seed=w_on_seed
+                    ),
+                    note="ui weights train" + (" on-seed" if w_on_seed else ""),
                 )
                 st.success(f"Started {rec.job_id}")
                 st.rerun()
@@ -781,6 +789,11 @@ def page_run(artifacts: Path, db: Path) -> None:
             value=0,
             key="w_holdout_p",
         )
+        wh_seed = st.checkbox(
+            "Holdout on seed genome (experiment)",
+            value=False,
+            key="w_holdout_seed",
+        )
         if st.button("Start B0 vs Bw holdout", disabled=busy, key="w_holdout_go"):
             try:
                 rec = jobmod.start_job(
@@ -790,8 +803,10 @@ def page_run(artifacts: Path, db: Path) -> None:
                         weights=str(wh_ref),
                         passes=int(wh_passes),
                         host=True,
+                        on_seed=wh_seed,
                     ),
-                    note=f"ui weights holdout {wh_ref} p={int(wh_passes)}",
+                    note=f"ui weights holdout {wh_ref} p={int(wh_passes)}"
+                    + (" seed" if wh_seed else ""),
                 )
                 st.success(f"Started {rec.job_id}")
                 st.rerun()

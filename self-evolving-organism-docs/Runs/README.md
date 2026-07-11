@@ -61,4 +61,5 @@ Writes `self-evolving-organism-docs/Runs/YYYY-MM-DD-….md` and appends this ind
 | 2026-07-11 | [[2026-07-11-live-ablation-weight-fix]] | B0/Bw/Bc/Bcw live free NIM | δ −10.5 → **−2.5** after weight fix; δ still fail |
 | 2026-07-11 | [[2026-07-11-soft-critic-delta-success]] | soft critic + sequential Bcw | **δ = +4.44 · success=True** |
 | 2026-07-11 | [[2026-07-11-evolve-evo-7881f184b0]] | evolve dry-run export demo | auto-export from last_evolve_report |
+| 2026-07-11 | [[2026-07-11-bw-holdout-wh-1783787663]] | weights_holdout | auto-export: 2026-07-11-bw-holdout-wh-1783787663 |
 

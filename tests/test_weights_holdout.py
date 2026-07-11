@@ -5,7 +5,11 @@ from pathlib import Path
 from organism.checkpoints import train_and_checkpoint
 from organism.evaluator import FitnessConfig
 from organism.genome_loader import copy_genome
-from organism.observer.jobs import build_weights_holdout_argv, parse_cli_params
+from organism.observer.jobs import (
+    build_weights_holdout_argv,
+    build_weights_train_argv,
+    parse_cli_params,
+)
 from organism.weights import WeightConfig
 from organism.weights_holdout import run_weights_holdout
 from organism.world import WorldConfig
@@ -60,3 +64,24 @@ def test_build_holdout_argv():
     assert p.get("command") == "weights holdout"
     assert p.get("weights") == "best"
     assert p.get("passes") == 2
+    assert p.get("on_seed") is not True
+
+
+def test_build_holdout_argv_on_seed():
+    argv = build_weights_holdout_argv(weights="latest", passes=0, host=True, on_seed=True)
+    assert "--on-seed" in argv
+    p = parse_cli_params(argv)
+    assert p.get("command") == "weights holdout"
+    assert p.get("on_seed") is True
+
+
+def test_build_weights_train_argv_on_seed():
+    argv = build_weights_train_argv(passes=3, on_seed=True)
+    assert "--on-seed" in argv
+    assert argv[argv.index("--passes") + 1] == "3"
+    p = parse_cli_params(argv)
+    assert p.get("command") == "weights train"
+    assert p.get("passes") == 3
+    assert p.get("on_seed") is True
+    base = build_weights_train_argv(passes=2, on_seed=False)
+    assert "--on-seed" not in base
