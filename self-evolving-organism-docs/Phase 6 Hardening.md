@@ -123,6 +123,20 @@ seo soak --live --rounds 10 --cycles 2 --max-mutations 2 --ablation Bc
 
 Note: [[Runs/2026-07-11-soak-soak-1783791309]]. Plateau under free NIM is expected with a strong parent; harness + safety rails held.
 
+## Live multi-lineage (2026-07-12 · `evo_f3f53426e0`)
+
+```powershell
+seo evolve --live --cycles 8 --lineages 3 --select fitness_rank --ablation Bc --max-mutations 6
+```
+
+| Metric | Result |
+|--------|--------|
+| mutations | acc=0 / rej=3 (all critic **low_value**) |
+| fitness | 28.13 steady · genome `g_0a2b03eafe` |
+| slots | 3 clones of champion |
+
+Note: [[Runs/2026-07-12-population-evo-f3f53426e0]]. Need parent diversity, not more identical slots.
+
 ## See also
 
 - [[Roadmap]]

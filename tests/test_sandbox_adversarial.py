@@ -13,6 +13,7 @@ from organism.genome_loader import copy_genome, load_policy_class
 from organism.sandbox import (
     SandboxConfig,
     build_sandbox_image,
+    chmod_readable_for_container,
     docker_available,
     evaluate_genome_in_docker,
     image_exists,
@@ -220,6 +221,23 @@ def test_docker_eval_seed_still_works_after_hardening(tmp_path: Path):
 def test_outer_timeout_scales_with_seeds():
     assert outer_eval_timeout_s(8, 5.0) >= 8 * 5 * 1.5
     assert outer_eval_timeout_s(1, 1.0) >= 30
+
+
+def test_chmod_readable_for_container(tmp_path: Path):
+    """Host job dirs must become other-readable for container USER 1000 (Linux CI)."""
+    import os
+    import stat
+
+    job = tmp_path / "seo_job"
+    job.mkdir()
+    req = job / "request.json"
+    req.write_text('{"ok": true}', encoding="utf-8")
+    # Simulate restrictive tempfile.mkdtemp modes
+    os.chmod(job, 0o700)
+    os.chmod(req, 0o600)
+    chmod_readable_for_container(job)
+    assert stat.S_IMODE(job.stat().st_mode) & 0o005  # other execute (traverse)
+    assert stat.S_IMODE(req.stat().st_mode) & 0o004  # other read
 
 
 # ---------------------------------------------------------------------------

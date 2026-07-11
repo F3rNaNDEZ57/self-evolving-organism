@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -29,6 +30,34 @@ DOCKER_HARDENING_FLAGS = [
     "--user",
     "1000:1000",
 ]
+
+
+def chmod_readable_for_container(path: Path, *, recursive: bool = True) -> None:
+    """
+    Make bind-mounted host paths readable by the sandbox USER (uid 1000).
+
+    tempfile.mkdtemp() and many CI runners create owner-only (0o700) dirs.
+    The container runs as --user 1000:1000, which is often *not* the host
+    uid on Linux CI → PermissionError on /job/request.json without this.
+    """
+    path = Path(path)
+    if not path.exists():
+        return
+    try:
+        if path.is_dir():
+            os.chmod(path, 0o755)
+            if recursive:
+                for p in path.rglob("*"):
+                    try:
+                        os.chmod(p, 0o755 if p.is_dir() else 0o644)
+                    except OSError:
+                        pass
+        else:
+            os.chmod(path, 0o644)
+    except OSError:
+        # Best-effort on platforms that ignore POSIX modes (e.g. some Windows)
+        pass
+
 
 
 @dataclass
@@ -346,6 +375,13 @@ def evaluate_genome_in_docker(
             cmd += ["-v", f"{wp.parent}:/weights:ro"]
             request["weight_path"] = f"/weights/{wp.name}"
             (job_dir / "request.json").write_text(json.dumps(request), encoding="utf-8")
+            chmod_readable_for_container(wp.parent, recursive=False)
+            chmod_readable_for_container(wp, recursive=False)
+
+        # Container USER 1000 must read bind mounts (critical on Linux CI)
+        chmod_readable_for_container(job_dir)
+        chmod_readable_for_container(genome_dir)
+        chmod_readable_for_container(src_dir)
 
         cmd += [
             cfg.image,

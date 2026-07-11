@@ -101,10 +101,11 @@ cssclasses:
 | Ops | `seo doctor` · `seo soak` · `seo package` · `seo runs export` |
 | Git remote | https://github.com/F3rNaNDEZ57/self-evolving-organism |
 | Secrets | `.env` only (gitignored) |
-| Next | Plateau under free NIM · try multi-lineage live or richer lessons · weights only if Δ>0 |
-| Lab | [[Runs/2026-07-11-soak-soak-1783791309]] live r=10 · [[Runs/2026-07-11-seed-vs-active-weights-ab]] |
+| Next | Diversify lineage parents / proposals (multi-lineage cloned same champ) · weights only if Δ>0 |
+| Lab | [[Runs/2026-07-12-population-evo-f3f53426e0]] · [[Runs/2026-07-11-soak-soak-1783791309]] |
 | Active | `g_0a2b03eafe` · fit **28.13** · weights diagnose **False** |
-| Live soak | **acc=0/att=10** · ok · genome unchanged (2026-07-11) |
+| Live soak | **acc=0/att=10** · ok (2026-07-11) |
+| Multi-lineage | live 3-slot · **acc=0/rej=3 critic low_value** · plateau (2026-07-12) |
 
 ---
 
