@@ -145,6 +145,18 @@ seo evolve --live --cycles 8 --lineages 3 --select fitness_rank --ablation Bc --
 
 Follow-up: validate parents on open; static reject food-only re-tweaks when lessons flag them.
 
+### Live re-run `evo_6a1f0edb0a` (with food gate)
+
+| Check | Result |
+|-------|--------|
+| content keys | **3/3** · hold_lineage |
+| mutations | acc=0 / rej=3 |
+| slot0 | fitness 26.98 &lt; 28.13 |
+| slot1 | fitness 24.01 &lt; 28.13 |
+| slot2 | critic nonsense (empty proposal) |
+
+Note: [[Runs/2026-07-12-population-evo-6a1f0edb0a]]. Food-repeat spam reduced; free NIM still below champion bar.
+
 ## Not yet (later Phase 5)
 
 - [ ] Hard resource isolation between lineages (Docker-per-lineage)

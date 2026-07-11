@@ -436,7 +436,7 @@ Detail: [[Research Brief#Sandbox and safety]]
 
 ## Immediate next steps
 
-1. Multi-lineage diversity fix landed — re-run live 3-slot under Bc
+1. Multi-lineage live plateau documented (`evo_6a1f0edb0a`) — optional longer run or proposal research
 2. Keep **Bc** (weights holdout still negative)
 3. `seo doctor` before long runs; `seo package` / `seo runs export` after suites
 4. Weights only if holdout Δ > 0
