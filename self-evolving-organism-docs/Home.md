@@ -101,9 +101,9 @@ cssclasses:
 | Ops | `seo doctor` · `seo soak` · `seo package` · `seo runs export` |
 | Git remote | https://github.com/F3rNaNDEZ57/self-evolving-organism |
 | Secrets | `.env` only (gitignored) |
-| Next | Re-evolve multi-lineage with temp 0.45 + mutate_every=6 from 28.76 |
-| Propose | GLM-5.2 + history verified · **temp 0.45 / retry 0.60** · denser muts |
-| Lab | [[Runs/2026-07-12-population-evo-20b838b660]] pins+history check |
+| Next | Optional further evolve · or accept free-NIM ceiling ~28.76 · weights if Δ>0 |
+| Propose | temp **0.45** · every **6** · live evo_72e9347d70 att=12 |
+| Lab | [[Runs/2026-07-12-population-evo-72e9347d70]] denser+temp · [[Runs/2026-07-12-population-evo-20b838b660]] |
 
 | Lab | [[Runs/2026-07-12-population-evo-3731006908]] post-promote · [[Runs/2026-07-12-population-evo-e7bd5a260f]] first accept |
 | Active + elite | **`g_c07765783a` @ 28.76** (promoted) |

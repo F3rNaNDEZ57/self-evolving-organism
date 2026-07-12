@@ -466,7 +466,10 @@ def propose_policy_patch(
             tokens_out=usage.get("tokens_out"),
             estimated_usd=float(usage.get("estimated_usd") or 0.0),
             latency_ms=float(usage.get("latency_ms") or 0.0),
-            meta={"stage": stage},
+            meta={
+                "stage": stage,
+                "temperature": usage.get("temperature"),
+            },
         )
 
     messages = [
