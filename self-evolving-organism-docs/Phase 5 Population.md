@@ -168,6 +168,15 @@ Note: [[Runs/2026-07-12-population-evo-6a1f0edb0a]]. Food-repeat spam reduced; f
 
 Note: [[Runs/2026-07-12-population-evo-e7bd5a260f]]. Diversity + quality rails → free NIM beat old champion on a non-active lineage.
 
+## Exploration: temperature + denser mutates (2026-07-12)
+
+| Knob | Value | Effect |
+|------|-------|--------|
+| `genomic.coder_temperature` | **0.45** (was ~0.2) | More diverse free-NIM patches |
+| `genomic.coder_temperature_retry` | **0.60** | Higher on fallback/retry |
+| `evolve.mutate_every_episodes` | **6** (was 10) | More mutation triggers per evolve |
+| `plateau_episodes` | **16** | Slightly quicker plateau fires |
+
 ## Free NIM upgrade + self-improve history (2026-07-12)
 
 | Item | Value |

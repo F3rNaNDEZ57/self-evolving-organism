@@ -101,8 +101,8 @@ cssclasses:
 | Ops | `seo doctor` · `seo soak` · `seo package` · `seo runs export` |
 | Git remote | https://github.com/F3rNaNDEZ57/self-evolving-organism |
 | Secrets | `.env` only (gitignored) |
-| Next | Higher coder temp + denser mutate schedule · re-evolve from 28.76 |
-| Propose | GLM-5.2 + history **verified** on evo_20b838b660 · explore temp next |
+| Next | Re-evolve multi-lineage with temp 0.45 + mutate_every=6 from 28.76 |
+| Propose | GLM-5.2 + history verified · **temp 0.45 / retry 0.60** · denser muts |
 | Lab | [[Runs/2026-07-12-population-evo-20b838b660]] pins+history check |
 
 | Lab | [[Runs/2026-07-12-population-evo-3731006908]] post-promote · [[Runs/2026-07-12-population-evo-e7bd5a260f]] first accept |

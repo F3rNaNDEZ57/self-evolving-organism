@@ -384,6 +384,18 @@ def propose_policy_patch(
         + "\n\n".join(sources)
     )
     coder_max_tokens = 8192
+    # Exploration temperature (config genomic.*); higher → more diverse patches
+    try:
+        from organism.config import experiment_config
+
+        _gen = (experiment_config().get("genomic") or {})
+    except Exception:
+        _gen = {}
+    temp_primary = float(_gen.get("coder_temperature", 0.45))
+    temp_retry = float(_gen.get("coder_temperature_retry", 0.55))
+    temp_primary = max(0.0, min(1.2, temp_primary))
+    temp_retry = max(0.0, min(1.2, temp_retry))
+
     chat_usage: dict[str, Any] | None = None
     text = ""
     model = ""
@@ -395,7 +407,13 @@ def propose_policy_patch(
         role: str,
         max_tokens: int,
         force_fallback: bool = False,
+        temperature: float | None = None,
     ) -> Any:
+        t = float(
+            temperature
+            if temperature is not None
+            else (temp_retry if force_fallback else temp_primary)
+        )
         if router is not None:
             rtr: FreeNimRouter = router
             use_role = "coder_fallback" if force_fallback else "code"
@@ -404,7 +422,7 @@ def propose_policy_patch(
                 use_role,
                 messages,
                 max_tokens=max_tokens,
-                temperature=0.25 if force_fallback else 0.2,
+                temperature=t,
                 fallback_role=fb,
             )
         nonlocal model
@@ -415,7 +433,7 @@ def propose_policy_patch(
                 messages,
                 model=model,
                 max_tokens=max_tokens,
-                temperature=0.25,
+                temperature=t,
                 role="coder_fallback",
             )
         model = models.get("coder_primary") or model
@@ -424,7 +442,7 @@ def propose_policy_patch(
                 messages,
                 model=model,
                 max_tokens=max_tokens,
-                temperature=0.2,
+                temperature=t,
                 role=role,
             )
         except Exception:
@@ -433,7 +451,7 @@ def propose_policy_patch(
                 messages,
                 model=model,
                 max_tokens=max_tokens,
-                temperature=0.2,
+                temperature=t,
                 role="coder_fallback",
             )
 
@@ -455,10 +473,17 @@ def propose_policy_patch(
         {"role": "system", "content": MUTATION_SYSTEM},
         {"role": "user", "content": user},
     ]
-    chat = _one_chat(messages, role="coder", max_tokens=coder_max_tokens)
+    chat = _one_chat(
+        messages,
+        role="coder",
+        max_tokens=coder_max_tokens,
+        temperature=temp_primary,
+    )
     text = chat.content or ""
     model = getattr(chat, "model", None) or model or ""
     chat_usage = chat.to_dict() if hasattr(chat, "to_dict") else None
+    if isinstance(chat_usage, dict):
+        chat_usage = {**chat_usage, "temperature": temp_primary}
     _log_chat(chat_usage, "propose", model)
     files = extract_files_from_proposal(text)
     ok, why = is_usable_proposal(files, parent_dir=genome_dir)
@@ -490,15 +515,19 @@ def propose_policy_patch(
             {"role": "user", "content": retry_user},
         ]
         try:
+            t_retry = temp_retry if force_fallback else max(temp_primary, temp_retry - 0.05)
             chat2 = _one_chat(
                 retry_messages,
                 role="coder",
                 max_tokens=coder_max_tokens,
                 force_fallback=force_fallback,
+                temperature=t_retry,
             )
             text2 = chat2.content or ""
             model = getattr(chat2, "model", None) or model
             usage2 = chat2.to_dict() if hasattr(chat2, "to_dict") else None
+            if isinstance(usage2, dict):
+                usage2 = {**usage2, "temperature": t_retry}
             _log_chat(usage2, stage, model)
             files2 = extract_files_from_proposal(text2)
             ok2, why2 = is_usable_proposal(files2, parent_dir=genome_dir)
@@ -540,6 +569,8 @@ def propose_policy_patch(
         "retries": retries,
         "usable": bool(files)
         and is_usable_proposal(files, parent_dir=genome_dir)[0],
+        "temperature": temp_primary,
+        "temperature_retry": temp_retry,
     }
 
 

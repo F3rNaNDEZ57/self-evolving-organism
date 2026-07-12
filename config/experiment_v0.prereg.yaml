@@ -42,10 +42,13 @@ weights:
   bootstrap_alpha: 0.05
 
 genomic:
-  mutate_every_episodes: 10
-  plateau_episodes: 20
+  mutate_every_episodes: 6   # denser schedule → more attempts per evolve wall-time
+  plateau_episodes: 16
   max_mutations: 30
   max_patch_lines: 80
+  # Free-NIM exploration (higher → more diverse code proposals)
+  coder_temperature: 0.45
+  coder_temperature_retry: 0.60
 
 # Phase 3 free-NIM critic (static precheck + nemotron critic pin)
 critic:
@@ -68,8 +71,8 @@ pool:
 
 # Continuous evolution loop (seo evolve)
 evolve:
-  mutate_every_episodes: 10   # schedule: fire after this many seed-episodes
-  plateau_episodes: 20        # plateau window (in multi-seed eval cycles if eval uses full seed set, counted in episodes)
+  mutate_every_episodes: 6    # denser: more mutation attempts per cycle budget
+  plateau_episodes: 16
   plateau_epsilon: 0.01       # max fitness span to treat as flat
   max_mutations: 30
   eval_every: 1

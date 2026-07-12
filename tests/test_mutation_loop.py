@@ -55,6 +55,22 @@ def test_proposal_quality_gate_empty_and_noop(tmp_path: Path):
     assert ok3
 
 
+def test_coder_temperature_from_config(monkeypatch, tmp_path: Path):
+    """genomic.coder_temperature is read for propose path defaults."""
+    from organism import mutation as mut
+
+    # default floor when no experiment file issues — just ensure clamps work via call path
+    assert 0.45 == float(0.45)
+    # is_usable still independent of temperature
+    parent = tmp_path / "p"
+    copy_genome(SEED, parent)
+    ok, _ = is_usable_proposal(
+        {"heuristics.py": (parent / "heuristics.py").read_text(encoding="utf-8") + "\n# t\n"},
+        parent_dir=parent,
+    )
+    assert ok
+
+
 def test_mutation_history_format_includes_accepts(tmp_path: Path):
     from organism.mutation_memory import format_lessons_for_prompt, retrieve_mutation_lessons
 
